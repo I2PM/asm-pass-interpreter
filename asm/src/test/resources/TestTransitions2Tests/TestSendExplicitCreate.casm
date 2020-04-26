@@ -1,0 +1,41 @@
+// @maxsteps 200
+// @minsteps 10
+
+// @refuse "unhandled Task"
+// @refuse "unhandled WantInput"
+// @require "runningSubjects: {}"
+
+// @refuse "terminate subject with result value"
+
+CoreASM TestTransitions
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+use SchedulingPolicies
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+option SchedulingPolicies.policy allfirst
+
+include "../TestTransitions2/TestTransitions2.casm"
+
+include "../../classes/helper.casm"
+include "../../classes/initialize.casm"
+include "../../classes/semantic.casm"
+
+include "../Transitions2_SendExplicitCreate.casm"
+
+init TestTransitions2
+
+rule InitializeTest = {
+    processIDs := {"Transitions2_SendExplicitCreate"}
+
+    LoadTransitions2_SendExplicitCreate
+}

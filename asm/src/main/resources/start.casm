@@ -1,0 +1,42 @@
+CoreASM PASSSemantic
+
+//use standard plugins
+use Standard
+use ForeachRule
+use MathPlugin
+use DebugInfo
+use Options
+use Time
+use Queue
+use Modularity
+
+use SchedulingPolicies
+
+use AkkaStorage
+
+option DebugInfo.activeChannels ALL
+//option DebugInfo.activeChannels ExecuteSubject
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+option SchedulingPolicies.policy allfirst
+
+//****** generic coreasm helpers
+
+include "helper.casm"
+
+//****** functions used by the UI
+
+include "ui.casm"
+
+//****** PASS Semantic
+
+include "semantic.casm"
+
+//******
+
+include "initialize.casm"
+
+init StartPASS
+
+//******

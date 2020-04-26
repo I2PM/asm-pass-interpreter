@@ -1,0 +1,305 @@
+CoreASM TestHelper
+
+use Standard
+use ForeachRule
+use Modularity
+use DebugInfo
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+// for junit:
+include "../../classes/helper.casm"
+
+// for CoreASM Eclipse Plugin:
+//include "../../../main/resources/helper.casm"
+
+
+
+init TestHelper
+
+
+rule TestHelper = seqblock
+  Test_firstFromSet
+  Test_keySet
+  Test_dropnth
+  Test_contains
+  Test_containsAny
+  Test_flattenSet
+  Test_mapWithSetsToPairs
+  Test_addToSetMap
+  Test_filterList1
+  Test_filterList2
+  Test_filterSet1
+  Test_filterSet2
+  Test_filterSet3
+  Test_mapList1
+  Test_mapSet1
+  Test_mapSet2
+  Test_mapSet3
+  Test_eqOrUndef3
+  Test_insertSortedBy
+  Test_filterListOfListEqN
+  Test_pickItems
+  Test_join
+endseqblock
+
+
+/*
+ * @require "Test_dropnth: [a, c, d]"
+ */
+rule Test_dropnth = seqblock
+  listres := ["a", "b", "c", "d"]
+  print "Test_dropnth: " + dropnth(listres, 2)
+endseqblock
+
+
+/*
+ * The result could also be {2, 1}
+ * @require "Test_keySet: {1, 2}"
+ */
+rule Test_keySet = seqblock
+  mapres := {1 -> "a", 2 -> "b"}
+  print "Test_keySet: " + keySet(mapres)
+endseqblock
+
+
+/*
+ * The result could also be b or c
+ * @require "Test_firstFromSet: a"
+ */
+rule Test_firstFromSet = seqblock
+  setres := {"a", "b", "c"}
+  print "Test_firstFromSet: " + firstFromSet(setres)
+endseqblock
+
+
+/*
+ * @require "Test_contains 2: true"
+ * @require "Test_contains 4: false"
+ */
+rule Test_contains = seqblock
+  setres := {1, 2, 3}
+  print "Test_contains 2: " + contains(setres, 2)
+  print "Test_contains 4: " + contains(setres, 4)
+endseqblock
+
+
+/*
+ * @require "Test_containsAny {3, 4}: true"
+ * @require "Test_containsAny {4, 5}: false"
+ */
+rule Test_containsAny = seqblock
+  setres := {1, 2, 3}
+  print "Test_containsAny {3, 4}: " + containsAny(setres, {3, 4})
+  print "Test_containsAny {4, 5}: " + containsAny(setres, {4, 5})
+endseqblock
+
+
+/*
+ * @require "Test_flattenSet {}: {}"
+ * @require "Test_flattenSet {{}}: {}"
+ * @require "Test_flattenSet {{1}}: {1}"
+ * @require "Test_flattenSet {{1, 2}}: {1, 2}" // other order also possible
+ * @require "Test_flattenSet {{1}, {2}}: {1, 2}"  // other order also possible
+ */
+rule Test_flattenSet = seqblock
+  print "Test_flattenSet {}: "         + flattenSet({})
+  print "Test_flattenSet {{}}: "       + flattenSet({{}})
+  print "Test_flattenSet {{1}}: "      + flattenSet({{1}})
+  print "Test_flattenSet {{1, 2}}: "   + flattenSet({{1, 2}})
+  print "Test_flattenSet {{1}, {2}}: " + flattenSet({{1}, {2}})
+endseqblock
+
+
+/*
+ * @require "Test_mapWithSetsToPairs: {[1, "John"], [1, "Doe"], [2, "Mary"]}"
+ */
+rule Test_mapWithSetsToPairs = seqblock
+  mapres := {1 -> {"John", "Doe"}, 2 -> {"Mary"}}
+  print "Test_mapWithSetsToPairs: " + mapWithSetsToPairs(mapres)
+endseqblock
+
+
+/*
+ * @require "Test_addToSetMap: {"A" -> {"a", "x"}, "B" -> {"b"}}"
+ */
+rule Test_addToSetMap = seqblock
+  print "Test_addToSetMap: " + addToSetMap({"A" -> {"a"}, "B" -> {"b"}}, "A", "x")
+endseqblock
+
+
+/*
+ * @require "Test_filterList1: [3, 4]"
+ */
+derived filterFun(x, y) = (x > y)
+rule Test_filterList1 = seqblock
+  print "Test_filterList1: " + filterList1([1, 2, 3, 4], @filterFun, 2)
+endseqblock
+
+
+/*
+ * @require "Test_filterList2: [3]"
+ */
+derived filterFun2(x, y, z) = (y < x and x < z)
+rule Test_filterList2 = seqblock
+  print "Test_filterList2: " + filterList2([1, 2, 3, 4], @filterFun2, 2, 4)
+endseqblock
+
+
+
+/*
+ * The result could also be {3, 4}
+ * @require "Test_filterSet1: {4, 3}"
+ */
+rule Test_filterSet1 = seqblock
+  print "Test_filterSet1: " + filterSet1({1, 2, 3, 4}, @filterFun, 2)
+endseqblock
+
+
+/*
+ * @require "Test_filterSet2: {3}"
+ */
+rule Test_filterSet2 = seqblock
+  print "Test_filterSet2: " + filterSet2({1, 2, 3, 4}, @filterFun2, 2, 4)
+endseqblock
+
+
+/*
+ * The result could also be {6, 4}
+ * @require "Test_filterSet3: {4, 6}"
+ */
+derived filterFun3(x, y, z, m) = (y < x and x < z and (x % m) = 0)
+rule Test_filterSet3 = seqblock
+  print "Test_filterSet3: " + filterSet3({1, 2, 3, 4, 5, 6, 7, 8}, @filterFun3, 2, 7, 2)
+endseqblock
+
+
+/*
+ * @require "Test_mapList1: [3, 4, 5, 6]"
+ */
+derived addOffset(x, y) = (x + y)
+rule Test_mapList1 = seqblock
+  print "Test_mapList1: " + mapList1([1, 2, 3, 4], @addOffset, 2)
+endseqblock
+
+
+/*
+ * The result could also be any other order
+ * @require "Test_mapSet1: {4, 5, 3, 6}"
+ */
+rule Test_mapSet1 = seqblock
+  print "Test_mapSet1: " + mapSet1({1, 2, 3, 4}, @addOffset, 2)
+endseqblock
+
+
+/*
+ * The result could also be any other order
+ * @require "Test_mapSet2: {9, 5, 3, 7}"
+ */
+derived mulAndAddOffset(x, y, z) = (x * y + z)
+rule Test_mapSet2 = seqblock
+  print "Test_mapSet2: " + mapSet2({1, 2, 3, 4}, @mulAndAddOffset, 2, 1)
+endseqblock
+
+
+/*
+ * The result could also be any other order
+ * @require "Test_mapSet3: {9, 5, 11, 7}"
+ */
+derived mulAndAddMulOffset(x, mulX, mulY, y) = (x * mulX + y * mulY)
+rule Test_mapSet3 = seqblock
+  print "Test_mapSet3: " + mapSet3({1, 2, 3, 4}, @mulAndAddMulOffset, 2, 1, 3)
+endseqblock
+
+
+/*
+ * @require "Test_eqOrUndef3_1: true"
+ * @refuse "Test_eqOrUndef3_1: false"
+ *
+ * @require "Test_eqOrUndef3_2: true"
+ * @refuse "Test_eqOrUndef3_2: false"
+ *
+ * @require "Test_eqOrUndef3_3: true"
+ * @refuse "Test_eqOrUndef3_3: false"
+ *
+ * @require "Test_eqOrUndef3_4: true"
+ * @refuse "Test_eqOrUndef3_4: false"
+ *
+ * @require "Test_eqOrUndef3_5: true"
+ * @refuse "Test_eqOrUndef3_5: false"
+ *
+ *
+ * @require "Test_eqOrUndef3_6: false"
+ * @refuse "Test_eqOrUndef3_6: true"
+ *
+ * @require "Test_eqOrUndef3_7: false"
+ * @refuse "Test_eqOrUndef3_7: true"
+ */
+rule Test_eqOrUndef3 = seqblock
+  // true:
+  print "Test_eqOrUndef3_1: " + eqOrUndef3([1, 2, 3], undef, undef, undef)
+  print "Test_eqOrUndef3_2: " + eqOrUndef3([1, 2, 3], 1, undef, undef)
+  print "Test_eqOrUndef3_3: " + eqOrUndef3([1, 2, 3], undef, 2, undef)
+  print "Test_eqOrUndef3_4: " + eqOrUndef3([1, 2, 3], undef, undef, 3)
+  print "Test_eqOrUndef3_5: " + eqOrUndef3([1, 2, 3], 1, 2, 3)
+
+  // false:
+  print "Test_eqOrUndef3_6: " + eqOrUndef3([1, 2, 3], 1, 2, 4)
+  print "Test_eqOrUndef3_7: " + eqOrUndef3([1, 2, 3], undef, undef, 4)
+endseqblock
+
+/*
+ * @require "Test_insertSortedBy_undef_1: [1]"
+ *
+ * @require "Test_insertSortedBy_id_1: [1]"
+ * @require "Test_insertSortedBy_id_2: [1, 2]"
+ * @require "Test_insertSortedBy_id_3: [2, 1]"
+ *
+ * @require "Test_insertSortedBy_head_1: [[1]]"
+ * @require "Test_insertSortedBy_head_2: [[1], [2]]"
+ * @require "Test_insertSortedBy_head_3: [[2], [1]]"
+ *
+ * @require "Test_insertSortedBy_head_4: [[0, 1], [0, 2]]"
+ * @require "Test_insertSortedBy_head_5: [[1, 2], [0, 1]]"
+ */
+rule Test_insertSortedBy = seqblock
+  print "Test_insertSortedBy_undef_1: " + insertSortedBy(undef, @id, 1)
+
+  print "Test_insertSortedBy_id_1: " + insertSortedBy([], @id, 1)
+  print "Test_insertSortedBy_id_2: " + insertSortedBy([1], @id, 2)
+  print "Test_insertSortedBy_id_3: " + insertSortedBy([1], @id_neg, 2)
+
+  print "Test_insertSortedBy_head_1: " + insertSortedBy([], @head, [1])
+  print "Test_insertSortedBy_head_2: " + insertSortedBy([[1]], @head, [2])
+  print "Test_insertSortedBy_head_3: " + insertSortedBy([[1]], @head_neg, [2])
+
+  print "Test_insertSortedBy_head_4: " + insertSortedBy([[0,1]], @head_neg, [0,2])
+  print "Test_insertSortedBy_head_5: " + insertSortedBy([[0,1]], @head_neg, [1,2])
+endseqblock
+
+/*
+ * @require "filterListOfListEqN_1: [[2, 2], [2, 3]]"
+ * @require "filterListOfListEqN_2: [[1, 2], [2, 2]]"
+*/
+rule Test_filterListOfListEqN = seqblock
+  print "filterListOfListEqN_1: " + filterListOfListEqN([[1,1], [1,2], [2,2], [2,3]], 1, 2)
+  print "filterListOfListEqN_2: " + filterListOfListEqN([[1,1], [1,2], [2,2], [2,3]], 2, 2)
+endseqblock
+
+/*
+ * @require "Test_pickItems: {a, b, d, f}" // another order is possible
+*/
+rule Test_pickItems = seqblock
+  print "Test_pickItems: " + pickItems(["a", "b", "c", "d", "e", "f"], {6, 1, 2, 4})
+endseqblock
+
+/*
+ * @require "Test_joinSet1: 'a'"
+ * @require "Test_joinList3: 'a; b; c'"
+*/
+rule Test_join = seqblock
+  print "Test_joinSet1: '" + join({"a"}, " - ") + "'"
+  print "Test_joinList3: '" + join(["a", "b", "c"], "; ") + "'"
+endseqblock

@@ -1,0 +1,34 @@
+Process Transitions2_StoredSender {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping!") -> Senden1
+
+            Senden1: Send ["ping1" to B with content of "pingContent" store receiver in "myB"] -> Senden2
+            Senden2: Send ["ping2" to B in "myB" with content of "pingContent"] -> Empfangen
+
+            Empfangen: Receive ["pong" from B] (auto) -> END
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START:      Receive ["ping1" from A store message in "tmp1"] (auto) -> Empfangen2
+            Empfangen2: Receive ["ping2" from A store message in "tmp2"] (auto) -> Vereinigen
+
+            Vereinigen: "VarMan" ("concatenation", "tmp1", "tmp2", "tmp") -> Senden
+
+            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> END
+        }
+    }
+}

@@ -1,0 +1,26 @@
+Process Template {
+    Subject A {
+        StartSubject := true
+        MainMacro := Main
+        InputPool := 100
+
+        Macro Main {
+            StartState := START
+            LocalVariables := {}
+
+            START: InternalAction {
+                "send" -> Senden
+                "end" -> END
+            }
+            Senden: Send ["a" to B] -> START
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive {
+                ["a" from A] (auto) -> END
+            }
+        }
+    }
+}

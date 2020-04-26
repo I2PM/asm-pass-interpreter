@@ -1,0 +1,50 @@
+// for junit:
+include "../../classes/semantic.casm"
+include "../../classes/helper.casm"
+
+// for CoreASM Eclipse Plugin:
+//include "../../../main/resources/semantic.casm"
+//include "../../../main/resources/helper.casm"
+
+rule initAgent(a, processID, processInstanceNumber, subjectID, agent) = {
+    add a to asmAgents
+    add agent to aALL
+
+    let ch = [processID, processInstanceNumber, subjectID, agent] in
+    let mID = subjectMainMacro(processID, subjectID) in
+    let MI  = 1 in // 0 reserved for top-level variable manipulation; 1 mainmacro
+    {
+        channelFor(a) := ch
+
+        properTerminated(ch) := true
+
+        inputPoolDefined(ch) := {}
+        variableDefined(ch)  := {}
+
+        killStates(ch) := []
+
+        macroNumberOfMI(ch, MI) := mID
+        nextMacroInstanceNumber(ch) := MI  + 1
+
+        activeStates(ch, MI) := []
+    }
+}
+
+rule initSemantic = {
+    seqblock
+        print "starting.."
+
+        DefineFunctions()
+
+        aALL := {"root"}
+        pALL := {}
+
+        nextCorrelationID := 1
+
+        print "initialize Process"
+
+        asmAgents := {}
+
+        print "initialization done"
+    endseqblock
+}

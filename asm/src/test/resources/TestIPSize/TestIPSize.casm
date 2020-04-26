@@ -1,0 +1,53 @@
+CoreASM TestIPSize
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+include "../semantic/InitSemantic.casm"
+
+init TestIPSize
+
+function senderID   : -> STRING
+function receiverID : -> STRING
+
+function sender : -> Agents
+function receiver : -> Agents
+
+rule TestIPSize = seqblock
+    initSemantic
+
+    receiverID := "A"
+
+    processSubjects("TestProcess") := {
+        receiverID -> {
+            "inputpoolSize" -> 42
+        }
+    }
+
+    processMacros("TestProcess") := {
+        0 -> {
+            "name" -> "TestIPSize"
+        }
+    }
+
+    extend Agents with a do {
+        initAgent(a, "TestProcess", 1, receiverID, "bar")
+
+        receiver := a
+    }
+
+    Test_inputPoolSize(receiverID)
+endseqblock
+
+
+/*
+ * @require "Test_inputPoolSize: 42"
+ */
+rule Test_inputPoolSize(subjectID) = seqblock
+  print "Test_inputPoolSize: " + inputPoolSize("TestProcess", subjectID)
+endseqblock

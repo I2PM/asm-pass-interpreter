@@ -1,0 +1,165 @@
+// @maxsteps 10
+
+CoreASM TestReservation
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+include "../semantic/InitSemantic.casm"
+include "../ExternalSubjectsAnonymousA.casm"
+include "../ExternalSubjectsAnonymousB.casm"
+
+init TestReservation
+
+function processIDA  : -> STRING
+function processIDB  : -> STRING
+
+function senderIDA   : -> STRING
+function receiverIDA : -> STRING
+
+function senderIDB   : -> STRING
+function receiverIDB : -> STRING
+
+function sender   : -> Agents
+function receiver : -> Agents
+
+
+function sendStateNumber    : -> NUMBER
+function receiveStateNumber : -> NUMBER
+
+function sendTransition    : -> NUMBER
+function receiveTransition : -> NUMBER
+
+rule TestReservation = seqblock
+    initSemantic
+
+    processIDA  := "ExternalSubjectsAnonymousA"
+    processIDB  := "ExternalSubjectsAnonymousB"
+
+    senderIDA   := "A"
+    receiverIDA := "B"
+
+    senderIDB   := "X"
+    receiverIDB := "Y"
+
+    LoadExternalSubjectsAnonymousA
+    LoadExternalSubjectsAnonymousB
+
+
+    sendStateNumber    := stateNumberFromID(processIDA, "START")
+    debuginfo TestReservation "sendStateNumber: " + sendStateNumber
+    sendTransition    := first_outgoingNormalTransition(processIDA, sendStateNumber)
+    debuginfo TestReservation "sendTransition: " + sendTransition
+
+    receiveStateNumber := stateNumberFromID(processIDB, "START")
+    debuginfo TestReservation "receiveStateNumber: " + receiveStateNumber
+    receiveTransition := first_outgoingNormalTransition(processIDB, receiveStateNumber)
+    debuginfo TestReservation "receiveTransition: " + receiveTransition
+
+    extend Agents with a do {
+        program(a) := @TestSend
+
+        initAgent(a, processIDA, 1, senderIDA, "foo")
+
+        sender := a
+    }
+
+    extend Agents with b do {
+        program(b) := @TestCheckIP
+
+        seqblock
+        initAgent(b, processIDB, 2, receiverIDB, "bar")
+        wantInput(channelFor(b), 1, receiveStateNumber) := {}
+        endseqblock
+
+        receiver := b
+    }
+
+    program(self) := undef
+endseqblock
+
+/*
+ * @require "added reservation"
+ *
+ * @require "subjectInterface(ExternalSubjectsAnonymousA, A): false"
+ * @require "subjectInterface(ExternalSubjectsAnonymousA, B): [ExternalSubjectsAnonymousB, Y]"
+ * @require "subjectInterface(ExternalSubjectsAnonymousB, X): [?, ?]"
+ * @require "subjectInterface(ExternalSubjectsAnonymousB, Y): false"
+ *
+ * @require "SubjectID of A for ExternalSubjectsAnonymousB: X"
+ * @require "SubjectID of Y for ExternalSubjectsAnonymousA: B"
+ * @require "searchSenderSubjectID of A for ExternalSubjectsAnonymousB: X"
+ * @require "searchSenderSubjectID of Y for ExternalSubjectsAnonymousA: B"
+ *
+ * @refuse "TestSend: no reservation placed!"
+ */
+rule TestSend = {
+    local boolres := false in
+    seqblock
+        debuginfo send "subjectInterface(ExternalSubjectsAnonymousA, A): " + subjectInterface(processIDA, senderIDA)
+        debuginfo send "subjectInterface(ExternalSubjectsAnonymousA, B): " + subjectInterface(processIDA, receiverIDA)
+        debuginfo send "subjectInterface(ExternalSubjectsAnonymousB, X): " + subjectInterface(processIDB, senderIDB)
+        debuginfo send "subjectInterface(ExternalSubjectsAnonymousB, Y): " + subjectInterface(processIDB, receiverIDB)
+
+        debuginfo send "SubjectID of A for ExternalSubjectsAnonymousB: " + searchInterfaceSubject(processIDA, senderIDA, processIDB)
+        debuginfo send "SubjectID of Y for ExternalSubjectsAnonymousA: " + searchInterfaceSubject(processIDB, receiverIDB, processIDA)
+        debuginfo send "searchSenderSubjectID of A for ExternalSubjectsAnonymousB: "  + searchSenderSubjectID(processIDA, senderIDA, processIDB)
+        debuginfo send "searchSenderSubjectID of Y for ExternalSubjectsAnonymousA: "  + searchSenderSubjectID(processIDB, receiverIDB, processIDA)
+
+        executionState(channelFor(self), 1, sendStateNumber) := undef
+        StartSend(1, sendStateNumber)
+
+        boolres <- DoReservation(1, sendStateNumber, channelFor(receiver))
+
+        if (boolres != true) then {
+            print "TestSend: no reservation placed!"
+        }
+
+        messageContent(channelFor(self), 1, sendStateNumber) := ["Data", "Hallo"]
+
+        executionState(channelFor(self), 1, sendStateNumber) := undef
+        ReplaceReservation(1, sendStateNumber, channelFor(receiver))
+    endseqblock
+
+    program(self) := undef
+}
+
+/*
+ * @require "at least one IP with messages :)"
+ * @require "making automatic decision for transition"
+ */
+rule TestCheckIP = {
+    seqblock
+    DebugIP()
+
+    executionState(channelFor(self), 1, receiveStateNumber) := undef
+    transitionCompleted(channelFor(self), 1, receiveTransition) := false
+
+    PerformReceive(1, receiveStateNumber)
+
+    if (selectedTransition(channelFor(self), 1, receiveStateNumber) = receiveTransition) then {
+        program(self) := @TestReceive
+    }
+    endseqblock
+}
+
+/*
+ * @require "receivedMessages"
+ * @require "[Data, Hallo]"
+ */
+rule TestReceive = seqblock
+    executionState(channelFor(self), 1, receiveStateNumber) := undef
+    transitionCompleted(channelFor(self), 1, receiveTransition) := false
+
+    ReceiveMessage(1, receiveStateNumber, receiveTransition)
+    program(self) := undef
+endseqblock

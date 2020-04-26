@@ -1,0 +1,23 @@
+Process Transitions2_MacroMulti {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "CallMacro" ("X1") -> END
+        }
+
+        Macro X1 {
+            START: "CallMacro" ("X2") -> END
+        }
+
+        Macro X2 {
+            START: InternalAction "y" (timeout (0)) -> END
+        }
+    }
+}

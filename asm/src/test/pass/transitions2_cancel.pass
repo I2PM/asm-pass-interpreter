@@ -1,0 +1,70 @@
+Process Transitions2_Cancel {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "ModalSplit" {
+                "a" -> Receive1
+                "b" -> Cancel1
+            }
+
+
+            Receive1: Receive {
+                ["x" from B]   -> END_Fail2
+                (timeout (10)) -> END_Fail1 // 10 seconds until it should be canceled by Cancel3
+                (cancel)       -> Receive2
+            }
+
+            Receive2: Receive {
+                ["x" from B]  -> END_Fail2
+                (timeout (1)) -> END_Fail3
+                (cancel)      -> Join
+            }
+
+
+            // ensure Receive1 is waiting
+            Cancel1: InternalAction {
+                (timeout (1)) -> Cancel2
+            }
+
+            // Receive2 is not yet active, therefore this must timeout
+            Cancel2: "Cancel" {
+                "Receive2" (auto) -> END_Fail4
+                (timeout (1))     -> Cancel3
+            }
+
+            // Receive1 is still waiting, can be canceled now
+            Cancel3: "Cancel" {
+                "Receive1" (auto) -> Cancel4
+                (timeout (2))     -> END_Fail5
+            }
+
+            // Receive2 should become active
+            Cancel4: "Cancel" {
+                "Receive2" (auto) -> Join
+                (timeout (5))     -> END_Fail6
+            }
+
+            Join: "ModalJoin" -> END
+
+            END_Fail1: End ("Receive1 was not deactivated")
+            END_Fail2: End ("nothing should have been received")
+            END_Fail3: End ("Receive2 was not deactivated")
+            END_Fail4: End ("cancel should not have canceled an inactive state")
+            END_Fail5: End ("cancel timed out")
+            END_Fail6: End ("cancel should have canceled Receive2")
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: InternalAction -> END
+        }
+    }
+}

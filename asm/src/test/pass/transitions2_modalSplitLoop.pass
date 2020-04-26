@@ -1,0 +1,45 @@
+Process Transitions2_ModalSplitLoop {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    Subject A {
+        InputPool := 2
+        StartSubject := true
+
+        Macro Main {
+            START: Send ["executeLoop" to A in "$self" with content of "$empty"] -> Send2
+            Send2: Send ["executeLoop" to A in "$self" with content of "$empty"] -> Loop
+
+            Loop: Receive {
+                ["executeLoop" from A] (auto) -> Split
+                (timeout(0)) -> END
+            }
+
+            Split: "ModalSplit" {
+                -> a1
+                -> a2_wait
+            }
+
+            a1: Send { ["unblockA2" to A in "$self" with content of "$empty"] -> Join }
+
+            a2_wait: InternalAction (auto timeout(1)) -> a2 // give receive after Join a chance
+            a2: Receive {
+                ["unblockA2" from A] (auto) -> Join
+                (timeout (2)) -> END_Fail1
+            }
+
+            Join: "ModalJoin" -> RedoLoop
+
+            RedoLoop: Receive {
+                ["unblockA2" from A] (auto) -> END_Fail2
+                (timeout(0)) -> Loop
+            }
+
+            END_Fail1: End ("did not receive unblockLoop")
+            END_Fail2: End ("unblockLoop received after Join")
+        }
+    }
+}

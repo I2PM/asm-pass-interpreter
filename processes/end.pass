@@ -1,0 +1,24 @@
+Process Example_End {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "CallMacro" ("M") {
+                "a" -> A
+                "b" -> B
+            }
+            A: InternalAction "M ended with: 'a'" -> END
+            B: InternalAction "M ended with: 'b'" -> END
+        }
+
+
+        Macro M {
+            START: InternalAction {
+                "end sub-macro with 'a'" -> END_A
+                "end sub-macro with 'b'" -> END_B
+            }
+            END_A: End ("a")
+            END_B: End ("b")
+        }
+    }
+}

@@ -1,0 +1,75 @@
+Process Transitions2_SubjectRestart {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping!") -> Erzeugen
+
+            Erzeugen: "SelectAgents" ("b", "B", 1, 1) -> Senden1
+
+            // first send-reply -> just like other SendReply test:
+
+            Senden1: Send {
+                ["ping" to B in "b" with content of "pingContent"] -> Empfangen1
+                (timeout (0)) -> END_failedSend
+            }
+            Empfangen1: Receive ["pong" from B] (auto) -> Senden2a
+
+            // but now: a simple restart has happened as it was proper terminated:
+
+            Senden2a: Send {
+                ["ping" to B in "b" with content of "pingContent"] -> Empfangen2
+                (timeout (0)) -> END_failedSend
+            }
+            Empfangen2: Receive ["pong" from B] (auto) -> Senden2b
+
+            // and again:
+
+            Senden2b: Send {
+                ["ping" to B in "b" with content of "pingContent"] -> Empfangen2b
+                (timeout (0)) -> END_failedSend
+            }
+            Empfangen2b: Receive ["pong" from B] (auto) -> Senden3
+
+
+            // now bring B to non-proper termination with an unhandled message:
+
+            Senden3: Send {
+                ["something" to B in "b" with content of "pingContent"] -> Senden4
+                (timeout (0)) -> END_failedSend
+            }
+            Senden4: Send {
+                ["ping" to B in "b" with content of "pingContent"] -> Empfangen3
+                (timeout (0)) -> END_failedSend
+            }
+            Empfangen3: Receive ["pong" from B] (auto) -> Senden5
+
+            // as it is non-proper terminated this sending will timeout:
+
+            Senden5: Send {
+                ["ping" to B in "b" with content of "pingContent"] -> END_failedTimeout
+                (timeout (1)) -> END
+            }
+
+            END_failedSend:    End ("message was not send")
+            END_failedTimeout: End ("timeout didn't activate")
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["ping" from A store message in "tmp"] (auto) -> Senden
+
+            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> END
+        }
+    }
+}

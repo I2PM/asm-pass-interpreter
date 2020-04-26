@@ -1,0 +1,30 @@
+Process Transitions2_SendReply {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping!") -> Senden
+
+            Senden: Send ["ping" to B with content of "pingContent"] -> Empfangen
+
+            Empfangen: Receive ["pong" from B] (auto) -> END
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["ping" from A store message in "tmp"] (auto) -> Senden
+
+            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> END
+        }
+    }
+}

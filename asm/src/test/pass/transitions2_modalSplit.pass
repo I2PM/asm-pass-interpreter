@@ -1,0 +1,22 @@
+Process Transitions2_ModalSplit {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "ModalSplit" {
+                -> a1
+                -> a2
+            }
+            a1: InternalAction { "a1" (timeout (0)) -> Join }
+            a2: InternalAction { "a2" (timeout (0)) -> Join }
+
+            Join: "ModalJoin" -> END
+        }
+    }
+}

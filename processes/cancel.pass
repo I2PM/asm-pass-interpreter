@@ -1,0 +1,41 @@
+Process Example_Cancel {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: InternalAction {
+                "split" -> Split
+                "end" -> END
+            }
+
+            Split: "ModalSplit" {
+                -> a1
+                -> b1
+                -> c1
+            }
+
+            a1: InternalAction {
+                "a" -> a2
+                (cancel) -> Join
+            }
+            a2: InternalAction {
+                "a" -> Join
+            }
+
+            b1: InternalAction {
+                "b" -> b2
+                (cancel) -> Join
+            }
+            b2: InternalAction {
+                "b" -> Join
+            }
+
+            c1: "Cancel" {
+                "a1" -> Join
+                "b1" -> Join
+            }
+
+            Join: "ModalJoin" -> START
+        }
+    }
+}

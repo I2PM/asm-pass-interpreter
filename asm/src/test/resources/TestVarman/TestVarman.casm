@@ -1,0 +1,287 @@
+// @maxsteps 2
+
+CoreASM TestVarman
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+include "../semantic/InitSemantic.casm"
+
+init TestVarman
+
+function workerID : -> STRING
+
+function worker : -> Agents
+
+function msg1 : -> LIST
+function msg2 : -> LIST
+function msg3 : -> LIST
+function msg4 : -> LIST
+
+rule TestVarman = seqblock
+    initSemantic
+
+    workerID := "A"
+
+    processSubjects("TestProcess") := {
+        workerID -> {
+            "interface" -> false,
+            "inputpoolSize" -> 42,
+            "macroNumbers" -> [0],
+            "mainMacroNumber" -> 0
+        }
+    }
+
+    processMacros("TestProcess") := {
+        0 -> {
+            "ID" -> "TestVarman",
+            "macroArguments" -> [],
+            "macroVariables" -> {},
+            "stateNumbers" -> {0},
+            "startStateNumber" -> 0
+        }
+    }
+
+    processStates("TestProcess") := {
+        0 -> {
+            "ID" -> "START",
+            "outgoingTransitionNumbers" -> {0},
+            "type" -> "internalAction",
+            "priority" -> 0
+        }
+    }
+
+    processTransitions("TestProcess") := {
+        0 -> {
+            "targetStateNumber" -> 0,
+            "label" -> "testTransition",
+            "type" -> "normal"
+        }
+    }
+
+    extend Agents with a do {
+        initAgent(a, "TestProcess", 1, workerID, "bar")
+
+        program(a) := @Test_VarMan
+    }
+
+    program(self) := undef
+endseqblock
+
+
+rule Test_VarMan = seqblock
+
+    msg1 := [channelFor(self), "order", ["Data", "This is the first order"], 0, false]
+    msg2 := [channelFor(self), "order", ["Data", "This is the second order"], 0, false]
+    msg3 := [channelFor(self), "order-set", ["MessageSet", {msg1}], 0, false]
+    msg4 := [channelFor(self), "order-set", ["MessageSet", {msg1, msg2}], 0, false]
+
+
+    Test_VarMan_Concatenation
+    Test_VarMan_Intersection
+    Test_VarMan_Difference
+    Test_VarMan_Extract_Data
+    Test_VarMan_Extract_Single
+    Test_VarMan_Extract_Double
+    Test_VarMan_Selection
+
+    program(self) := undef
+endseqblock
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Concatenation testA: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]"
+ * @require "Test_VarMan_Concatenation testB: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data", This is the second order], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Concatenation testX: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false], [[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}]"
+ */
+rule Test_VarMan_Concatenation = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+
+        SetVar(MI, "testA", "MessageSet", {msg1})
+        listres := loadVar(MI, "testA")
+        print "Test_VarMan_Concatenation testA: " + listres
+
+        SetVar(MI, "testB", "MessageSet", {msg2})
+        listres := loadVar(MI, "testB")
+        print "Test_VarMan_Concatenation testB: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Concatenation(MI, stateNumber, "testA", "testB", "testX")
+        listres := loadVar(MI, "testX")
+        print "Test_VarMan_Concatenation testX: " + listres
+    endseqblock
+}
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Intersection testX: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false], [[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}]"
+ * @require "Test_VarMan_Intersection testA: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Intersection testIntersection: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]"
+ */
+rule Test_VarMan_Intersection = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+
+        listres := loadVar(MI, "testX")
+        print "Test_VarMan_Intersection testX: " + listres
+
+        listres := loadVar(MI, "testA")
+        print "Test_VarMan_Intersection testA: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Intersection(MI, stateNumber, "testX", "testA", "testIntersection")
+        listres := loadVar(MI, "testIntersection")
+        print "Test_VarMan_Intersection testIntersection: " + listres
+    endseqblock
+}
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Difference testX: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false], [[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}]"
+ * @require "Test_VarMan_Difference testB: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Difference testDifference: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]"
+ */
+rule Test_VarMan_Difference = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+
+        listres := loadVar(MI, "testX")
+        print "Test_VarMan_Difference testX: " + listres
+
+        listres := loadVar(MI, "testB")
+        print "Test_VarMan_Difference testB: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Difference(MI, stateNumber, "testX", "testB", "testDifference")
+        listres := loadVar(MI, "testDifference")
+        print "Test_VarMan_Difference testDifference: " + listres
+    endseqblock
+}
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Extract_Data testC: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Extract_Data testExtract: [Data, This is the first order]"
+ */
+rule Test_VarMan_Extract_Data = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+        SetVar(MI, "testC", "MessageSet", {msg1})
+        listres := loadVar(MI, "testC")
+        print "Test_VarMan_Extract_Data testC: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_ExtractContent(MI, stateNumber, "testC", "testExtract")
+        listres := loadVar(MI, "testExtract")
+        print "Test_VarMan_Extract_Data testExtract: " + listres
+    endseqblock
+}
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Extract_Single testD: [MessageSet, {[[TestProcess, 1, A, bar], order-set, [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Extract_Single testExtractSingle: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]"
+ */
+rule Test_VarMan_Extract_Single = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+        SetVar(MI, "testD", "MessageSet", {msg3})
+        listres := loadVar(MI, "testD")
+        print "Test_VarMan_Extract_Single testD: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_ExtractContent(MI, stateNumber, "testD", "testExtractSingle")
+        listres := loadVar(MI, "testExtractSingle")
+        print "Test_VarMan_Extract_Single testExtractSingle: " + listres
+    endseqblock
+}
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Extract_Double testE: [MessageSet, {[[TestProcess, 1, A, bar], order-set, [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false], [[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Extract_Double testExtractDouble: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false], [[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}]"
+ */
+rule Test_VarMan_Extract_Double = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+        SetVar(MI, "testE", "MessageSet", {msg4})
+        listres := loadVar(MI, "testE")
+        print "Test_VarMan_Extract_Double testE: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_ExtractContent(MI, stateNumber, "testE", "testExtractDouble")
+        listres := loadVar(MI, "testExtractDouble")
+        print "Test_VarMan_Extract_Double testExtractDouble: " + listres
+    endseqblock
+}
+
+/*
+ * precondition:
+ * @require "Test_VarMan_Extract_Double testExtractDouble: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false], [[TestProcess, 1, A, bar], order, [Data, This is the second order], 0, false]}]"
+ *
+ * postcondition:
+ * @require "Test_VarMan_Selection testSelection: [MessageSet, {[[TestProcess, 1, A, bar], order, [Data, This is the first order], 0, false]}]" // could also be the second message
+ */
+rule Test_VarMan_Selection = {
+    let MI = 1,
+        stateNumber = 0 in seqblock
+        // check precondition
+        listres := loadVar(MI, "testExtractDouble")
+        print "Test_VarMan_Selection testExtractDouble: " + listres
+
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Selection(MI, stateNumber, "testExtractDouble", "testSelection", 1, 1)
+
+        // initialize wantInput
+        wantInput(channelFor(self), MI, stateNumber) := {}
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Selection(MI, stateNumber, "testExtractDouble", "testSelection", 1, 1)
+
+        // set decision
+        selectionDecision(channelFor(self), MI, stateNumber) := {1}
+
+        // let it compute the result
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Selection(MI, stateNumber, "testExtractDouble", "testSelection", 1, 1)
+
+        // needs two calls to copy internal result..
+        // all tests are using the start state, so we have to reset the executionState
+        executionState(channelFor(self), MI, stateNumber) := undef
+        VarMan_Selection(MI, stateNumber, "testExtractDouble", "testSelection", 1, 1)
+
+
+        listres := loadVar(MI, "testSelection")
+        print "Test_VarMan_Selection testSelection: " + listres
+    endseqblock
+}

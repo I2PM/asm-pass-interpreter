@@ -1,0 +1,39 @@
+Process Example_Timeout_Cancel {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            StartState := START
+            LocalVariables := {}
+
+            START: "SelectAgents" ("b", "B", 1, 1) -> Schleife
+
+            Schleife: Send {
+                ["a" to B in "b"] -> Schleife
+                "abbrechen" (cancel) -> abbruch
+            }
+
+            abbruch: InternalAction {
+                "noch einmal" -> START
+                "beenden" -> END
+            }
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive {
+                ["a" from A] -> empfangen
+                "aufgeben" (timeout (30)) -> nichtEmpfangen
+            }
+
+            empfangen: InternalAction "alles ok; erneut empfangen" -> START
+            nichtEmpfangen: InternalAction {
+                "noch einmal" -> START
+                "beenden" -> END
+            }
+        }
+    }
+}

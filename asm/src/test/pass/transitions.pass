@@ -1,0 +1,484 @@
+Process Transitions {
+    Data {
+        "TestStateIDs" -> ["TestInternalAction", "TestAutoTimeout", "TestCancel", "TestSendSelf", "TestSendTimeoutA", "TestSendTimeoutAMulti", "TestSendTimeoutB", "TestSendTimeoutC", "TestCloseIP", "TestReceive", "TestReceiveTwo", "TestReceiveMulti", "TestReceiveMulti2A", "TestReceiveMulti2B", "TestReceiveWildcard", "TestReceivePrio", "TestReceiveTimeout", "TestReceiveCorrelationA", "TestReceiveCorrelationB", "TestReceiveCorrelationC", "TestIPEmptyA", "TestIPEmptyB", "TestIPEmptyC", "TestIPEmptyD", "TestIPEmptyE", "TestSendReceiveCycle"],
+
+        //"TestStateIDs" -> ["TestInternalAction"],
+        //"TestStateIDs" -> ["TestAutoTimeout"],
+        //"TestStateIDs" -> ["TestCancel"],
+
+        //"TestStateIDs" -> ["TestSendSelf"],
+        //"TestStateIDs" -> ["TestSendTimeoutA"],
+        //"TestStateIDs" -> ["TestSendTimeoutAMulti"],
+        //"TestStateIDs" -> ["TestSendTimeoutB"],
+        //"TestStateIDs" -> ["TestSendTimeoutC"],
+        //"TestStateIDs" -> ["TestSendSelf", "TestSendTimeoutA", "TestSendTimeoutAMulti", "TestSendTimeoutB", "TestSendTimeoutC"],
+
+        //"TestStateIDs" -> ["TestCloseIP"],
+
+        //"TestStateIDs" -> ["TestReceive"],
+        //"TestStateIDs" -> ["TestReceiveTwo"],
+        //"TestStateIDs" -> ["TestReceiveMulti"],
+        //"TestStateIDs" -> ["TestReceiveMulti2A"],
+        //"TestStateIDs" -> ["TestReceiveMulti2B"],
+        //"TestStateIDs" -> ["TestReceiveMultiMin"],
+        //"TestStateIDs" -> ["TestReceiveWildcard"],
+        //"TestStateIDs" -> ["TestReceivePrio"],
+        //"TestStateIDs" -> ["TestReceiveTimeout"],
+        //"TestStateIDs" -> ["TestReceiveCorrelationA"],
+        //"TestStateIDs" -> ["TestReceiveCorrelationB"],
+        //"TestStateIDs" -> ["TestReceiveCorrelationC"],
+        //"TestStateIDs" -> ["TestReceive", "TestReceiveTwo", "TestReceiveMulti", "TestReceiveMulti2A", "TestReceiveMulti2B", "TestReceiveMultiMin", "TestReceiveWildcard", "TestReceivePrio", "TestReceiveTimeout", "TestReceiveCorrelationA", "TestReceiveCorrelationB", "TestReceiveCorrelationC"],
+
+        //"TestStateIDs" -> ["TestIPEmptyA"],
+        //"TestStateIDs" -> ["TestIPEmptyB"],
+        //"TestStateIDs" -> ["TestIPEmptyC"],
+        //"TestStateIDs" -> ["TestIPEmptyD"],
+        //"TestStateIDs" -> ["TestIPEmptyE"],
+        //"TestStateIDs" -> ["TestIPEmptyA", "TestIPEmptyB", "TestIPEmptyC", "TestIPEmptyD", "TestIPEmptyE"],
+
+        //"TestStateIDs" -> ["TestSendReceiveCycle"],
+
+        "A TestInternalAction AfterInit" -> [["TransitionDecision", "TestInternalAction1"]],
+        "A TestCancel AfterInit"         -> [["CancelDecision"]],
+
+
+        "A TestSendSelf BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hello Me!"]
+        ],
+        "A TestSendSelf AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelA", {"$A"}]
+        ],
+
+        "A TestSendTimeoutA BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hello B!"]
+        ],
+        "A TestSendTimeoutA AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelB", {"$B"}]
+        ],
+
+
+        "A TestSendTimeoutAMulti BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hello B!"]
+        ],
+        "A TestSendTimeoutAMulti AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelBMulti", {"$B1", "$B2"}]
+        ],
+
+
+        "A TestSendTimeoutB BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hello B!"],
+            ["StoreMessage", "$A", "$B", "sendTimeoutB", "pre1", 0],
+            ["StoreMessage", "$A", "$B", "sendTimeoutB", "pre2", 0]
+        ],
+        "A TestSendTimeoutB AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelB", {"$B"}]
+        ],
+
+        "A TestSendTimeoutC BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hello B!"],
+            ["StoreMessage", "$A", "$B", "sendTimeoutC", ["Text", "pre1"], 1],
+            ["StoreMessage", "$A", "$B", "sendTimeoutC", ["Text", "pre2"], 2]
+        ],
+        "A TestSendTimeoutC AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelB", {"$B"}]
+        ],
+
+
+
+        "A TestCloseIP BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hello Me!"]
+        ],
+        "A TestCloseIP AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelA", {"$A"}]
+        ],
+
+
+        "A TestReceive AfterInit"             -> [["StoreMessage", "$B", "$A", "x", "test", 0]],
+        "A TestReceiveTwo AfterInit"          -> [["StoreMessage", "$B", "$A", "x", "first", 0], ["StoreMessage", "$B", "$A", "x", "second", 0]],
+        "A TestReceiveMulti AfterInit"        -> [["StoreMessage", "$B1", "$A", "x", "first", 0], ["StoreMessage", "$B2", "$A", "x", "second", 0], ["StoreMessage", "$B", "$A", "x", "third", 0]],
+        "A TestReceiveMulti2A AfterInit"      -> [["StoreMessage", "$B1", "$A", "x", "first", 0], ["StoreMessage", "$B1", "$A", "x", "second", 0]],
+        "A TestReceiveMulti2B AfterInit"      -> [["StoreMessage", "$B1", "$A", "x", "first", 0], ["StoreMessage", "$B2", "$A", "x", "second", 0]],
+        "A TestReceiveMultiMin AfterInit"     -> [["StoreMessage", "$B1", "$A", "x", "first", 0], ["StoreMessage", "$B2", "$A", "x", "second", 0], ["StoreMessage", "$B", "$A", "x", "third", 0]],
+        "A TestReceiveWildcard AfterInit"     -> [["StoreMessage", "$B1", "$A", "x", "first", 0], ["StoreMessage", "$B2", "$A", "y", "second", 0], ["StoreMessage", "$A", "$A", "z", "third", 0], ["StoreMessage", "$A", "$A", "z", "fourth", 1]],
+        "A TestReceivePrio AfterInit"         -> [["StoreMessage", "$B", "$A", "x", "test1", 0], ["StoreMessage", "$B", "$A", "y", "test2", 0]],
+        "A TestReceiveTimeout AfterInit"      -> [["StoreMessage", "$B", "$A", "x", "test", 0]],
+        "A TestReceiveCorrelationA AfterInit" -> [["SetVar", "CorrelationID", "foo", 5], ["StoreMessage", "$B", "$A", "x", "test", 0]],
+        "A TestReceiveCorrelationB AfterInit" -> [["SetVar", "CorrelationID", "foo", 5], ["StoreMessage", "$B", "$A", "x", "test", 5]],
+        "A TestReceiveCorrelationC AfterInit" -> [["StoreMessage", "$B", "$A", "x", "test", 5]],
+
+        "A TestIPEmptyA AfterInit" -> [],
+        "A TestIPEmptyB AfterInit" -> [["StoreMessage", "$B", "$A", "IPEmptyB", "test", 0]],
+
+        "A TestIPEmptyC AfterInit" -> [["StoreMessage", "$B", "$A", "IPEmptyC", "test", 5]],
+        "A TestIPEmptyD AfterInit" -> [["SetVar", "CorrelationID", "foo", 5], ["StoreMessage", "$B", "$A", "IPEmptyD", "test", 0]],
+        "A TestIPEmptyE AfterInit" -> [["SetVar", "CorrelationID", "foo", 5], ["StoreMessage", "$B", "$A", "IPEmptyE", "test", 5]],
+
+
+        "A TestSendReceiveCycle BeforeInit" -> [
+            ["SetVar", "Data", "foo", "Hi it's me!"]
+        ],
+        "A TestSendReceiveCycle AfterInit" -> [
+            ["SetVar", "ChannelInformation", "channelA", {"$A"}]
+        ]
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: InternalAction -> END
+
+
+
+            TestInternalAction: InternalAction {
+                "TestInternalAction1" -> TestInternalActionSuccess
+                "TestInternalAction2" -> TestInternalActionFail
+            }
+            TestInternalActionSuccess: InternalAction -> END
+            TestInternalActionFail:    InternalAction -> END
+
+
+
+            TestAutoTimeout: InternalAction {
+                "TestAutoTimeout1" (timeout (0)) -> TestAutoTimeoutSuccess
+                "TestAutoTimeout2"               -> TestAutoTimeoutFail
+            }
+            TestAutoTimeoutSuccess: InternalAction -> END
+            TestAutoTimeoutFail:    InternalAction -> END
+
+
+
+            TestCancel: InternalAction {
+                "TestCancel1" (cancel) -> TestCancelSuccess
+                "TestCancel2"          -> TestCancelFail
+            }
+            TestCancelSuccess: InternalAction -> END
+            TestCancelFail:    InternalAction -> END
+
+
+
+
+            TestSendSelf: Send {
+                ["sendSelf" to A in "channelA" with content of "foo"] -> TestSendSelfSuccess
+                (timeout (0)) -> TestSendSelfFail
+            }
+            TestSendSelfSuccess: InternalAction -> END
+            TestSendSelfFail:    InternalAction -> END
+
+
+            // succeeds to send as the IP of B is empty
+            TestSendTimeoutA: Send {
+                ["sendTimeoutA" to B in "channelB" with content of "foo"] -> TestSendTimeoutASuccess
+                (timeout (0)) -> TestSendTimeoutAFail
+            }
+            TestSendTimeoutASuccess: InternalAction -> END
+            TestSendTimeoutAFail:    InternalAction -> END
+
+
+            // succeeds to send as the IPs of B are empty
+            TestSendTimeoutAMulti: Send {
+                ["sendTimeoutA" to 2 of B in "channelBMulti" with content of "foo"] -> TestSendTimeoutAMultiSuccess
+                (timeout (0)) -> TestSendTimeoutAMultiFail
+            }
+            TestSendTimeoutAMultiSuccess: InternalAction -> END
+            TestSendTimeoutAMultiFail:    InternalAction -> END
+
+
+
+            // fails to send as the IP of B is pre-filled
+            TestSendTimeoutB: Send {
+                ["sendTimeoutB" to B in "channelB" with content of "foo"] -> TestSendTimeoutBFail
+                (timeout (0)) -> TestSendTimeoutBSuccess
+            }
+            TestSendTimeoutBSuccess: InternalAction -> END
+            TestSendTimeoutBFail:    InternalAction -> END
+
+
+
+            // fails to send, as the IP of B is pre-filled with different CorrelationIDs
+            // NOTE: previously sending had to pass, but that behavior leads to an possibly unlimited state space
+            TestSendTimeoutC: Send {
+                ["sendTimeoutC" to B in "channelB" with content of "foo"] -> TestSendTimeoutCFail
+                (timeout (0)) -> TestSendTimeoutCSuccess
+            }
+            TestSendTimeoutCSuccess: InternalAction -> END
+            TestSendTimeoutCFail:    InternalAction -> END
+
+
+
+
+
+
+
+            TestCloseIP: "CloseAllIPs" -> TestCloseIPSend1
+            // sending when all IPs are closed should fail
+            TestCloseIPSend1: Send {
+                ["sendSelf" to A in "channelA" with content of "foo"] -> TestCloseIPFail
+                (timeout (0)) -> TestCloseIPOpen1
+            }
+            TestCloseIPOpen1: "OpenIP" ("A", "sendSelfX", 0) -> TestCloseIPSend2
+            // sending to explicit open IP must succeed
+            TestCloseIPSend2: Send {
+                ["sendSelfX" to A in "channelA" with content of "foo"] -> TestCloseIPSend3
+                (timeout (0)) -> TestCloseIPFail
+            }
+            // however others must still fail
+            TestCloseIPSend3: Send {
+                ["sendSelfY" to A in "channelA" with content of "foo"] -> TestCloseIPFail
+                (timeout (0)) -> TestCloseIPOpen2
+            }
+            TestCloseIPOpen2: "OpenAllIPs" -> TestCloseIPSend4
+            // sending when all IPs are open must succeed
+            TestCloseIPSend4: Send {
+                ["sendSelfZ" to A in "channelA" with content of "foo"] -> TestCloseIPSuccess
+                (timeout (0)) -> TestCloseIPFail
+            }
+            TestCloseIPSuccess: InternalAction -> END
+            TestCloseIPFail:    InternalAction -> END
+
+
+
+
+
+
+            TestReceive: Receive {
+                ["x" from B] (auto) -> TestReceiveSuccess
+                ["y" from B] (auto) -> TestReceiveFail
+            }
+            TestReceiveSuccess: InternalAction -> END
+            TestReceiveFail:    InternalAction -> END
+
+
+            // two messages had been placed, both must be received in separate steps. No third receive must be possible
+            TestReceiveTwo: Receive {
+                ["x" from B] (auto) -> TestReceiveTwoSecond
+                (timeout (0))       -> TestReceiveTwoFail
+            }
+            TestReceiveTwoSecond: Receive {
+                ["x" from B] (auto) -> TestReceiveTwoTermination
+                (timeout (0))       -> TestReceiveTwoFail
+            }
+            TestReceiveTwoTermination: Receive {
+                ["x" from B] (auto) -> TestReceiveTwoFail
+                (timeout (0))       -> TestReceiveTwoSuccess
+            }
+            TestReceiveTwoSuccess: InternalAction -> END
+            TestReceiveTwoFail:    InternalAction -> END
+
+
+
+            // three messages have been placed. receive first two, and then the third. No third receive must be possible
+            TestReceiveMulti: Receive {
+                ["x" from 2 of B] (auto) -> TestReceiveMultiSecond
+                (timeout (0))            -> TestReceiveMultiFail
+            }
+            TestReceiveMultiSecond: Receive {
+                ["x" from 1 of B] (auto) -> TestReceiveMultiTermination
+                (timeout (0))            -> TestReceiveMultiFail
+            }
+            TestReceiveMultiTermination: Receive {
+                ["x" from 1 of B] (auto) -> TestReceiveMultiFail
+                (timeout (0))            -> TestReceiveMultiSuccess
+            }
+            TestReceiveMultiSuccess: InternalAction -> END
+            TestReceiveMultiFail:    InternalAction -> END
+
+
+
+            // two message have been placed, but from the same sender
+            TestReceiveMulti2A: Receive {
+                ["x" from 2 of B] (auto) -> TestReceiveMulti2AFail
+                (timeout (0))            -> TestReceiveMulti2ATermination
+            }
+            TestReceiveMulti2ATermination: Receive {
+                ["x" from 1 of B] (auto) -> TestReceiveMulti2ASuccess
+                (timeout (0))          -> TestReceiveMulti2AFail
+            }
+            TestReceiveMulti2ASuccess: InternalAction -> END
+            TestReceiveMulti2AFail:    InternalAction -> END
+
+
+
+            // two message have been placed from different senders
+            TestReceiveMulti2B: Receive {
+                ["x" from 2 of B] (auto) -> TestReceiveMulti2BTermination
+                (timeout (0))            -> TestReceiveMulti2BFail
+            }
+            TestReceiveMulti2BTermination: Receive {
+                ["x" from 1 of B] (auto) -> TestReceiveMulti2BFail
+                (timeout (0))            -> TestReceiveMulti2BSuccess
+            }
+            TestReceiveMulti2BSuccess: InternalAction -> END
+            TestReceiveMulti2BFail:    InternalAction -> END
+
+
+
+            // three message have been placed from different senders
+            TestReceiveMultiMin: Receive {
+                ["x" from min 2 max * of B] (auto) -> TestReceiveMultiMinTermination
+                (timeout (0))                      -> TestReceiveMultiMinFail
+            }
+            TestReceiveMultiMinTermination: Receive {
+                ["x" from 1 of B] (auto) -> TestReceiveMultiMinFail
+                (timeout (0))            -> TestReceiveMultiMinSuccess
+            }
+            TestReceiveMultiMinSuccess: InternalAction -> END
+            TestReceiveMultiMinFail:    InternalAction -> END
+
+
+
+            // four messages have been placed, with different sender, messageType and correlationID
+            TestReceiveWildcard: Receive {
+                [? with correlation of ? from 3 of ?] (auto) -> TestReceiveWildcardSecond
+                (timeout (0))  -> TestReceiveWildcardFail
+            }
+            TestReceiveWildcardSecond: Receive {
+                [? with correlation of ? from 1 of ?] (auto) -> TestReceiveWildcardTermination
+                (timeout (0)) -> TestReceiveWildcardFail
+            }
+            TestReceiveWildcardTermination: Receive {
+                [? with correlation of ? from 1 of ?] (auto) -> TestReceiveWildcardFail
+                (timeout (0)) -> TestReceiveWildcardSuccess
+            }
+            TestReceiveWildcardSuccess: InternalAction -> END
+            TestReceiveWildcardFail:    InternalAction -> END
+
+
+
+            // TODO: a negative test without priorities would be good to test both 'can not make automatic decision, too much transitions' and manual TransitionDecision for 'y'
+            TestReceivePrio: Receive {
+                ["x" from B] (auto with priority 1) -> TestReceivePrioFail
+                ["y" from B] (auto with priority 2) -> TestReceivePrioSuccess
+            }
+            TestReceivePrioSuccess: InternalAction -> END
+            TestReceivePrioFail:    InternalAction -> END
+
+
+            // message has been placed -> receiving at the first attempt should succeed
+            TestReceiveTimeout: Receive {
+                ["x" from B] (auto) -> TestReceiveTimeoutSuccess
+                (timeout (0))       -> TestReceiveTimeoutFail
+            }
+            TestReceiveTimeoutSuccess: InternalAction -> END
+            TestReceiveTimeoutFail:    InternalAction -> END
+
+
+            // message is sent with correlationID = 0 => receive should only consider messages with correlationID = 5 -> must timeout
+            TestReceiveCorrelationA: Receive {
+                ["x" with correlation of "foo" from B] (auto) -> TestReceiveCorrelationAFail
+                (timeout (0)) -> TestReceiveCorrelationASuccess
+            }
+            TestReceiveCorrelationASuccess: InternalAction -> END
+            TestReceiveCorrelationAFail:    InternalAction -> END
+
+
+
+            // message is sent with correlationID = 5 -> must receive
+            TestReceiveCorrelationB: Receive {
+                ["x" with correlation of "foo" from B] (auto) -> TestReceiveCorrelationBSuccess
+                (timeout (0)) -> TestReceiveCorrelationBFail
+            }
+            TestReceiveCorrelationBSuccess: InternalAction -> END
+            TestReceiveCorrelationBFail:    InternalAction -> END
+
+
+
+            // message is sent with correlationID = 5 -> must not receive as 0 doesn't mean wildcard anymore
+            TestReceiveCorrelationC: Receive {
+                ["x" from B] (auto) -> TestReceiveCorrelationCFail
+                (timeout (0))       -> TestReceiveCorrelationCSuccess
+            }
+            TestReceiveCorrelationCSuccess: InternalAction -> END
+            TestReceiveCorrelationCFail:    InternalAction -> END
+
+
+
+
+
+
+
+            // A: no message has been placed -> IP must be empty
+            TestIPEmptyA: "IsIPEmpty" ("B", "IPEmptyA", 0) {
+                "true"  -> TestIPEmptyASuccess
+                "false" -> TestIPEmptyAFail
+            }
+            TestIPEmptyASuccess: InternalAction -> END
+            TestIPEmptyAFail:    InternalAction -> END
+
+
+
+            // B: one message has been placed with CorrelationID 0 -> IP must not be empty
+            TestIPEmptyB: "IsIPEmpty" ("B", "IPEmptyB", 0) {
+                "true"  -> TestIPEmptyBFail
+                "false" -> TestIPEmptyBSuccess
+            }
+            TestIPEmptyBSuccess: InternalAction -> END
+            TestIPEmptyBFail:    InternalAction -> END
+
+
+
+            // C: one message has been placed with CorrelationID 5 -> IP must be empty as 0 is no wildcard anymore
+            TestIPEmptyC: "IsIPEmpty" ("B", "IPEmptyC", 0) {
+                "true"  -> TestIPEmptyCSuccess
+                "false" -> TestIPEmptyCFail
+            }
+            TestIPEmptyCSuccess: InternalAction -> END
+            TestIPEmptyCFail:    InternalAction -> END
+
+
+
+            // D: one message has been placed with CorrelationID 0 -> IP must be empty for "foo" (set to 5)
+            TestIPEmptyD: "IsIPEmpty" ("B", "IPEmptyD", "foo") {
+                "true"  -> TestIPEmptyDSuccess
+                "false" -> TestIPEmptyDFail
+            }
+            TestIPEmptyDSuccess: InternalAction -> END
+            TestIPEmptyDFail:    InternalAction -> END
+
+
+
+            // E: one message has been placed with CorrelationID 5 -> IP must not be empty for "foo" (set to 5)
+            TestIPEmptyE: "IsIPEmpty" ("B", "IPEmptyE", "foo") {
+                "true"  -> TestIPEmptyEFail
+                "false" -> TestIPEmptyESuccess
+            }
+            TestIPEmptyESuccess: InternalAction -> END
+            TestIPEmptyEFail:    InternalAction -> END
+
+
+
+
+            // only the self-channel has been placed
+            TestSendReceiveCycle: "IsIPEmpty" ("A", "SendReceiveCycle", 0) {
+                "true"  -> TestSendReceiveCycle2
+                "false" -> TestSendReceiveCycleFail
+            }
+
+            TestSendReceiveCycle2: Send    ["SendReceiveCycle" to A in "channelA" with content of "foo"] -> TestSendReceiveCycle3
+
+            TestSendReceiveCycle3: "IsIPEmpty" ("A", "SendReceiveCycle", 0) {
+                "true"  -> TestSendReceiveCycleFail
+                "false" -> TestSendReceiveCycle4
+            }
+
+            TestSendReceiveCycle4: Receive ["SendReceiveCycle" from A] (auto) -> TestSendReceiveCycle5
+
+            TestSendReceiveCycle5: "IsIPEmpty" ("A", "SendReceiveCycle", 0) {
+                "true"  -> TestSendReceiveCycleSuccess
+                "false" -> TestSendReceiveCycleFail
+            }
+
+            TestSendReceiveCycleSuccess: InternalAction -> END
+            TestSendReceiveCycleFail:    InternalAction -> END
+        }
+    }
+
+    Subject B {
+        StartSubject := true
+        InputPool := 2
+
+        Macro Main {
+            START: InternalAction -> END
+        }
+    }
+}

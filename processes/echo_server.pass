@@ -1,0 +1,19 @@
+Process Example_EchoServer {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: Send ["ping" to B] -> Empfangen
+            Empfangen: Receive ["pong" from B] -> END
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive ["ping" from A store message in "foo"] (auto) -> Extrahieren
+            Extrahieren: "VarMan" ("extractContent", "foo", "foo-content") -> Senden
+            Senden: Send ["pong" to A in "foo" with content of "foo-content"] -> END
+        }
+    }
+}

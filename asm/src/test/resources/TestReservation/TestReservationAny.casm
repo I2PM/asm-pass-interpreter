@@ -1,0 +1,171 @@
+// @maxsteps 10
+
+CoreASM TestReservation
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+include "../semantic/InitSemantic.casm"
+
+init TestReservation
+
+function senderID   : -> STRING
+function receiverID : -> STRING
+
+function sender : -> Agents
+function receiver : -> Agents
+
+
+rule TestReservation = seqblock
+    initSemantic
+
+    senderID   := "A"
+    receiverID := "B"
+
+    processTransitions("TestProcess") := {
+        1 -> { // send
+            "label" -> "eins",
+            "targetStateNumber" -> 0,
+            "type" -> "normal",
+            "subject" -> receiverID,
+            "subjectCountMin" -> 1,
+            "subjectCountMax" -> 1,
+            "msgType" -> "x",
+            "priority" -> 0
+        },
+        2 -> { // receive
+            "label" -> "zwei",
+            "targetStateNumber" -> 0,
+            "type" -> "normal",
+            "auto" -> true,
+            "subject" -> "?",
+            "subjectCountMin" -> 1,
+            "subjectCountMax" -> 1,
+            "msgType" -> "x",
+            "priority" -> 0
+        }
+    }
+
+    processStates("TestProcess") := {
+        0 -> {
+            "ID" -> "END",
+            "priority" -> 0,
+            "type" -> "end",
+            "outgoingTransitionNumbers" -> {}
+        },
+        1 -> {
+            "ID" -> "Senden",
+            "priority" -> 0,
+            "type" -> "send",
+            "outgoingTransitionNumbers" -> {1}
+        },
+        2 -> {
+            "ID" -> "Empfangen",
+            "priority" -> 0,
+            "type" -> "receive",
+            "outgoingTransitionNumbers" -> {2}
+        }
+    }
+
+    processSubjects("TestProcess") := {
+        senderID -> {
+            "mainMacroNumber" -> 0
+        },
+        receiverID -> {
+            "mainMacroNumber" -> 0,
+            "inputpoolSize" -> 100
+        }
+    }
+
+    processMacros("TestProcess") := {
+        0 -> {
+            "ID" -> "TestReservation"
+        }
+    }
+
+    extend Agents with a do {
+        program(a) := @TestSend
+
+        initAgent(a, "TestProcess", 1, senderID, "foo")
+
+        sender := a
+    }
+
+    extend Agents with b do {
+        program(b) := @TestCheckIP
+
+        seqblock
+        initAgent(b, "TestProcess", 1, receiverID, "bar")
+        wantInput(channelFor(b), 1, 2) := {}
+        endseqblock
+
+        receiver := b
+    }
+
+    program(self) := undef
+endseqblock
+
+/*
+ * @require "added reservation"
+ * @refuse "TestSend: no reservation placed!"
+ */
+rule TestSend = {
+    local boolres := false in
+    seqblock
+        executionState(channelFor(self), 1, 1) := undef
+        StartSend(1, 1)
+
+        boolres <- DoReservation(1, 1, channelFor(receiver))
+
+        if (boolres != true) then {
+            print "TestSend: no reservation placed!"
+        }
+
+        messageContent(channelFor(self), 1, 1) := ["Data", "Hallo"]
+
+        executionState(channelFor(self), 1, 1) := undef
+        ReplaceReservation(1, 1, channelFor(receiver))
+    endseqblock
+
+    program(self) := undef
+}
+
+/*
+ * @require "at least one IP with messages :)"
+ * @require "making automatic decision for transition 'zwei'"
+ */
+rule TestCheckIP = {
+    seqblock
+    DebugIP()
+
+    executionState(channelFor(self), 1, 2) := undef
+    transitionCompleted(channelFor(self), 1, 2) := false
+
+    PerformReceive(1, 2)
+
+    if (selectedTransition(channelFor(self), 1, 2) = 2) then {
+        program(self) := @TestReceive
+    }
+    endseqblock
+}
+
+/*
+ * @require "receivedMessages"
+ * @require "[Data, Hallo]"
+ */
+rule TestReceive = seqblock
+    executionState(channelFor(self), 1, 2) := undef
+    transitionCompleted(channelFor(self), 1, 2) := false
+
+    ReceiveMessage(1, 2, 2)
+    program(self) := undef
+endseqblock

@@ -1,0 +1,176 @@
+// @maxsteps 2
+
+CoreASM TestChannel
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+include "../semantic/InitSemantic.casm"
+
+init TestChannel
+
+function processID_Local    : -> STRING
+function processID_External : -> STRING
+
+function subjectID_A : -> STRING
+function subjectID_B : -> STRING
+function subjectID_X : -> STRING
+
+function agent_A  : -> Agents
+function agent_B1 : -> Agents
+function agent_B2 : -> Agents
+function agent_Z  : -> Agents
+
+rule TestChannel = seqblock
+    initSemantic
+
+    processID_Local    := "LocalProcess"
+    processID_External := "ExternalProcess"
+
+    subjectID_A   := "A"
+    subjectID_B   := "B"
+    subjectID_X   := "X"
+
+    processTransitions(processID_Local) := {
+        1 -> {
+            "type" -> "normal"
+        }
+    }
+
+    processStates(processID_Local) := {
+        1 -> {
+            "ID" -> "Test",
+            "outgoingTransitionNumbers" -> {1}
+        }
+    }
+
+    processSubjects(processID_Local) := {
+        subjectID_A -> {"mainMacroNumber" -> 0},
+        subjectID_B -> {"mainMacroNumber" -> 0},
+        subjectID_X -> {"mainMacroNumber" -> 0}
+    }
+
+    processMacros(processID_Local) := {
+        0 -> {
+            "ID" -> "TestChannel"
+        }
+    }
+
+
+
+    processTransitions(processID_External) := {
+        1 -> {
+            "type" -> "normal"
+        }
+    }
+
+    processStates(processID_External) := {
+        1 -> {
+            "ID" -> "Test",
+            "outgoingTransitionNumbers" -> {1}
+        }
+    }
+
+    processSubjects(processID_External) := {
+        subjectID_A -> {"mainMacroNumber" -> 0}
+    }
+
+    processMacros(processID_External) := {
+        0 -> {
+            "ID" -> "TestChannel"
+        }
+    }
+
+
+
+    extend Agents with a do {
+        program(a) := undef
+
+        initAgent(a, processID_Local, 1, subjectID_A, "AgentA")
+
+        agent_A := a
+    }
+
+    extend Agents with b1 do {
+        program(b1) := undef
+
+        initAgent(b1, processID_Local, 1, subjectID_B, "AgentB1")
+
+        agent_B1 := b1
+    }
+
+    extend Agents with b2 do {
+        program(b2) := undef
+
+        initAgent(b2, processID_Local, 1, subjectID_B, "AgentB2")
+
+        agent_B2 := b2
+    }
+
+    extend Agents with z do {
+        program(z) := undef
+
+        initAgent(z, processID_External, 1, subjectID_A, "AgentZ")
+
+        agent_Z := z
+    }
+
+    extend Agents with tester do {
+        program(tester) := testChannels
+
+        initAgent(tester, processID_Local, 1, subjectID_X, "Tester")
+    }
+
+
+    program(self) := undef
+endseqblock
+
+
+rule testChannels = {
+    seqblock
+        AddChannels(0, "test", {channelFor(agent_B1)})
+        listres := loadVar(0, "test")
+        // @require "test b1: [ChannelInformation, {[LocalProcess, 1, B, AgentB1]}]"
+        print "test b1: " + listres
+
+        AddChannels(0, "test", {channelFor(agent_B2)})
+        listres := loadVar(0, "test")
+        // another order is possible
+        // @require "test b1b2: [ChannelInformation, {[LocalProcess, 1, B, AgentB1], [LocalProcess, 1, B, AgentB2]}]"
+        print "test b1b2: " + listres
+
+        AddChannels(0, "test", {channelFor(agent_A)})
+        AddChannels(0, "test", {channelFor(agent_Z)})
+        /*
+         * another order is possible
+         * @require "test channels [Local, B]: {[LocalProcess, 1, B, AgentB1], [LocalProcess, 1, B, AgentB2]}"
+         * @require "test channels [?, ?]: {[LocalProcess, 1, A, AgentA], [LocalProcess, 1, B, AgentB1], [LocalProcess, 1, B, AgentB2], [ExternalProcess, 1, A, AgentZ]}"
+         */
+        print "test channels [Local, B]: " + loadChannelsFromVariable(0, "test", subjectID_B)
+        print "test channels [?, ?]: " + loadChannelsFromVariable(0, "test", "?")
+
+
+        let msg1 = [channelFor(agent_A), "x", ["Data", "Hallo"], 0, true] in
+        let msg2 = [channelFor(agent_B1), "x", ["Data", "Welt"], 0, true] in seqblock
+            SetVar(0, "msgs", "MessageSet", {msg1})
+            // @require "test msgs channels A: {[LocalProcess, 1, A, AgentA]}"
+            print "test msgs channels A: " + loadChannelsFromVariable(0, "msgs", "?")
+
+            SetVar(0, "msgs", "MessageSet", {msg1, msg2})
+            // another order is possible
+            // @require "test msgs channels AB1: {[LocalProcess, 1, A, AgentA], [LocalProcess, 1, B, AgentB1]}"
+            print "test msgs channels AB1: " + loadChannelsFromVariable(0, "msgs", "?")
+        endseqblock
+    endseqblock
+
+    program(self) := undef
+}

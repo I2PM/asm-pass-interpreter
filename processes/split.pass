@@ -1,0 +1,23 @@
+Process Example_Split {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: InternalAction {
+                "split" -> Split
+                "end" -> END
+            }
+
+            Split: "ModalSplit" {
+                -> a1
+                -> a2
+            }
+
+            a1: InternalAction "a1" -> Join
+            a2: InternalAction "a2" -> Join
+
+            Join: "ModalJoin" -> b2
+            b2: InternalAction "b2" -> START
+        }
+    }
+}

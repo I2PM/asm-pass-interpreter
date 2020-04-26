@@ -1,0 +1,45 @@
+derived UI_AllAllowedStates(ch) = allAllowedStates(ch)
+derived UI_AllActiveStates(ch) = allActiveStates(ch)
+
+derived UI_MacroID(processID, m) = macroID(processID, m)
+
+derived UI_StateLabel(processID, stateNumber)    = stateLabel(processID, stateNumber)
+derived UI_StateType(processID, stateNumber)     = stateType(processID, stateNumber)
+derived UI_StateFunction(processID, stateNumber) = stateFunction(processID, stateNumber)
+
+derived UI_TransitionName(processID, transitionNumber) = transitionLabel(processID, transitionNumber)
+derived UI_TransitionIsHidden(processID, transitionNumber) = transitionIsHidden(processID, transitionNumber)
+
+derived UI_EnabledOutgoingTransitions(ch, MI, stateNumber) = outgoingEnabledTransitions(ch, MI, stateNumber)
+
+derived UI_targetStateLabel(processID, transitionNumber) = targetStateLabel(processID, transitionNumber)
+derived UI_messageTypeForFirstTransition(processID, stateNumber) = messageTypeForFirstTransition(processID, stateNumber)
+
+derived UI_WantInput(ch, MI, stateNumber) = wantInput(ch, MI, stateNumber)
+
+derived UI_CancelTransitionNumber(processID, stateNumber) = first_outgoingCancelTransition(processID, stateNumber)
+
+
+derived UI_Receivers(ch, MI, stateNumber) = receivers(ch, MI, stateNumber)
+derived UI_GetIPMessages(ch, MI, stateNumber, transitionNumber) = getIPMessages(ch, MI, stateNumber, transitionNumber)
+
+derived UI_LoadVarForChannel(ch, MI, varname) = loadVarForChannel(ch, MI, varname)
+
+derived UI_SelectAgentsProcessID(ch, MI, stateNumber) = selectAgentsProcessID(ch, MI, stateNumber)
+derived UI_SelectAgentsSubjectID(ch, MI, stateNumber) = selectAgentsSubjectID(ch, MI, stateNumber)
+derived UI_SelectAgentsCountMin(ch, MI, stateNumber) = selectAgentsCountMin(ch, MI, stateNumber)
+derived UI_SelectAgentsCountMax(ch, MI, stateNumber) = selectAgentsCountMax(ch, MI, stateNumber)
+
+derived UI_SelectionOptions(ch, MI, stateNumber) = selectionOptions(ch, MI, stateNumber)
+derived UI_SelectionMin(ch, MI, stateNumber) = selectionMin(ch, MI, stateNumber)
+derived UI_SelectionMax(ch, MI, stateNumber) = selectionMax(ch, MI, stateNumber)
+
+
+
+
+//-- for debug printer
+
+derived UI_getDebugIP(ch) = getDebugIP(ch)
+derived UI_getDebugVariables(ch) = getDebugVariables(ch)
+
+derived UI_getMacroNumberOfMI(ch, MI) = macroNumberOfMI(ch, MI)

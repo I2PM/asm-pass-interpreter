@@ -1,0 +1,21 @@
+Process ExternalSubjectsAnonymousA {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: Send ["a" to B] -> END
+        }
+    }
+
+    InterfaceSubject B is Y in ExternalSubjectsAnonymousB
+}
+
+Process ExternalSubjectsAnonymousB {
+    InterfaceSubject X is ? in ?
+
+    Subject Y {
+        Macro Main {
+            START: Receive ["a" from X] (auto) -> END
+        }
+    }
+}

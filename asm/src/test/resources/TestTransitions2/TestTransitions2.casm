@@ -1,0 +1,178 @@
+// TODO: support external Subjects
+function processIDs : -> SET
+
+// processID * subjectID -> SET[agent]
+function availableAgents : STRING * STRING -> SET
+
+function taskSetInAgent : -> Agents
+
+rule TestTransitions2 = seqblock
+
+    taskSetInAgent := self // needed later for proper termination
+
+    extend Agents with a do {
+        program(a) := @WatchTaskSetOut
+    }
+
+    StartPASSInner(false) // note: sets program(self)
+
+    InitializeTest()
+
+    foreach processID in processIDs do {
+        local numres1 in {
+            numres1 <- StartProcess(processID, undef, undef)
+        }
+
+        foreach subjectID in keySet((processData(processID))("agents")) do {
+            availableAgents(processID, subjectID) := ((processData(processID))("agents"))(subjectID)
+        }
+    }
+endseqblock
+
+function handledTask : -> BOOLEAN
+function handledWantInput : -> BOOLEAN
+
+// emulates UI
+rule WatchTaskSetOut = {
+    if (|taskSetOut| > 0) then {
+        choose task in taskSetOut do
+        let taskType = (task())("task") in {
+            remove task from taskSetOut
+            debuginfo WatchTaskSetOut self + ": taskType: " + taskType
+
+            seqblock
+
+            handledTask := false
+
+            case taskType of
+                "StartSubject" : WatchTaskSetOut_StartSubject(task)
+            endcase
+
+            if (handledTask = false) then {
+                debuginfo WatchTaskSetOut "unhandled Task: " + task
+            }
+
+            endseqblock
+        }
+    }
+    else if (|runningSubjects| > 0) then {
+        // FIXME: Better to check that all have *proper* terminated with End ("success") somehow?
+        debuginfo WatchTaskSetOut self + ": still subjects running: " + runningSubjects
+
+        choose ch in runningSubjects with (|wantInputAny(ch)| > 0) do
+        choose MI in keySet(wantInputAny(ch)) do
+        choose stateNumber in keySet((wantInputAny(ch))(MI)) do
+        let tasks = ((wantInputAny(ch))(MI))(stateNumber) in seqblock
+            handledWantInput := false
+
+            //debuginfo WatchTaskSetOut self + ": " + activeNodePrettyForChannel(ch, activeNode) + " of " + ch + " has wantInput: " + tasks
+            debuginfo WatchTaskSetOut self + ": stateNumber " + stateNumber + " in MI " + MI + " of " + ch + " has wantInput: " + tasks
+
+            if (contains(tasks, "SelectAgentsDecision")) then {
+                WatchTaskSetOut_SelectAgentsDecision(ch, MI, stateNumber)
+            }
+
+            if (handledWantInput = false) then {
+                //debuginfo WatchTaskSetOut "unhandled WantInput: " + tasks + " in " + activeNodePrettyForChannel(ch, activeNode) + " of " + ch
+                debuginfo WatchTaskSetOut "unhandled WantInput: " + tasks + " in state number " + stateNumber + " in MI " + MI + " of " + ch
+            }
+            else {
+                wantInput(ch, MI, stateNumber) := {}
+            }
+        endseqblock
+    }
+    else if (|taskSetIn| > 0) then {
+        debuginfo WatchTaskSetOut self + ": taskSetOut is empty, but taskSetIn not: " + taskSetIn
+    }
+    else {
+        debuginfo WatchTaskSetOut "runningSubjects: " + runningSubjects
+        debuginfo WatchTaskSetOut self + ": terminated..."
+
+        program(taskSetInAgent) := undef
+        program(self) := undef
+    }
+}
+
+rule WatchTaskSetOut_StartSubject(task) = {
+    let taskProcessID = (task())("processID"),
+        taskPI = (task())("PI"),
+        taskSubjectID = (task())("subjectID") in {
+        if (contains(processIDs, taskProcessID)) then {
+            if (availableAgents(taskProcessID, taskSubjectID) != undef) then {
+                debuginfo WatchTaskSet_StartSubject "I thought this couldn't happen anymore as StartProcess uses predefinedAgents to automatically start StartSubjects. Looks like I was wrong and it was a good idea not to remove this functionality completely, so that it can be restored now."
+                Crash()
+
+                choose selectedAgent in availableAgents(taskProcessID, taskSubjectID) do {
+                    remove selectedAgent from availableAgents(taskProcessID, taskSubjectID)
+
+                    add {
+                        "task" -> "InitializeAndStartSubject",
+                        "ch" -> [taskProcessID, taskPI, taskSubjectID, selectedAgent]
+                       } to taskSetIn
+
+                    handledTask := true
+                }
+                ifnone {
+                   debuginfo WatchTaskSet_StartSubject "no agent available for subjectID '" + taskSubjectID + "' in processID '" + taskProcessID + "'"
+                }
+            }
+            else {
+                debuginfo WatchTaskSet_StartSubject "unknown subjectID: '" + taskSubjectID + "'"
+            }
+        }
+        else {
+            debuginfo WatchTaskSet_StartSubject "unknown processID: '" + taskProcessID + "'"
+        }
+    }
+}
+
+function i : -> NUMBER
+
+rule WatchTaskSetOut_SelectAgentsDecision(ch, MI, stateNumber) = {
+    let taskProcessID = selectAgentsProcessID(ch, MI, stateNumber),
+        taskSubjectID = selectAgentsSubjectID(ch, MI, stateNumber),
+        taskCountMin  = selectAgentsCountMin(ch, MI, stateNumber),
+        taskCountMax  = selectAgentsCountMax(ch, MI, stateNumber) in {
+
+        debuginfo WatchTaskSetOut_SelectAgentsDecision ": selecting agents for subjectID '" + taskSubjectID + "' in processID '" + taskProcessID + "'"
+
+        if (contains(processIDs, taskProcessID)) then {
+            if (availableAgents(taskProcessID, taskSubjectID) != undef) then seqblock
+                // NOTE: SelectAgents automatically uses predefinedAgents if it hasSizeWithin min/max
+
+                if (taskCountMin != taskCountMax) then {
+                    debuginfo WatchTaskSet_StartSubject "taskCountMin != taskCountMax: taskCountMin=" + taskSubjectID + "; taskCountMax=" + taskCountMax
+                    Crash()
+                }
+
+                selectAgentsDecision(ch, MI, stateNumber) := {}
+
+                handledWantInput := true
+
+                let taskCount = taskCountMax in
+                local i := 0 in
+                while (i < taskCount) do {
+                    i := i + 1
+                    choose selectedAgent in availableAgents(taskProcessID, taskSubjectID) do {
+                        remove selectedAgent from availableAgents(taskProcessID, taskSubjectID)
+
+                        add selectedAgent to selectAgentsDecision(ch, MI, stateNumber)
+                    }
+                    ifnone {
+                        handledWantInput := false
+                        debuginfo WatchTaskSet_StartSubject "no agent available for subjectID '" + taskSubjectID + "' in processID '" + taskProcessID + "'"
+                    }
+                }
+
+                debuginfo WatchTaskSetOut_SelectAgentsDecision ": selected agents: " + selectAgentsDecision(ch, MI, stateNumber)
+
+            endseqblock
+            else {
+                debuginfo WatchTaskSet_StartSubject "unknown subjectID: '" + taskSubjectID + "'"
+            }
+        }
+        else {
+            debuginfo WatchTaskSet_StartSubject "unknown processID: '" + taskProcessID + "'"
+        }
+    }
+}

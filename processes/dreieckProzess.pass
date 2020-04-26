@@ -1,0 +1,85 @@
+Process DreieckKunde {
+    InterfaceSubject Hersteller is Hersteller in DreieckHersteller
+    InterfaceSubject Lieferant is Lieferant in DreieckLieferant
+
+    Subject Kunde {
+        StartSubject := true
+
+        Macro Main {
+            StartState := "Bestellformular ausfüllen"
+
+            "Bestellformular ausfüllen": InternalAction {
+                "erledigt" -> senden
+            }
+
+            senden: Send {
+                ["Bestellung" to Hersteller] -> empfangen
+            }
+
+            empfangen: Receive {
+                ["Produkt" from Lieferant] -> END
+            }
+        }
+    }
+
+}
+
+Process DreieckHersteller {
+    InterfaceSubject Lieferant is Lieferant in DreieckLieferant
+    InterfaceSubject Kunde is Kunde in DreieckKunde
+
+    Subject Hersteller {
+        StartSubject := false
+
+        Macro Main {
+            START: Receive {
+                ["Bestellung" from Kunde store message in "Bestellung"] -> extrahiereKanal
+            }
+
+            extrahiereKanal: "VarMan" ("extractChannel", "Bestellung", "Kundenkanal") -> "Produkt herstellen"
+
+            "Produkt herstellen": InternalAction {
+                "erledigt" -> lieferantWaehlen
+            }
+
+            lieferantWaehlen: "SelectAgents" ("Lieferantenkanal", "Lieferant", 1, 1) -> senden1
+
+            senden1: Send {
+                ["Kanal" to Lieferant in "Lieferantenkanal" with content of "Kundenkanal"] -> senden2
+            }
+
+            senden2: Send {
+                ["Produkt" to Lieferant in "Lieferantenkanal"] -> END
+            }
+        }
+    }
+
+}
+
+Process DreieckLieferant {
+    InterfaceSubject Hersteller is Hersteller in DreieckHersteller
+    InterfaceSubject Kunde is Kunde in DreieckKunde
+
+    Subject Lieferant {
+        StartSubject := false
+
+        Macro Main {
+            START: Receive {
+                ["Kanal" from Hersteller store message in "LieferzielNachricht"] -> extrahiereKanal
+            }
+
+            extrahiereKanal: "VarMan" ("extractContent", "LieferzielNachricht", "Lieferziel") -> empfangen2
+
+            empfangen2: Receive {
+                ["Produkt" from Hersteller store message in "ProduktNachricht"] -> extrahiereProdukt
+            }
+
+            extrahiereProdukt: "VarMan" ("extractContent", "ProduktNachricht", "Produkt") -> weiterleiten
+
+            weiterleiten: Send {
+                ["Produkt" to Kunde in "Lieferziel" with content of "Produkt"] -> END
+            }
+        }
+    }
+
+}

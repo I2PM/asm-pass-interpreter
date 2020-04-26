@@ -1,0 +1,29 @@
+Process Transitions2_SendExplicitCreate {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping!") -> Erzeugen
+
+            Erzeugen: "SelectAgents" ("foobar", "B", 1, 1) -> Senden
+
+            Senden: Send ["ping" to B in "foobar" with content of "pingContent"] -> END
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["ping" from A] (auto) -> END
+            // FIXME: add reply. Should already know a Channel to A without creating it.
+        }
+    }
+}

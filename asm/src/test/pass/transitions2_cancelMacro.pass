@@ -1,0 +1,76 @@
+Process Transitions2_CancelMacro {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "ModalSplit" {
+                -> call1
+                -> wait1
+            }
+
+            call1: "CallMacro" ("Foo") {
+                -> END_Fail1
+                (cancel) -> call2
+            }
+
+            call2: "CallMacro" ("Foo") {
+                -> END_Fail1
+                (cancel) -> join
+            }
+
+            // give CallMacro a chance to run
+            wait1: InternalAction {
+                (timeout (1)) -> "cancel1"
+            }
+            "cancel1": "Cancel" {
+                "call1" (auto) -> wait2
+                (timeout (2))  -> END_Fail2
+            }
+
+            // give CallMacro a chance to run
+            wait2: InternalAction {
+                (timeout (1)) -> "cancel2"
+            }
+            "cancel2": "Cancel" {
+                "call2" (auto) -> join
+                (timeout (2))  -> END_Fail2
+            }
+
+            join: "ModalJoin" -> END
+
+            END_Fail1: End ("call was not deactivated")
+            END_Fail2: End ("cancel timed out")
+        }
+
+        Macro Foo {
+            LocalVariables := {"msgContent"}
+
+            START: "VarMan" ("storeData", "msgContent", "failed") -> wait
+
+            // give Cancel a chance to run
+            wait: InternalAction {
+                (timeout (5)) -> Send_Fail
+                (cancel)      -> Send_Fail
+            }
+            Send_Fail: Send {
+                ["fail" to B with content of "msgContent"] -> END
+            }
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive {
+                ["fail" from A] (auto) -> END_Fail
+            }
+            END_Fail: End ("received failure message")
+        }
+    }
+}

@@ -1,0 +1,35 @@
+Process Example_MultiSubject {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 3, 3) -> Schleife
+
+            Schleife: InternalAction {
+                "senden" -> Senden
+                "empfangen" -> Empfangen
+                "beenden" -> END
+            }
+            Senden: Send {
+                "abbrechen" (cancel) -> Abgebrochen
+                ["a" to 3 of B in "b"] -> Schleife
+            }
+            Abgebrochen: InternalAction "zurück zum Start" -> Schleife
+            Empfangen: Receive ["b" from 3 of B] -> Schleife
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: InternalAction {
+                "empfangen" -> Empfangen
+                "beenden" -> END
+            }
+            Empfangen: Receive ["a" from A store message in "tmp"] -> Senden
+            Senden: Send ["b" to A in "tmp"] -> START
+        }
+    }
+}

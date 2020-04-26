@@ -1,0 +1,43 @@
+/*
+
+Demonstrates the syntax of correlation IDs
+
+In START of A a new CorrelationID is being created and send as part of the message. The CorrelationID is stored in the variable "x" and will be used in 'Empfangen'.
+
+B extracts the CorrelationID and uses it to reply to A.
+
+Note:
+
+There is a distinction between the CorrelationID used to send (I) and the CorrelationID of a message (II).
+
+ I) is part of the message
+II) is part of the InputPool
+
+The message send from A to B contains a CorrelationID but is send to B's default IP (having no CorrelationID).
+
+The message send from B to A contains no CorrelationID, but is send to A's IP for the CorrelationID of "x".
+
+(If both were the same B could not receive A's message as it cannot know its correlationID)
+
+*/
+
+Process Example_Correlation {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: Send ["ping" to B with new correlation "x"] -> Empfangen
+            Empfangen: Receive ["pong" with correlation of "x" from B] -> END
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive ["ping" from A store message in "foo"] (auto) -> Extrahieren1
+            Extrahieren1: "VarMan" ("extractContent", "foo", "foo-content") -> Extrahieren2
+            Extrahieren2: "VarMan" ("extractCorrelationID", "foo", "foo-correlation") -> Senden
+            Senden: Send ["pong" with correlation of "foo-correlation" to A in "foo" with content of "foo-content"] -> END
+        }
+    }
+}

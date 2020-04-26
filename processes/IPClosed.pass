@@ -1,0 +1,73 @@
+Process Example_IPClosed {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 1, 1) -> sendStart
+
+            sendStart: Send ["Start" to B in "b" with content of "$empty"] -> loop
+
+            loop: InternalAction {
+                "sendX" -> sendX
+                "sendY" -> sendY
+                "end"  -> END
+            }
+
+            sendX: Send ["X" to B in "b"] -> loop
+            sendY: Send ["Y" to B in "b"] -> loop
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["Start" from A] (auto) -> loop
+
+            loop: InternalAction {
+                "isXEmpty?" -> isXEmpty
+
+                "close 'X with 0 from A'" -> closeX
+                "open 'X with 0 from A'" -> openX
+                "close 'Y with 0 from A'" -> closeY
+                "open 'Y with 0 from A'" -> openY
+                "close all IPs" -> closeAll
+                "open all IPs" -> openAll
+
+                "receive" -> receive
+                "end" -> END
+                (cancel) -> loop
+            }
+
+            isXEmpty: "IsIPEmpty" ("A", "X", 0) {
+                "true" -> isXEmptyTrue
+                "false" -> isXEmptyFalse
+            }
+            isXEmptyTrue:  InternalAction "isXEmptyTrue" -> loop
+            isXEmptyFalse: InternalAction "isXEmptyFalse" -> loop
+
+            isYEmpty: "IsIPEmpty" ("A", "Y", 0) {
+                "true" -> isYEmptyTrue
+                "false" -> isYEmptyFalse
+            }
+            isYEmptyTrue:  InternalAction "isYEmptyTrue" -> loop
+            isYEmptyFalse: InternalAction "isYEmptyFalse" -> loop
+
+            closeX: "CloseIP" ("A", "X", 0) -> loop
+            openX:  "OpenIP"  ("A", "X", 0) -> loop
+
+            closeY: "CloseIP" ("A", "Y", 0) -> loop
+            openY:  "OpenIP"  ("A", "Y", 0) -> loop
+
+            closeAll: "CloseAllIPs" -> loop
+            openAll:  "OpenAllIPs"  -> loop
+
+            receive: Receive {
+                ["X" from A] -> loop
+                ["Y" from A] -> loop
+                (cancel) -> loop
+            }
+        }
+    }
+}

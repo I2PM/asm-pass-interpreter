@@ -1,0 +1,26 @@
+Process Example_SplitWithPrio {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: InternalAction {
+                "split" -> Split
+                "end" -> END
+            }
+
+            Split: "ModalSplit" {
+                -> a1
+                -> a2
+                -> a3
+                -> a4
+            }
+
+            a1: InternalAction with priority 1 "a1" -> Join
+            a2: InternalAction with priority 2 "a2" -> Join
+            a3: InternalAction "a3" -> Join
+            a4: InternalAction "a4" -> Join
+
+            Join: "ModalJoin" -> START
+        }
+    }
+}

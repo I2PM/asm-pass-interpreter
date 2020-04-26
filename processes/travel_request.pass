@@ -1,0 +1,57 @@
+Process TravelRequest {
+
+    Subject Applicant {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("supervisor", "Supervisor", 1, 1) -> "Prepare Travel Application"
+
+            "Prepare Travel Application": InternalAction "Done" -> SendApplication
+            SendApplication: Send ["Travel Application" to Supervisor in "supervisor"] -> ReceiveResponse
+            ReceiveResponse: Receive {
+                ["Permission denied" from Supervisor] -> "Decide whether filing again"
+                ["Permission granted" from Supervisor] -> "Make travel"
+            }
+
+            "Decide whether filing again": InternalAction {
+                "Redo Travel Application" -> "Prepare Travel Application"
+                "Denial accepted" -> SendNoFurther
+            }
+            SendNoFurther: Send ["No further Travel Application" to Supervisor in "supervisor"] -> END
+
+            "Make travel": InternalAction -> END
+        }
+    }
+
+    Subject Supervisor {
+        Macro Main {
+            StartState := ReceiveApplication
+
+            ReceiveApplication: Receive ["Travel Application" from Applicant store messages in "application"] -> "Check Travel Application"
+            "Check Travel Application": InternalAction {
+                "Grant Permission" -> SendGranted
+                "Deny Permission"  -> SendDenied
+            }
+
+            SendGranted: Send ["Permission granted" to Applicant in "application"] -> SendAdministration
+            SendAdministration: Send ["Approved Travel Application" to Administration with content of "application"] -> END
+
+            SendDenied: Send ["Permission denied" to Applicant in "application"] -> ClearVar
+            ClearVar: "VarMan" ("clear", "application") -> ReceiveFurther
+            ReceiveFurther: Receive {
+                ["No further Travel Application" from Applicant] -> END
+                ["Travel Application" from Applicant store messages in "application"] -> "Check Travel Application"
+            }
+
+        }
+    }
+
+    Subject Administration {
+        Macro Main {
+            StartState := ReceiveApprovedApplication
+
+            ReceiveApprovedApplication: Receive ["Approved Travel Application" from Supervisor] -> "Archive Travel Application"
+            "Archive Travel Application": InternalAction "Travel Application filed" -> END
+        }
+    }
+}

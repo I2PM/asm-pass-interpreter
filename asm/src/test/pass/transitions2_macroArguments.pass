@@ -1,0 +1,66 @@
+Process Transitions2_MacroArguments {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar", "baz"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+        InputPool := 2
+
+        Macro Main {
+            START: "SelectAgents" ("b1", "B", 1, 1) -> load2
+            load2: "SelectAgents" ("b2", "B", 1, 1) -> call1
+
+            call1: "CallMacro"("Ping", "b1") {
+              "success" -> call2
+              "fail" -> END_Fail_Send1
+            }
+
+            call2: "CallMacro"("Ping", "b2") {
+              "success" -> receive
+              "fail" -> END_Fail_Send2
+            }
+
+            receive: Receive {
+                ["pong" from 2 of B] (auto) -> END
+                (timeout (5)) -> END_Fail_Receive
+            }
+
+            END_Fail_Send1:   End ("timeout: failed to send #1")
+            END_Fail_Send2:   End ("timeout: failed to send #2")
+            END_Fail_Receive: End ("timeout: no reply")
+        }
+
+        Macro Ping ("receivers") {
+            START: Send {
+                ["ping" to B in "receivers" with content of "$empty"] -> END_Success
+                (timeout (0)) -> END_Fail
+            }
+
+            END_Success: End ("success")
+            END_Fail:    End ("fail")
+        }
+    }
+
+    Subject B {
+        InputPool := 1
+
+        Macro Main {
+            START: Receive {
+                ["ping" from A store message in "tmp"] (auto) -> reply
+                (timeout (0)) -> END_Fail1
+            }
+
+            reply: Send {
+                ["pong" to A in "tmp" with content of "tmp"] -> END
+                (timeout (0)) -> END_Fail2
+            }
+
+            END_Fail1: End ("timeout1")
+            END_Fail2: End ("timeout2")
+        }
+    }
+}

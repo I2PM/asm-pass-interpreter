@@ -1,0 +1,3991 @@
+function aALL : -> SET // all known pass agents // read by UI
+function pALL : -> SET // all loaded processes
+
+
+// all known rules that can be called from Function States
+function startFunction             : STRING -> RULE
+function performFunction           : STRING -> RULE
+function performTransitionFunction : STRING -> RULE
+function abortFunction             : STRING -> RULE
+
+rule DefineFunctions = {
+    startFunction("Tau")   := @StartTau
+    performFunction("Tau") := @Tau
+
+    performFunction("CallMacro") := @CallMacro
+    abortFunction("CallMacro")   := @AbortCallMacro
+
+    performFunction("Cancel")           := @Cancel
+    performTransitionFunction("Cancel") := @PerformTransitionCancel
+
+    performFunction("VarMan") := @VarMan
+    abortFunction("VarMan")   := @AbortVarMan
+
+    performFunction("ModalSplit")   := @ModalSplit
+    performFunction("ModalJoin")    := @ModalJoin
+    performFunction("CloseIP")      := @CloseIP
+    performFunction("OpenIP")       := @OpenIP
+    performFunction("CloseAllIPs")  := @CloseAllIPs
+    performFunction("OpenAllIPs")   := @OpenAllIPs
+    performFunction("IsIPEmpty")    := @IsIPEmpty
+    performFunction("SelectAgents") := @SelectAgentsAction
+}
+
+// ====
+
+// ProcessID -> MAP / SET
+function processData            : STRING -> MAP
+function processSubjects        : STRING -> MAP
+function processStartSubjectIDs : STRING -> SET
+function processMacros          : STRING -> MAP
+function processStates          : STRING -> MAP
+function processTransitions     : STRING -> MAP
+
+// ProcessID * SubjectID -> SET[AgentName]
+function predefinedAgents : STRING * STRING -> SET
+
+
+derived isStartAbleProcess(processID) = (|processStartSubjectIDs(processID)| > 0)
+
+// all loaded processes that are start-able
+// called from UI
+derived startAbleProcesses = filter(pALL, @isStartAbleProcess)
+
+
+rule AddProcess(processID, processMap) = {
+    debuginfo AddProcess self + ": store processMap for '" + processID + "': " + processMap
+
+    add processID to pALL
+
+    processData(processID)               := processMap()("data")
+    processSubjects(processID)           := processMap()("subjects")
+    processStartSubjectIDs(processID)    := processMap()("startSubjectIDs")
+    processMacros(processID)             := processMap()("macros")
+    processScopedMacroNumbers(processID) := processMap()("processMacroNumbers")
+    processStates(processID)             := processMap()("states")
+    processTransitions(processID)        := processMap()("transitions")
+
+    // each subject MIGHT have data with predefined agents, that will automatically be assigned
+    let agents = tryGet(processMap()("data"), "agents") in {
+        if (agents != undef) then {
+            forall sID in keySet(agents) do {
+                predefinedAgents(processID, sID) := agents(sID)
+
+                // remember their names for suggestion list in UI
+                forall a in agents(sID) do {
+                    add a to aALL
+                }
+            }
+        }
+    }
+}
+
+
+derived stateFilter_ID(stateNumber, stateID) = (last(stateNumber)("ID") = stateID)
+derived stateFromID(processID, stateID) = firstFromSet(filterSet1(mapToPairs(processStates(processID)), @stateFilter_ID, stateID))
+derived stateNumberFromID(processID, stateID) = head(stateFromID(processID, stateID))
+
+
+derived stateID(processID, stateNumber)                        = (processStates(processID)(stateNumber))("ID")
+derived stateType(processID, stateNumber)                      = (processStates(processID)(stateNumber))("type")
+derived stateFunction(processID, stateNumber)                  = (processStates(processID)(stateNumber))("function")
+derived stateFunctionArguments(processID, stateNumber)         = (processStates(processID)(stateNumber))("functionArguments")
+derived statePriority(processID, stateNumber)                  = (processStates(processID)(stateNumber))("priority")
+derived stateOutgoingTransitionNumbers(processID, stateNumber) = (processStates(processID)(stateNumber))("outgoingTransitionNumbers")
+
+
+derived stateLabel(processID, stateNumber) = return stringres in {
+    let ID    = (processStates(processID)(stateNumber))("ID") in
+    let label = (processStates(processID)(stateNumber))("label") in {
+        if (label != undef and label != "") then {
+            stringres := label
+        }
+        else {
+            stringres := ID
+        }
+    }
+}
+
+
+derived transitionFilter_isNormal(transitionNumber, processID)  = ((processTransitions(processID)(transitionNumber))("type") = "normal")
+derived transitionFilter_isCancel(transitionNumber, processID)  = ((processTransitions(processID)(transitionNumber))("type") = "cancel")
+derived transitionFilter_isTimeout(transitionNumber, processID) = ((processTransitions(processID)(transitionNumber))("type") = "timeout")
+
+// -> Set[TransitionNumber]
+derived outgoingNormalTransitions(processID, stateNumber)  = filterSet1(stateOutgoingTransitionNumbers(processID, stateNumber), @transitionFilter_isNormal, processID) // all Transitions starting at State `n` and having `normal` type
+derived outgoingTimeoutTransitions(processID, stateNumber) = filterSet1(stateOutgoingTransitionNumbers(processID, stateNumber), @transitionFilter_isTimeout, processID) // all Transitions starting at State `n` and having `timeout` type. Size should be either one or zero
+derived outgoingCancelTransitions(processID, stateNumber)  = filterSet1(stateOutgoingTransitionNumbers(processID, stateNumber), @transitionFilter_isCancel, processID) // all Transitions starting at State `n` and having `cancel` type. Size should be either one or zero
+
+derived hasTimeoutTransition(processID, stateNumber) = nonEmpty(outgoingTimeoutTransitions(processID, stateNumber))
+derived hasCancelTransition(processID, stateNumber) = nonEmpty(outgoingCancelTransitions(processID, stateNumber))
+
+// -> TransitionNumber
+derived first_outgoingTimeoutTransition(processID, stateNumber) = firstFromSet(outgoingTimeoutTransitions(processID, stateNumber))
+derived first_outgoingCancelTransition(processID, stateNumber)  = firstFromSet(outgoingCancelTransitions(processID, stateNumber))
+derived first_outgoingNormalTransition(processID, stateNumber)  = firstFromSet(outgoingNormalTransitions(processID, stateNumber))
+
+derived transitionFilter_Enabled            (transitionNumber, ch, MI)           = (transitionEnabled(ch, MI, transitionNumber) = true)
+derived transitionFilter_EnabledWithPriority(transitionNumber, ch, MI, priority) = (transitionFilter_Enabled(transitionNumber, ch, MI) and transitionPriority(processIDOf(ch), transitionNumber) = priority)
+
+
+// -> Set[TransitionNumber]
+// returns normal transitions being enabled (no matter what priority)
+derived outgoingEnabledTransitions_All(ch, MI, stateNumber) = return setres in {
+    debuginfo outgoingEnabledTransitions_All "("+ch+", "+MI+", "+stateNumber+")"
+
+    let processID = processIDOf(ch) in {
+        seqblock
+        setres := filterSet2(outgoingNormalTransitions(processID, stateNumber), @transitionFilter_Enabled, ch, MI)
+        debuginfo outgoingEnabledTransitions_All self + ": ("+ch+", "+MI+", "+stateNumber+"): " + setres
+        endseqblock
+    }
+}
+
+/*
+returns the highest priority of normal enabled transitions
+prio = 0 => default
+*/
+derived highestPrio_outgoingEnabledTransitions(ch, MI, stateNumber) = return numres in {
+    debuginfo highestPrio_outgoingEnabledTransitions self + ": ("+ch+", "+MI+", "+stateNumber+")"
+
+    let processID = processIDOf(ch),
+        allEnabledTransitions = outgoingEnabledTransitions_All(ch, MI, stateNumber) in
+    seqblock
+        numres := 0
+
+        foreach transitionNumber in allEnabledTransitions with (transitionPriority(processID, transitionNumber) != undef) do {
+            let priority = transitionPriority(processID, transitionNumber) in {
+                debuginfo highestPrio_outgoingEnabledTransitions self + ": transition: " + transitionPrettyForChannel(ch, MI, transitionNumber)
+
+                if (priority > numres) then {
+                    debuginfo highestPrio_outgoingEnabledTransitions self + ": transition has a higher priority than " + numres
+                    numres := priority
+                }
+            }
+        }
+
+        debuginfo highestPrio_outgoingEnabledTransitions self + ": numres: " + numres
+    endseqblock
+}
+
+// -> Set[TransitionNumber]
+// returns normal transitions being enabled and having highest priority
+derived outgoingEnabledTransitions(ch, MI, stateNumber) = return setres in {
+    debuginfo outgoingEnabledTransitions self + ": ("+ch+", "+MI+", "+stateNumber+")"
+
+    let priority  = highestPrio_outgoingEnabledTransitions(ch, MI, stateNumber),
+        processID = processIDOf(ch) in
+    seqblock
+        debuginfo outgoingEnabledTransitions self + ": filter enabled transitions with priority = " + priority
+
+        setres := filterSet3(outgoingNormalTransitions(processID, stateNumber), @transitionFilter_EnabledWithPriority, ch, MI, priority)
+
+        debuginfo outgoingEnabledTransitions self + ": ("+ch+", "+MI+", "+stateNumber+"): " + setres
+    endseqblock
+}
+
+
+derived transitionIsAuto(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("auto")
+derived transitionIsHidden(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("hidden")
+derived transitionTimeout(processID, transitionNumber)  = (processTransitions(processID)(transitionNumber))("timeout")
+derived transitionPriority(processID, transitionNumber) = return numres in {
+    let prio = (processTransitions(processID)(transitionNumber))("priority") in {
+        if (prio = undef) then numres := 0
+        else numres := prio
+    }
+}
+
+derived transitionHasLabel(processID, transitionNumber, label) = ((processTransitions(processID)(transitionNumber))("label") = label)
+
+derived getTransitionByLabel(processID, stateNumber, label) = return numres in {
+    choose transitionNumber in outgoingNormalTransitions(processID, stateNumber) with transitionHasLabel(processID, transitionNumber, label) do {
+        numres := transitionNumber
+    }
+    ifnone {
+        numres := undef
+    }
+}
+
+derived messageType(processID, transitionNumber)               = (processTransitions(processID)(transitionNumber))("msgType")
+derived messageContentVar(processID, transitionNumber)         = (processTransitions(processID)(transitionNumber))("contentVar")
+derived messageWithCorrelationVar(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("withCorrelationVar")
+derived messageNewCorrelationVar(processID, transitionNumber)  = (processTransitions(processID)(transitionNumber))("newCorrelationVar")
+derived messageStoreMessagesVar(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("storeMessagesVar")
+derived messageStoreReceiverVar(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("storeReceiverVar")
+derived messageSubjectId(processID, transitionNumber)          = (processTransitions(processID)(transitionNumber))("subject")
+derived messageSubjectCountMin(processID, transitionNumber)    = (processTransitions(processID)(transitionNumber))("subjectCountMin")
+derived messageSubjectCountMax(processID, transitionNumber)    = (processTransitions(processID)(transitionNumber))("subjectCountMax") // 0 means unlimited
+derived messageSubjectVar(processID, transitionNumber)         = (processTransitions(processID)(transitionNumber))("subjectVar")
+
+
+derived messageTypeForFirstTransition(processID, stateNumber) = messageType(processID, first_outgoingNormalTransition(processID, stateNumber)) //called from UI
+
+
+
+derived transitionLabel(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("label")
+derived transitionType(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("type")
+derived transitionIsNormal(processID, transitionNumber) = (transitionType(processID, transitionNumber) = "normal")
+derived targetStateNumber(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("targetStateNumber")
+
+derived targetStateLabel(processID, transitionNumber) = stateLabel(processID, targetStateNumber(processID, transitionNumber))
+derived targetStateType(processID, transitionNumber)  = stateType(processID, targetStateNumber(processID, transitionNumber))
+
+
+// ====
+
+
+derived transitionPretty(MI, transitionNumber) = transitionPrettyForChannel(channelFor(self), MI, transitionNumber)
+
+derived transitionPrettyForChannel(ch, MI, transitionNumber) = return stringres in {
+    let processID = processIDOf(ch) in
+    {
+        stringres := "'" + transitionLabel(processID, transitionNumber) + "' (" + transitionNumber + ", type: " + transitionType(processID, transitionNumber) + ", priority: " + transitionPriority(processID, transitionNumber) + ", targetState: " + statePrettyForChannel(ch, MI, targetStateNumber(processID, transitionNumber)) + ")"
+    }
+}
+
+
+derived statePretty(MI, stateNumber) = statePrettyForChannel(channelFor(self), MI, stateNumber)
+
+derived statePrettyForChannel(ch, MI, stateNumber) = return stringres in {
+    let processID = processIDOf(ch) in
+    {
+        stringres := "'" + stateLabel(processID, stateNumber) + "' (" + stateType(processID, stateNumber) + ", " + stateNumber + ") in Macro '" + macroID(processID, macroNumberOfMI(ch, MI)) + "'#" + MI + " with priority " + statePriority(processID, stateNumber)
+    }
+}
+
+
+derived activeStatePretty(activeState, MI) = statePretty(MI, activeState)
+
+derived activeStatesPretty(MI, states) = join(mapList1(states, @activeStatePretty, MI), "; ")
+
+
+
+// ====
+
+derived subjectMacros(processID, sID)    = (processSubjects(processID)(sID))("macroNumbers")
+derived inputPoolSize(processID, sID)    = (processSubjects(processID)(sID))("inputpoolSize")
+derived subjectMainMacro(processID, sID) = (processSubjects(processID)(sID))("mainMacroNumber")
+derived subjectInterface(processID, sID) = (processSubjects(processID)(sID))("interface")
+
+derived macroID(processID, m)        = (processMacros(processID)(m))("ID")
+derived macroStartState(processID, m) = (processMacros(processID)(m))("startStateNumber")
+derived macroArguments(processID, m) = (processMacros(processID)(m))("macroArguments")
+derived macroVariables(processID, m) = (processMacros(processID)(m))("macroVariables")
+
+
+
+
+// ====
+
+// Agent -> List[processID, processInstance, subjectID, agent]
+function channelFor : Agents -> LIST
+
+derived processIDFor(a)       = processIDOf(channelFor(a))
+derived processInstanceFor(a) = processInstanceOf(channelFor(a))
+derived subjectIDFor(a)       = subjectIDOf(channelFor(a))
+derived agentFor(a)           = agentOf(channelFor(a))
+
+derived processIDOf(ch)       = nth(ch, 1)
+derived processInstanceOf(ch) = nth(ch, 2)
+derived subjectIDOf(ch)       = nth(ch, 3)
+derived agentOf(ch)           = nth(ch, 4)
+
+// ProcessID, ProcessInstance, SubjectID, AgentID
+derived chToString(ch)   = nth(ch, 4) + "@" + nth(ch, 3) + "@" + nth(ch, 2) + "@" + nth(ch, 1) // TODO: nth(ch, 5)
+
+
+
+// -> PI
+function nextPI : -> NUMBER
+// PI -> Channel // ensure that `nextPI` is not used by multiple agents in the same ASM step (when nextPI is incremented nextPIUsedBy must be set, so that a collision occurs when multiple agents try to use it in the same asm step)
+function nextPIUsedBy : NUMBER -> Agents
+
+
+// -> SET[ASMAgent]
+function asmAgents : -> SET
+
+// -> SET[Channel]
+// called from UI and tests
+// NOTE: collection functions like map are buggy, see https://github.com/CoreASM/coreasm.core/issues/32
+// therefore workaround here via foreach
+//derived runningSubjects = map(asmAgents, @channelFor)
+derived runningSubjects = return setres in seqblock
+    setres := {}
+    foreach a in asmAgents do {
+        add channelFor(a) to setres
+    }
+    debuginfo runningSubjects self + ": setres: " + setres
+endseqblock
+
+// Channel -> Number
+function nextMacroInstanceNumber : LIST -> NUMBER
+
+// Channel -> Boolean
+function properTerminated : LIST -> BOOLEAN
+
+derived anyNonProperTerminated(chs) = return boolres in {
+    boolres := exists ch in chs with (properTerminated(ch) = false)
+}
+
+// Channel -> List[List[MI, StateNumber]]
+function killStates : LIST -> LIST
+
+// Channel * macroInstanceNumber -> List[StateNumber]
+function activeStates : LIST * NUMBER -> LIST
+
+
+
+// Channel * MacroInstanceNumber * StateNumber -> Set[String]
+function wantInput : LIST * NUMBER * NUMBER -> SET
+
+// called from UI
+derived allActiveStates(ch) = allActiveStatesWithinMI(ch, 1)
+
+
+derived allActiveStatesWithinMI(ch, MI) = return mapres in {
+    if (activeStates(ch, MI) = undef) then {
+        mapres := {->}
+    }
+    else {
+        seq
+            mapres := {MI -> activeStates(ch, MI)}
+        next
+            forall lN in (mapres()(MI)) do {
+                let childMI = callMacroChildInstance(ch, MI, lN) in {
+                    if (childMI != undef) then {
+                        let allChildStates = allActiveStatesWithinMI(ch, childMI) in {
+                            foreach x in keySet(allChildStates) do {
+                                add {x -> allChildStates(x)} to mapres
+                            }
+                        }
+                    }
+                }
+            }
+        next
+            debuginfo allActiveStatesWithinMI self + ": mapres: " + mapres
+    }
+}
+
+
+// called also from UI
+derived allAllowedStates(ch) = allAllowedStatesWithinMI(ch, 1)
+
+derived allAllowedStatesWithinMI(ch, MI) = return mapres in {
+seq
+    mapres := {MI -> allowedStates(ch, MI)}
+next
+    forall lN in (mapres()(MI)) do {
+        let childMI = callMacroChildInstance(ch, MI, lN) in {
+            if (childMI != undef) then {
+                let allowedChildStates = allAllowedStatesWithinMI(ch, childMI) in {
+                    foreach x in keySet(allowedChildStates) do {
+                        add {x -> allowedChildStates(x)} to mapres
+                    }
+                }
+            }
+        }
+    }
+next
+    debuginfo allAllowedStatesWithinMI self + ": mapres: " + mapres
+}
+
+derived hasEqPrio(stateNumber, processID, prio) = (statePriority(processID, stateNumber) = prio)
+
+derived filterStatesWithSamePrio(processID, l, prio) = filterList2(l, @hasEqPrio, processID, prio)
+
+derived allowedStates(ch, MI) = return listres in
+let processID = processIDOf(ch) in
+seqblock
+    debuginfo allowedStates self + ": MI: " + MI
+
+    listres := []
+
+    listres2 := activeStates(ch, MI)
+
+    while (|listres2| > 0) do {
+        let lN = getAnyStateWithHighestPrio(processID, listres2) in
+        let lPrio = statePriority(processID, lN) in
+        let state = executionState(ch, MI, lN) in seqblock
+            debuginfo allowedStates self + ": state: " + statePrettyForChannel(ch, MI, lN)
+            debuginfo allowedStates self + ": state: " + undefStr(state)
+
+            remove lN from listres2
+            add lN to listres
+
+            if (state != 3) then {
+                listres2 := filterStatesWithSamePrio(processID, listres2, lPrio) // reduce to states with same priority
+            }
+        endseqblock
+    }
+
+    debuginfo allowedStates self + ": listres: " + listres
+endseqblock
+
+// called from TestTransitions2
+derived wantInputAny(ch) = return mapres1 in {
+seq
+    mapres1 := {->}
+next
+    if (activeStates(ch, 1) != undef) then { // subject is still initializing
+        let aStates = allAllowedStates(ch) in
+        foreach MI in keySet(aStates) do
+        local mapres2 := {->} in {
+        seq
+            foreach lN in aStates(MI) with (initializedState(ch, MI, lN) = true) do
+            let wI = wantInput(ch, MI, lN) in {
+                if (|wI| > 0) then {
+                    add {lN -> wI} to mapres2
+                }
+            }
+        next
+            if (|mapres2| > 0) then {
+                add {MI -> mapres2} to mapres1
+            }
+        }
+    }
+next
+    debuginfo wantInputAny self + ": mapres1: " + mapres1
+}
+
+// Channel * MacroInstanceNumber * StateNumber -> BOOLEAN
+function initializedState : LIST * NUMBER * NUMBER -> BOOLEAN
+
+// Channel * MacroInstanceNumber * StateNumber -> BOOLEAN
+function completed : LIST * NUMBER * NUMBER -> BOOLEAN
+
+
+
+// Channel * MacroInstanceNumber * StateNumber
+function timeoutActive  : LIST * NUMBER * NUMBER -> BOOLEAN
+function cancelDecision : LIST * NUMBER * NUMBER -> BOOLEAN
+
+// Channel * MacroInstanceNumber * StateNumber -> BOOLEAN
+function abortionCompleted : LIST * NUMBER * NUMBER -> BOOLEAN
+
+// Channel * MacroInstanceNumber * StateNumber -> ..
+function selectedTransition : LIST * NUMBER * NUMBER -> NUMBER // -> TransitionNumber
+function initializedSelectedTransition : LIST * NUMBER * NUMBER -> BOOLEAN
+function startTime  : LIST * NUMBER * NUMBER -> NUMBER
+
+// can exit
+// Channel * MacroInstanceNumber * TransitionNumber -> BOOLEAN
+function transitionEnabled : LIST * NUMBER * NUMBER -> BOOLEAN
+
+// Channel * MacroInstanceNumber * TransitionNumber -> BOOLEAN
+function transitionCompleted : LIST * NUMBER * NUMBER -> BOOLEAN
+
+
+
+
+derived shouldTimeout(ch, MI, stateNumber) = return boolres in {
+    debuginfo shouldTimeout self + ": state " + statePrettyForChannel(ch, MI, stateNumber)
+
+    let processID = processIDOf(ch) in {
+        if (hasTimeoutTransition(processID, stateNumber) = true and startTime(ch, MI, stateNumber) != undef) then {
+            let transitionNumber = first_outgoingTimeoutTransition(processID, stateNumber) in
+            let timeout = transitionTimeout(processID, transitionNumber) * 1000 * 1000 * 1000 in {
+                debuginfo shouldTimeout self + ": startTime: " + startTime(ch, MI, stateNumber)
+                debuginfo shouldTimeout self + ": timeout: " + timeout
+                debuginfo shouldTimeout self + ": nanoTime: " + nanoTime()
+
+                let runningTime = (nanoTime() - startTime(ch, MI, stateNumber)) in
+                seqblock
+                    // 2015-10-25: changed from `>=` to `>` to allow timeout=0 in combination with auto send -> I think it should timeout only when sending fails at the first attempt
+                    // 2017-04-11: changed from (time > startTime + timeout) to (time - startTime > timeout) "because of the possibility of numerical overflow" (@see System.nanoTime)
+                    boolres := (runningTime > timeout)
+                    debuginfo shouldTimeout self + ": => " + boolres
+                endseqblock
+            }
+        }
+        else {
+            debuginfo shouldTimeout self + ": no TimeoutTransition"
+            boolres := false
+        }
+    }
+}
+
+
+// ====
+
+// Channel * macroInstanceNumber * varname -> [vartype, content]
+function variable : LIST * NUMBER * STRING -> LIST
+
+// Channel -> Set[(macroInstanceNumber, varname)]
+function variableDefined : LIST -> SET
+
+/*
+Variables can be scoped to a specific MacroInstance.
+
+This is used for Macro-Arguments and for Macro-local Variables.
+
+If a Variable is not defined as Macro-local it will be stored at top-level (indicated by MI=0).
+
+If a Macro-local Variable is not defined on Macro-level, but at top-level, it still will be undef (no recursion / scoped to only that single macro instance).
+*/
+
+derived isMacroLocalVariable(MI, varname) = isMacroLocalVariableForChannel(channelFor(self), MI, varname)
+
+derived isMacroLocalVariableForChannel(ch, MI, varname) = return boolres in {
+    if (MI = 0) then {
+        boolres := false
+    }
+    else {
+        let mID = macroNumberOfMI(ch, MI) in
+        let processID = processIDOf(ch) in {
+            boolres := (contains(macroArguments(processID, mID), varname) or contains(macroVariables(processID, mID), varname))
+        }
+    }
+}
+
+
+derived loadVar(MI, varname) = loadVarForChannel(channelFor(self), MI, varname)
+
+derived loadVarForChannel(ch, MI, varname) = return listres in {
+    if (varname = undef or varname = "") then {
+        listres := undef
+    }
+    else {
+        if isMacroLocalVariableForChannel(ch, MI, varname) then {
+            listres := variable(ch, MI, varname)
+        }
+        else {
+            listres := variable(ch, 0, varname)
+        }
+    }
+}
+
+rule SetVar(MI, varname, vartype, value) = SetVarForChannel(channelFor(self), MI, varname, vartype, value)
+
+rule SetVarForChannel(ch, MI, varname, vartype, value) = {
+    if isMacroLocalVariableForChannel(ch, MI, varname) then {
+        SetVarForChannelNoLookup(ch, MI, varname, vartype, value)
+    }
+    else {
+        SetVarForChannelNoLookup(ch, 0, varname, vartype, value)
+    }
+}
+
+rule SetVarForChannelNoLookup(ch, MI, varname, vartype, value) = {
+    if (varname = "$empty" or varname = "$self") then {
+        debuginfo SetVarForChannelNoLookup self + ": predefined variable '" + varname + "' must not be modified"
+        Crash()
+    }
+    else {
+        add [MI, varname] to variableDefined(ch)
+        variable(ch, MI, varname) := [vartype, value]
+    }
+}
+
+
+rule ClearVar(MI, varname) = ClearVarForChannel(channelFor(self), MI, varname)
+
+rule ClearVarForChannel(ch, MI, varname) = {
+    if isMacroLocalVariableForChannel(ch, MI, varname) then {
+        ClearVarForChannelNoLookup(ch, MI, varname)
+    }
+    else {
+        ClearVarForChannelNoLookup(ch, 0, varname)
+    }
+}
+
+rule ClearVarForChannelNoLookup(ch, MI, varname) = {
+    if (varname = "$empty" or varname = "$self") then {
+        debuginfo ClearVarForChannelNoLookup self + ": predefined variable '" + varname + "' must not be cleared"
+        Crash()
+    }
+    else {
+        remove [MI, varname] from variableDefined(ch)
+        variable(ch, MI, varname) := undef
+    }
+}
+
+
+rule ClearAllVarInMIForChannel(ch, MI) = {
+    debuginfo ClearAllVarInMIForChannel self + ": ch = " + ch
+    debuginfo ClearAllVarInMIForChannel self + ": MI = " + MI
+    debuginfo ClearAllVarInMIForChannel self + ": variableDefined = " + variableDefined(ch)
+
+    forall x in variableDefined(ch) with (nth(x, 1) = MI) do {
+        let varname = nth(x, 2) in {
+            if (varname = "$empty" or varname = "$self") then {
+                debuginfo ClearAllVarInMIForChannel self + ": not removing variable '" + varname + "' as it is predefined"
+            }
+            else {
+                ClearVarForChannelNoLookup(channelFor(self), MI, varname)
+            }
+        }
+    }
+}
+
+
+rule SetMessageSet(MI, varname, msgs) = SetVar(MI, varname, "MessageSet", msgs)
+
+// FIXME: unused?
+rule AddChannels(MI, varname, newChannels) = AddChannelsForChannel(channelFor(self), MI, varname, newChannels)
+
+// FIXME: unused?
+rule AddChannelsForChannel(ch, MI, varname, newChannels) = {
+    let v = loadVarForChannel(ch, MI, varname) in {
+        if (v = undef) then {
+            SetVarForChannel(ch, MI, varname, "ChannelInformation", newChannels)
+        }
+        else if (head(v) = "ChannelInformation") then {
+            let newValue = last(v) union newChannels in
+            {
+                SetVarForChannel(ch, MI, varname, "ChannelInformation", newValue)
+            }
+        }
+        else {
+            debuginfo AddChannelsForChannel self + ": can not store '" + newChannels + "' in variable '" + varname + "' as its vartype is '" + head(v) + "' and not 'ChannelInformation'!"
+            Crash()
+        }
+    }
+}
+
+derived extractChannelsFromMessages(msgs) = map(msgs, @head) // reduces messages to their senders
+
+derived filterChannel(ch, processID, subjectID) = ((processID = "?" or processIDOf(ch) = processID) and (subjectID = "?" or subjectIDOf(ch) = subjectID))
+
+derived filterChannelNot(ch, processID, subjectID) = not(filterChannel(ch, processID, subjectID))
+
+
+derived loadChannelsFromSet(set, processID, subjectID) = return setres in {
+    setres := filterSet2(set, @filterChannel, processID, subjectID)
+}
+
+derived removeChannelsFromSet(set, processID, subjectID) = return setres in {
+    setres := filterSet2(set, @filterChannelNot, processID, subjectID)
+}
+
+derived loadChannelsFromVariable(MI, varname, subjectIDLocal) = return setres in {
+    debuginfo loadChannelsFromVariable self + ": (" + MI + ", " + varname + ", " + subjectIDLocal + ")"
+
+    let v        = loadVar(MI, varname),
+        resolvedInterface = resolveInterfaceSubject(subjectIDLocal) in
+    let resolvedProcessID = nth(resolvedInterface, 1),
+        resolvedSubjectID = nth(resolvedInterface, 2) in
+    {
+        debuginfo loadChannelsFromVariable self + ": [" + resolvedProcessID + ", " + resolvedSubjectID + "] in " + v
+
+        if (v = undef) then {
+            debuginfo loadChannelsFromVariable self + ": variable is undef"
+            Crash()
+        }
+        else if (head(v) = "ChannelInformation") then {
+            // "?" is wildcard
+            setres := loadChannelsFromSet(last(v), resolvedProcessID, resolvedSubjectID)
+        }
+        else if (head(v) = "MessageSet") then {
+            // "?" is wildcard
+            setres := loadChannelsFromSet(extractChannelsFromMessages(last(v)), resolvedProcessID, resolvedSubjectID)
+        }
+        else {
+            debuginfo loadChannelsFromVariable self + ": UNEXPECTED VARTYPE: " + head(v)
+            Crash()
+        }
+    }
+}
+
+// [resolvedProcessID, resolvedSubjectID]
+derived resolveInterfaceSubject(localSubjectID) = return listres in
+{
+    if (localSubjectID = "*") then {
+        // TODO: should have been caught before?..
+        debuginfo resolveInterfaceSubject self + ": wildcard for localSubjectID is '?' and not '*'"
+        Crash()
+    }
+    else if (localSubjectID = undef or localSubjectID = "?") then {
+        listres := ["?", "?"]
+    }
+    else {
+        let processID = processIDFor(self) in
+        let interface = subjectInterface(processID, localSubjectID) in
+        {
+            if (interface != undef and interface != false) then {
+                listres := [nth(interface, 1), nth(interface, 2)]
+            }
+            else {
+                listres := [processID, localSubjectID]
+            }
+        }
+    }
+}
+
+
+
+
+
+derived searchInterfaceSubject(processID, subjectID, externalProcessID) = return stringres in
+local booles in seqblock
+    stringres := undef
+    boolres := true
+
+    foreach s in keySet(processSubjects(externalProcessID)) with (boolres and subjectInterface(externalProcessID, s) != false) do {
+        let interface = subjectInterface(externalProcessID, s) in {
+            if ((nth(interface, 1) = "?" or nth(interface, 1) = processID) and (nth(interface, 2) = "?" or nth(interface, 2) = subjectID) ) then {
+                stringres := s
+                boolres := false
+            }
+        }
+    }
+endseqblock
+
+derived searchSenderSubjectID(processID, subjectID, receiverProcessID) = return stringres in {
+    debuginfo searchSenderSubjectID self + ": ("+processID+", "+subjectID+", "+receiverProcessID+")"
+
+    if (processID = receiverProcessID) then {
+        debuginfo searchSenderSubjectID self + ": local receiver"
+        stringres := subjectID
+    }
+    else {
+        debuginfo searchSenderSubjectID self + ": external receiver in process: " + receiverProcessID
+        stringres := searchInterfaceSubject(processID, subjectID, receiverProcessID)
+    }
+}
+
+
+
+
+
+
+// ==============================================
+
+// end of basic definitions
+
+// ==============================================
+
+
+
+// senderChannel, messageType(processID, transitionNumber), messageContent(n), correlationId(processID, transitionNumber)
+derived msgToString(msg) = "'" + nth(msg, 3) + "' from '" + nth(msg, 1) + "' with messageType '" + nth(msg, 2) + "' and correlationId of '" + nth(msg, 4) + "'"
+
+derived msgChannel(msg)     = nth(msg, 1)
+derived msgType(msg)        = nth(msg, 2)
+derived msgContent(msg)     = nth(msg, 3)
+derived msgCorrelation(msg) = nth(msg, 4)
+
+
+
+// receiverChannel * senderSubjID * messageType * correlationID -> [msg1, msg2, ...]
+function inputPool : LIST * STRING * STRING * NUMBER -> LIST
+
+/* store all locations where an inputPool was defined for to allow IPEmpty and receiving from "?" */
+// receiverChannel -> {[senderSubjID, messageType, correlationID], ..}
+function inputPoolDefined : LIST -> SET
+
+// ---- start IP helpers
+
+derived inputPool_Filter_IsReservation(msg)   = (nth(msg, 5) = true)
+derived inputPool_Filter_IsNoReservation(msg) = (nth(msg, 5) != true)
+
+derived inputPoolWithoutReservations(rCh, sID, mT, cID) = return listres in {
+    let IP = inputPool(rCh, sID, mT, cID) in {
+        if (IP = undef) then {
+            listres := undef
+        }
+        else {
+            listres := filter(inputPool(rCh, sID, mT, cID), @inputPool_Filter_IsNoReservation)
+        }
+    }
+}
+
+// receiverChannel * senderSubjID * messageType * correlationID
+function inputPoolClosed : LIST * STRING * STRING * NUMBER -> BOOLEAN
+
+derived inputPoolIsClosed(receiverChannel, senderSubjID, messageType, correlationID) = return boolres in {
+    let isClosed = inputPoolClosed(receiverChannel, senderSubjID, messageType, correlationID) in {
+        if (isClosed = undef) then {
+            boolres := inputPoolClosed(receiverChannel, undef, undef, undef) // default: global state
+        }
+        else {
+            boolres := isClosed
+        }
+    }
+}
+
+// senderSubjID, senderChannels, messageType and correlationID can be undef for wildcard match
+derived inputPoolIsEmpty(receiverChannel, senderSubjID, messageType, correlationID) = return boolres in {
+    debuginfo inputPoolIsEmpty self + ": (" + receiverChannel + ", " + undefStr(senderSubjID) + ", " + undefStr(messageType) + ", " + undefStr(correlationID) + ") [undef is wildcard]"
+    // with reservations and with multiple channels
+    let usedSpace = inputPoolUsedSpace(receiverChannel, senderSubjID, undef, messageType, correlationID, false, false) in {
+        debuginfo inputPoolIsEmpty self + ": usedSpace: " + usedSpace
+        if (usedSpace > 0) then {
+            boolres := false
+        }
+        else {
+            boolres := true
+        }
+    }
+}
+
+
+// NOTE: the CorrelationID is no longer considered as that would lead to an possibly unlimited state space
+derived inputPoolGetFreeSpace(ch, s, mt) = return numres in {
+    let size = inputPoolSize(processIDOf(ch), subjectIDOf(ch)) in {
+        debuginfo inputPoolGetFreeSpace self + ": size: " + size
+        if (size = -1) then {
+            numres := 1 // a infinite large IP has always space for a message
+        }
+        else {
+            // use undef as wildcard
+            // with reservations and with multiple channels
+            let usedSpace = inputPoolUsedSpace(ch, s, undef, mt, undef, false, false) in {
+                debuginfo inputPoolGetFreeSpace self + ": usedSpace: " + usedSpace
+                numres := size - usedSpace
+            }
+        }
+    }
+}
+
+
+// senderSubjID, messageType and correlationID can be undef for wildcard match
+derived inputPoolUsedSpace(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels) = | inputPoolMessages(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels) |
+
+
+// senderSubjID, senderChannels, messageType and correlationID can be undef for wildcard match
+derived inputPoolMessages(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels) = return listres in {
+    /*
+    If wildcards are used the order of the messages is non-deterministic!
+
+    (otherwise there is only one key in the map)
+    */
+
+    debuginfo inputPoolMessages self + ": (" + receiverChannel + ", " + undefStr(senderSubjID) + ", " + undefStr(senderChannels) + ", " + undefStr(messageType) + ", " + undefStr(correlationID) + ") [undef is wildcard]"
+
+    // unlimited TODO: really??
+    let m = inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels, 0) in seqblock
+        listres := mapOfListsToList(m)
+    endseqblock
+}
+
+
+
+// senderSubjID, messageType and correlationID can be undef for wildcard match
+derived inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels, limit) = return mapres in {
+
+    debuginfo inputPoolMessagesNested self + ": (" + receiverChannel + ", " + undefStr(senderSubjID) + ", " + undefStr(senderChannels) + ", " + undefStr(messageType) + ", " + undefStr(correlationID) + ", " + noReservations + ", " + supressMultipleChannels + ", " + limit + ") [undef is wildcard]"
+
+    let definedIPs = filterSet3(inputPoolDefined(receiverChannel), @eqOrUndef3, senderSubjID, messageType, correlationID) in {
+
+        debuginfo inputPoolMessagesNested self + ": defined matching IPs: " + definedIPs
+
+        if (|definedIPs| = 0) then {
+            debuginfo inputPoolMessagesNested self + ": no matching IP defined => messages = {->}"
+            mapres := {->}
+        }
+        else {
+            local numres := 0,  // already counted messages
+                  setres := {}, // used sender channels
+                  listres1,     // available messages
+                  listres2,     // messages filtered without duplicate sender channels
+                  listres3,     // messages filtered for specific sender channels
+                  listres4 in   // messages with respect to limit
+            seqblock
+                mapres := {->}
+
+                foreach key in definedIPs do {
+
+
+                    let sID = nth(key, 1),
+                        mT  = nth(key, 2),
+                        cID = nth(key, 3) in
+                    seqblock
+                        debuginfo inputPoolMessagesNested self + ": storing messages of inputPool("+receiverChannel+", "+sID+", "+mT+", "+cID+"): " + inputPool(receiverChannel, sID, mT, cID)
+
+                        if (noReservations) then {
+                            listres1 := inputPoolWithoutReservations(receiverChannel, sID, mT, cID)
+                        }
+                        else {
+                            listres1 := inputPool(receiverChannel, sID, mT, cID)
+                        }
+
+                        listres2 := []
+
+                        if (supressMultipleChannels) then {
+                            // consider only one message per sender
+                            foreach msg in listres1 do {
+                                let senderChannel = msgChannel(msg) in {
+                                    if (not contains(setres, senderChannel)) then {
+                                        add senderChannel to setres
+                                        add msg to listres2
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            listres2 := listres1
+                        }
+
+
+                        listres3 := []
+
+                        if (senderChannels = undef) then {
+                            listres3 := listres2
+                        }
+                        else {
+                            // include only messages from subjects in senderChannels
+                            foreach msg in listres2 do {
+                                let senderChannel = msgChannel(msg) in {
+                                    if (contains(senderChannels, senderChannel)) then {
+                                        add msg to listres3
+                                    }
+                                }
+                            }
+                        }
+
+
+                        if (limit = 0) then {
+                            listres4 := listres3
+                        }
+                        else {
+                            if (numres < limit) then {
+                                let toTake = min((limit - numres), |listres3|) in {
+                                    listres4 := take(listres3, toTake)
+                                    numres := numres + toTake
+                                }
+                            }
+                            else {
+                                listres4 := []
+                            }
+
+                        }
+
+                        add {key -> listres4} to mapres
+
+                        debuginfo inputPoolMessagesNested self + ": current messages are: " + mapres
+                    endseqblock
+                }
+            endseqblock
+        }
+    }
+}
+
+// called from ui
+derived getIPMessages(receiverChannel, MI, stateNumber, transitionNumber) = return listres in {
+    let processID = processIDOf(receiverChannel) in
+    let countMax  = messageSubjectCountMax(processID, transitionNumber) in
+    local   stringres1 := messageSubjectId(processID, transitionNumber),
+            stringres2 := messageType(processID, transitionNumber),
+            stringres3 := messageWithCorrelationVar(processID, transitionNumber),
+            numres1    := loadCorrelationIDForChannel(receiverChannel, MI, messageWithCorrelationVar(processID, transitionNumber)) in
+    seqblock
+
+        if (stringres1 = "?") then {
+            stringres1 := undef
+        }
+
+        if (stringres2 = "?") then {
+            stringres2 := undef
+        }
+
+        if (stringres3 = "?") then {
+            numres1 := undef
+        }
+        else {
+            numres1 := loadCorrelationIDForChannel(receiverChannel, MI, stringres3)
+        }
+
+        // all senderChannels, no reservations, supress multiple channels
+        let m = inputPoolMessagesNested(receiverChannel, stringres1, undef, stringres2, numres1, true, true, countMax) in
+        seqblock
+            debuginfo getIPMessages self + ": m: " + m
+
+            listres := mapOfListsToList(m)
+        endseqblock
+
+        listres := map(listres, @msgToString)
+    endseqblock
+}
+
+// Channel * MacroInstanceNumber * StateNumber -> Set[Messages]
+function receivedMessages : LIST * NUMBER * NUMBER -> SET
+
+// Channel * MacroInstanceNumber * StateNumber -> Set[Channel]
+function receivers : LIST * NUMBER * NUMBER -> SET
+
+// Channel * MacroInstanceNumber * StateNumber
+function messageContent               : LIST * NUMBER * NUMBER -> LIST
+function messageCorrelationID         : LIST * NUMBER * NUMBER -> NUMBER
+function messageReceiverCorrelationID : LIST * NUMBER * NUMBER -> NUMBER
+
+// Channel * MacroInstanceNumber * StateNumber -> Set[Channel]
+function reservationsDone : LIST * NUMBER * NUMBER -> SET
+
+// in a distributed environment CorrelationIDs must be unique (e.g. UUID), but for a simulation it is sufficient to just count
+function nextCorrelationID : -> NUMBER
+function nextCorrelationIDUsedBy : NUMBER -> Agents
+
+// undef is wildcard
+rule InputPool_Pop(MI, currentStateNumber, s, sChs, mt, c, countMin, countMax) = {
+    debuginfo InputPool_Pop self + ": InputPool_Pop("+MI+", "+currentStateNumber+", "+undefStr(s)+", "+undefStr(sChs)+", "+undefStr(mt)+", "+undefStr(c)+", "+countMin + ", "+countMax + ")"
+
+    let m = inputPoolMessagesNested(channelFor(self), s, sChs, mt, c, true, true, countMax) in // no reservations, suppress multiple channels
+    seqblock
+        debuginfo InputPool_Pop self + ": m: " + m
+
+        receivedMessages(channelFor(self), MI, currentStateNumber) := mapOfListsToSet(m)
+
+        foreach key in keySet(m) do {
+            let msgs = m(key) in {
+                RemoveMessagesFromIP(key, msgs)
+            }
+        }
+
+        if (countMin = 0) then {
+            if (|receivedMessages(channelFor(self), MI, currentStateNumber)| != |sChs|) then {
+                debuginfo InputPool_Pop self + ": weird internal error: |receivedMessages| != |sChs|"
+                Crash()
+            }
+        }
+        else if (|receivedMessages(channelFor(self), MI, currentStateNumber)| < countMin) then {
+            debuginfo InputPool_Pop self + ": weird internal error: |receivedMessages| < countMin"
+            Crash()
+        }
+        else if (countMax != 0 and |receivedMessages(channelFor(self), MI, currentStateNumber)| > countMax) then {
+            debuginfo InputPool_Pop self + ": weird internal error: |receivedMessages| > countMax"
+            Crash()
+        }
+    endseqblock
+}
+
+rule RemoveMessagesFromIP(key, msgs) = {
+    debuginfo RemoveMessagesFromIP self + ": key: " + key
+    debuginfo RemoveMessagesFromIP self + ": messages: " + msgs
+
+    let sID = nth(key, 1),
+        mT  = nth(key, 2),
+        cID = nth(key, 3) in {
+        foreach msg in msgs do {
+            remove msg from inputPool(channelFor(self), sID, mT, cID)
+        }
+    }
+}
+
+
+// --- end IP helper
+
+
+
+
+// Channel * macroInstanceNumber -> result
+function macroTerminationResult : LIST * NUMBER -> ELEMENT
+
+// Channel * macroInstanceNumber -> MacroNumber
+function macroNumberOfMI : LIST * NUMBER -> NUMBER
+
+// Channel * macroInstanceNumber * StateNumber -> MacroInstance
+function callMacroChildInstance : LIST * NUMBER * NUMBER -> NUMBER
+
+// ProcessID -> Set[MacroNumber]
+function processScopedMacroNumbers : STRING -> SET
+
+derived searchMacro(name) = return numres in {
+    let processID = processIDFor(self),
+        subjectID = subjectIDFor(self) in
+    let macros    = subjectMacros(processID, subjectID) in {
+        choose mID in macros with macroID(processID, mID) = name do {
+            numres := mID
+        }
+        ifnone {
+            choose mID in processScopedMacroNumbers(processID) with macroID(processID, mID) = name do {
+                numres := mID
+            }
+            ifnone {
+                debuginfo searchMacro self + ": not found: '" + name + "'"
+                Crash()
+            }
+            endchoose
+        }
+        endchoose
+    }
+}
+
+
+// called from PerformEnd (iff other states are active / ignoreState will be the end state) and AbortCallMacro (ignoreState will be undef)
+rule AbortMacroInstance(MIAbort, ignoreState) = {
+    debuginfo AbortMacroInstance self + ": MIAbort: " + MIAbort
+
+    foreach currentState in activeStates(channelFor(self), MIAbort) do {
+        if (currentState = ignoreState) then { // avoid cancelling the state that called this rule..
+            debuginfo AbortMacroInstance self + ": " + activeStatePretty(currentState, MIAbort) + " is active, but ignored"
+        }
+        else {
+            debuginfo AbortMacroInstance self + ": " + activeStatePretty(currentState, MIAbort) + " is active, adding to killStates"
+
+            add [MIAbort, currentState] to killStates(channelFor(self))
+        }
+    }
+
+    ClearAllVarInMIForChannel(channelFor(self), MIAbort)
+}
+
+
+// ====
+
+
+derived isStartSubject(processID, subjectID) = contains(processStartSubjectIDs(processID), subjectID)
+
+rule GenerateUniqueProcessInstanceID = {
+    nextPIUsedBy(nextPI) := self // ensure no other agent increments nextPI
+    nextPI := nextPI + 1
+    result := nextPI
+}
+
+function PI : -> NUMBER
+
+rule SelectAgentAndStartSubject(processID, PI, sID) = {
+    add {"task" -> "StartSubject",
+         "processID" -> processID,
+         "PI" -> PI,
+         "subjectID" -> sID} to taskSetOut
+}
+
+rule StartProcess(processID, additionalInitializationSubject, additionalInitializationAgent) = {
+    local PI in
+      seq
+        PI <- GenerateUniqueProcessInstanceID()
+      next {
+        debuginfo StartProcess self + ": processID: " + processID
+        debuginfo StartProcess self + ": PI: " + PI
+        debuginfo StartProcess self + ": additionalInitializationSubject: " + undefStr(additionalInitializationSubject)
+        debuginfo StartProcess self + ": additionalInitializationAgent: " + undefStr(additionalInitializationAgent)
+
+        if (contains(pALL, processID)) then seqblock
+            result := PI
+
+            foreach sID in keySet(processSubjects(processID)) do {
+                if (sID = additionalInitializationSubject) then {
+                    let ch = [processID, PI, sID, additionalInitializationAgent] in {
+                        InitializeSubject(ch)
+                    }
+                }
+                else {
+                    if (isStartSubject(processID, sID) = true) then {
+                        let agentSet = safeSet(predefinedAgents(processID, sID)) in
+                        if (|agentSet| = 1) then {
+                            let agentName = firstFromSet(agentSet) in
+                            let ch = [processID, PI, sID, agentName] in seqblock
+                                InitializeSubject(ch)
+                                StartSubject(ch)
+                            endseqblock
+                        }
+                        else {
+                            // TODO: wenn additionalInitializationSubject vorhanden erst aufrufen wenn das entsprechende Subjekt gestartet wird (also erst nach Austausch der Nachricht, nicht beim Platzieren der Reservierung)
+                            SelectAgentAndStartSubject(processID, PI, sID)
+                        }
+                    }
+                    else {
+                        debuginfo StartProcess self + ": nothing to do for Subject '" + sID + "'"
+                    }
+                }
+            }
+        endseqblock
+        else {
+            debuginfo StartProcess self + ": WARN: Process '" + processID + "' is unknown!"
+        }
+    }
+}
+
+// NOTE: only for hard termination, may have unwanted side effects, as the subject termination isn't done properly
+rule StopProcess(PI) = {
+    debuginfo StopProcess self + ": stopping " + PI + ".."
+
+    // TODO: update taskSetOut, remove StartSubject tasks for this PI
+    // TODO: call PerformEnd -> Cancel everything (i.e. remove reservation messages) and set properTerminated
+
+    forall a in asmAgents with processInstanceFor(a) = PI do {
+        remove a from asmAgents
+        program(a) := undef
+    }
+}
+
+
+rule DebugIP = {
+    debuginfo DebugIP self + ": " + getDebugIP(channelFor(self))
+}
+
+derived getDebugIP(ch) = return stringres in seqblock
+    stringres := "inputPoolDefined: " + inputPoolDefined(ch) + "\n"
+
+    local stringres1 in // open / close
+    foreach x in inputPoolDefined(ch) do {
+        let s = nth(x, 1),
+            t = nth(x, 2),
+            c = nth(x, 3) in
+        let IP = inputPool(ch, s, t, c),
+            isClosed = inputPoolIsClosed(ch, s, t, c) in {
+            seq
+                if (isClosed != true) then {
+                    stringres1 := "(Open)"
+                }
+                else {
+                    stringres1 := "(Closed)"
+                }
+            next
+                stringres := stringres + "IP(" + ch + ", '" + s + "', '" + t + "', " + c + ") " + stringres1 + ": " + IP + "\n"
+        }
+    }
+endseqblock
+
+rule DebugVariables = {
+    debuginfo DebugVariables self + ": " + getDebugVariables(channelFor(self))
+}
+
+derived getDebugVariables(ch) = return stringres in seqblock
+    stringres := "variableDefined: " + variableDefined(ch) + "\n"
+
+    foreach x in variableDefined(ch) do {
+        let MI      = nth(x, 1),
+            varname = nth(x, 2) in
+        let v       = variable(ch, MI, varname) in {
+            stringres := stringres + "variable(" + MI + ", '" + varname + "'): " + undefStr(v) + "\n"
+        }
+    }
+endseqblock
+
+derived running(ch) = exists a in asmAgents with channelFor(a) = ch
+
+rule EnsureRunning(ch) = {
+    debuginfo EnsureRunning self + ": ch = " + ch
+    if (running(ch) != true) then {
+        debuginfo EnsureRunning self + ": not running..."
+        StartSubject(ch)
+    }
+}
+
+rule StartASMAgent(ch) = {
+    extend Agents with a do seqblock
+        debuginfo StartASMAgent self + ": " + ch
+
+        channelFor(a) := ch
+
+        add a to asmAgents
+
+        program(a) := @StartMainMacro
+    endseqblock
+}
+
+rule PrepareReceptionOfMessages(ch) = {
+    // might be called multiple times, esp. from SelectAgents
+    if (properTerminated(ch) = undef) then {
+        properTerminated(ch) := true
+
+        inputPoolDefined(ch) := {}
+        inputPoolClosed(ch, undef, undef, undef) := false
+    }
+}
+
+rule FinalizeInteraction = {
+    let proper = inputPoolIsEmpty(channelFor(self), undef, undef, undef) in {
+        debuginfo FinalizeInteraction self + ": properTerminated: " + proper
+        properTerminated(channelFor(self)) := proper
+    }
+
+    // FIXME: zurücksetzen der IPs?! <- 2019-05-09: wenn proper nicht notwendig. Wenn non-proper belassen, damit entsprechende Fehlermeldung gezeigt werden kann
+}
+
+rule InitializeSubject(ch) = {
+    add agentOf(ch) to aALL // only used for UI for suggestions
+
+    PrepareReceptionOfMessages(ch)
+}
+
+rule StartSubject(ch) = {
+    if (running(ch) = true) then {
+        debuginfo StartSubject self + ": cannot start, Subject is already running"
+        Crash()
+    }
+    else if (properTerminated(ch) = false) then {
+        // NOTE: should never happen, as startsubjects are proper terminated and PerformSend checks `anyNonProperTerminated`
+        debuginfo StartSubject self + ": cannot start, Subject is not properTerminated"
+        Crash()
+    }
+    else if (properTerminated(ch) = true) then {
+        StartASMAgent(ch)
+    }
+    else {
+        debuginfo StartSubject self + ": cannot start, Subject is not prepared to receive messages!"
+        Crash()
+    }
+}
+
+
+rule StartMainMacro = {
+    let ch = channelFor(self) in {
+        killStates(ch) := []
+
+        variableDefined(ch) := {[0, "$self"], [0, "$empty"]}
+        variable(ch, 0, "$self") := ["ChannelInformation", {ch}]
+        variable(ch, 0, "$empty") := ["Text", ""]
+    }
+
+    let mID  = subjectMainMacro(processIDFor(self), subjectIDFor(self)) in
+    let startState = macroStartState(processIDFor(self), mID) in
+    let MI   = 1 in // 0 reserved for top-level variable manipulation; 1 mainmacro
+    {
+        macroNumberOfMI(channelFor(self), MI) := mID
+
+        nextMacroInstanceNumber(channelFor(self)) := MI  + 1
+
+        activeStates(channelFor(self), MI) := [startState]
+    }
+
+    program(self) := @ExecuteSubject
+}
+
+rule StartMacro(MI, currentStateNumber, mIDNew, MINew) = {
+    debuginfo StartMacro self + ": ("+MI+", " + mIDNew + ", " + MINew + ")"
+
+    let processID = processIDFor(self) in
+    let startState = macroStartState(processID, mIDNew) in
+    {
+        if (activeStates(channelFor(self), MINew) != undef) then {
+            debuginfo StartMacro self + ": MI already initialized: " + MINew
+            Crash()
+        }
+
+        activeStates(channelFor(self), MINew) := []
+        AddState(MI, currentStateNumber, MINew, startState)
+    }
+}
+
+
+
+
+/*
+0 - REPEAT
+  -* Behavior should be executed again for this state
+  -* results of previous execution will be merged with following execution in one global ASM step
+  -* no other states are allowed to be executed
+1 - DONE
+  -* no other active states are allowed to be executed
+  -* new states are started
+  -* global ASM / LTS step should be done
+2 - NEXT
+  -* nothing changed / waiting for input
+  -* other active states with the same priority can be executed
+  -* active states with lower priority can not be executed
+3 - LOWER
+  -* nothing changed / waiting for input
+  -* other active states, even with lower priority, can be executed
+*/
+
+// ch * MacroInstanceNumber * stateNumber => Int
+function executionState : LIST * NUMBER * NUMBER -> NUMBER
+
+
+/*
+1 - DONE
+2 - NEXT
+3 - LOWER
+*/
+// ch * MacroInstanceNumber => Int
+function macroExecutionState : LIST * NUMBER -> NUMBER
+
+// ch * MacroInstanceNumber * stateNumber => List[(MI, s)]
+function addStates : LIST * NUMBER * NUMBER -> LIST
+
+// ch * MacroInstanceNumber * stateNumber => List[(MI, s)]
+function removeStates : LIST * NUMBER * NUMBER -> LIST
+
+rule SetExecutionState(MI, currentStateNumber, exState) = {
+    debuginfo SetExecutionState self + ": ("+MI+", "+currentStateNumber+", "+exState+")"
+    if (executionState(channelFor(self), MI, currentStateNumber) = undef) then {
+        executionState(channelFor(self), MI, currentStateNumber) := exState
+    }
+    else {
+        debuginfo SetExecutionState self + ": executionState already set! It is: " + executionState(channelFor(self), MI, currentStateNumber)
+        Crash()
+        executionState(channelFor(self), MI, currentStateNumber) := exState
+    }
+}
+
+/*
+TODO: AddState is only called from three places and it could be refactored to remove the `MINew` parameter:
+
+- Proceed -> same MI
+- ModalSplit -> same MI
+- CallMacro -> other MI, but startState it not initialized -> doesn't need to go through MacroBehavior loop in current MI
+
+(it also might be possible to remove the `n` parameter)
+*/
+
+rule AddState(MI, currentStateNumber, MINew, sNew) = seqblock
+    debuginfo AddState self + ": [" + MINew + ", " + sNew + "] " + statePretty(MINew, sNew)
+
+    add [MINew, sNew] to addStates(channelFor(self), MI, currentStateNumber)
+endseqblock
+
+rule RemoveState(MI, currentStateNumber, MIOld, sOld) = {
+    debuginfo RemoveState self + ": [" + MIOld + ", " + sOld + "] " + statePretty(MIOld, sOld)
+
+    add [MIOld, sOld] to removeStates(channelFor(self), MI, currentStateNumber)
+}
+
+derived getAnyStateWithHighestPrio(processID, states) = return numres in {
+    choose x in states with not(exists y in states with statePriority(processID, y) > statePriority(processID, x)) do {
+        numres := x
+    }
+}
+
+
+
+
+rule ExecuteSubject = {
+    seqblock
+        debuginfo nl "\n\n\n"
+        //print "========================================================"
+        //print "========================================================"
+        //print "SubjectBehavior execute subject " + MySubjectID + " with agent " + self
+        debuginfo ExecuteSubject self + ": channel = " + channelFor(self)
+
+        DebugIP()
+        DebugVariables()
+
+        //print "--------------------------------------------------------"
+        SubjectBehavior()
+    endseqblock
+}
+
+rule SubjectBehavior = {
+    debuginfo SubjectBehavior self + ": killStates: " + killStates(channelFor(self))
+
+    choose x in killStates(channelFor(self)) do {
+        debuginfo SubjectBehavior self + ": execute KillBehavior for " + x
+
+        KillBehavior(nth(x, 1), nth(x, 2))
+    }
+    ifnone seqblock
+        debuginfo SubjectBehavior self + ": execute MacroBehavior for MainMacro"
+        MacroBehavior(1)
+        debuginfo SubjectBehavior self + ": SubjectBehavior done"
+        debuginfo SubjectBehavior self + ": macroExecutionState MacroBehavior for MainMacro: " + macroExecutionState(channelFor(self), 1)
+
+        // reset
+        macroExecutionState(channelFor(self), 1) := undef
+    endseqblock
+}
+
+rule KillBehavior(MI, currentStateNumber) = {
+    if (initializedState(channelFor(self), MI, currentStateNumber) != true) then {
+        debuginfo KillBehavior self + ": state " + statePretty(MI, currentStateNumber) + " is not initialized, removing without further abortion"
+
+        remove [MI, currentStateNumber] from killStates(channelFor(self))
+        remove currentStateNumber from activeStates(channelFor(self), MI)
+    }
+    else if (abortionCompleted(channelFor(self), MI, currentStateNumber) = true) then {
+        debuginfo KillBehavior self + ": abortionCompleted, removing " + statePretty(MI, currentStateNumber)
+
+        ResetState(MI, currentStateNumber)
+        remove [MI, currentStateNumber] from killStates(channelFor(self))
+        remove currentStateNumber from activeStates(channelFor(self), MI)
+    }
+    else seqblock
+        executionState(channelFor(self), MI, currentStateNumber) := undef
+        addStates(channelFor(self), MI, currentStateNumber)       := []
+        removeStates(channelFor(self), MI, currentStateNumber)    := []
+
+        debuginfo KillBehavior self + ": execute Abort for " + statePretty(MI, currentStateNumber)
+
+        Abort(MI, currentStateNumber)
+
+        // NOTE: no new state must be added. Also, removeStates should be empty, as those states should be added to killStates
+
+        if (executionState(channelFor(self), MI, currentStateNumber) != 1) then {
+            debuginfo KillBehavior self + ": expected executionState to be DONE, but it is: " + executionState(channelFor(self), MI, currentStateNumber)
+            Crash()
+        }
+        if (|addStates(channelFor(self), MI, currentStateNumber)| > 0) then {
+            debuginfo KillBehavior self + ": expected addStates to be empty, but it is: " + addStates(channelFor(self), MI, currentStateNumber)
+            Crash()
+        }
+        if (|removeStates(channelFor(self), MI, currentStateNumber)| > 0) then {
+            debuginfo KillBehavior self + ": expected removeStates to be empty, but it is: " + removeStates(channelFor(self), MI, currentStateNumber)
+            Crash()
+        }
+    endseqblock
+}
+
+rule MacroBehavior(MI) = {
+    debuginfo MacroBehavior self + ": -"
+    debuginfo MacroBehavior self + ": -"
+    debuginfo MacroBehavior self + ": -"
+    debuginfo MacroBehavior self + ": -"
+    debuginfo MacroBehavior self + ": MI: " + MI
+    debuginfo MacroBehavior self + ": nanoTime: " + nanoTime
+    debuginfo MacroBehavior self + ": " + channelFor(self)
+    debuginfo MacroBehavior self + ": activeStates: " + activeStatesPretty(MI, activeStates(channelFor(self), MI))
+
+    let processID = processIDFor(self) in
+    local listres := activeStates(channelFor(self), MI) in seqblock // remaining states
+
+        if (|listres| = 0) then {
+            debuginfo MacroBehavior self + ": activeStates must not be empty!"
+            Crash()
+        }
+
+        macroExecutionState(channelFor(self), MI) := undef
+
+        // can not be done with foreach as listres is modified depending on the executionState and the priorities of the other states
+        while (|listres| > 0) do
+        let stateNumber = getAnyStateWithHighestPrio(processID, listres) in {
+            seqblock
+                executionState(channelFor(self), MI, stateNumber) := undef
+                addStates(channelFor(self), MI, stateNumber)      := []
+                removeStates(channelFor(self), MI, stateNumber)   := []
+
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": channelFor(self): " + channelFor(self)
+                debuginfo MacroBehavior self + ": chosen state: " + statePretty(MI, stateNumber)
+
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": execute Behavior"
+
+                Behavior(MI, stateNumber)
+
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": -"
+                debuginfo MacroBehavior self + ": executionState: " + undefStr(executionState(channelFor(self), MI, stateNumber))
+                debuginfo MacroBehavior self + ": addStates: " + addStates(channelFor(self), MI, stateNumber)
+                debuginfo MacroBehavior self + ": removeStates: " + removeStates(channelFor(self), MI, stateNumber)
+
+
+                debuginfo MacroBehavior self + ": listres_pre_executionState: " + listres
+
+                // WARNING: mutates listres!
+                let state = executionState(channelFor(self), MI, stateNumber) in
+                    UpdateRemainingStates(MI, stateNumber, state, listres)
+
+
+                debuginfo MacroBehavior self + ": activeStates("+MI+")_pre: " + activeStates(channelFor(self), MI)
+
+
+                UpdateActiveStates(MI, stateNumber)
+
+
+                debuginfo MacroBehavior self + ": activeStates("+MI+")_post: " + activeStates(channelFor(self), MI)
+                debuginfo MacroBehavior self + ": listres_post_executionState: " + listres
+
+            endseqblock
+        }
+
+        if (macroExecutionState(channelFor(self), MI) = undef) then {
+            debuginfo MacroBehavior self + ": macroExecutionState is undef!"
+            Crash()
+        }
+
+        debuginfo MacroBehavior self + ": loop ended (listres is empty)"
+    endseqblock
+}
+
+
+// WARNING: mutates listres!
+rule UpdateRemainingStates(MI, stateNumber, exState, remainingStates) = {
+    debuginfo MacroBehavior self + ": execution state after Behavior: " + undefStr(exState)
+
+    if (exState = 0) then { // REPEAT
+        debuginfo MacroBehavior self + ": REPEAT, repeat state (no other states allowed, implicit DONE afterwards)"
+
+        if (|addStates(channelFor(self), MI, stateNumber)| > 0 or |removeStates(channelFor(self), MI, stateNumber)| > 0 ) then {
+            debuginfo MacroBehavior self + ": REPEAT -> addStates and removeStates must be empty! (use DONE to add / remove states)"
+            Crash()
+        }
+
+        remainingStates := [stateNumber]
+
+        macroExecutionState(channelFor(self), MI) := 1 // DONE - something changed and nothing else should happen
+
+        // quasi-reset
+        // 2019-02-13: why? will happen in next loop iteration anyway
+        executionState(channelFor(self), MI, stateNumber) := undef
+    }
+    else if (exState = 1) then { // DONE
+        debuginfo MacroBehavior self + ": DONE, global update -> repeat complete SubjectBehavior after starting new states"
+
+        seq
+            // end loop ...
+            remainingStates := []
+        next
+            // ... but add new states of this MI to initialize them,
+            // so that all states have the same start time
+            // TODO: theoretically it should be possible to initialize states from a different MI as well. Why not?
+            foreach x in addStates(channelFor(self), MI, stateNumber)
+              with nth(x, 1) = MI do {
+                add nth(x, 2) to remainingStates
+            }
+
+        macroExecutionState(channelFor(self), MI) := 1 // DONE - something changed and nothing else should happen
+
+        // quasi-reset
+        // 2019-02-13: why? I guess for UI?
+        executionState(channelFor(self), MI, stateNumber) := 2
+    }
+    else if (exState = 2) then { // NEXT
+        seqblock
+            debuginfo MacroBehavior self + ": NEXT, continue to next states with same priority"
+
+            if (|addStates(channelFor(self), MI, stateNumber)| > 0 or |removeStates(channelFor(self), MI, stateNumber)| > 0 ) then {
+                debuginfo MacroBehavior self + ": NEXT -> addStates and removeStates must be empty! (use DONE to add / remove states)"
+                Crash()
+            }
+
+            remove stateNumber from remainingStates // remove self
+
+            debuginfo MacroBehavior self + ": remainingStates_post_remove_self: " + remainingStates
+
+            remainingStates := filterStatesWithSamePrio(processIDFor(self), remainingStates, statePriority(processIDFor(self), stateNumber)) // reduce to states with same priority
+
+            debuginfo MacroBehavior self + ": remainingStates_post_filterListOfListEqN: " + remainingStates
+
+            if (macroExecutionState(channelFor(self), MI) != 1) then {
+                macroExecutionState(channelFor(self), MI) := 2 // NEXT - nothing changed but block lower; unless already DONE
+            }
+        endseqblock
+    }
+    else if (exState = 3) then { // LOWER
+        debuginfo MacroBehavior self + ": LOWER, continue to next states regardless of priority"
+
+        if (|addStates(channelFor(self), MI, stateNumber)| > 0 or |removeStates(channelFor(self), MI, stateNumber)| > 0 ) then {
+            debuginfo MacroBehavior self + ": LOWER -> addStates and removeStates must be empty! (use DONE to add / remove states)"
+            Crash()
+        }
+
+        remove stateNumber from remainingStates // remove self
+
+        if (macroExecutionState(channelFor(self), MI) != 1 and macroExecutionState(channelFor(self), MI) != 2) then {
+            macroExecutionState(channelFor(self), MI) := 3 // LOWER - nothing changed and lower not blocked; unless already DONE or NEXT
+        }
+    }
+    else {
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        debuginfo MacroBehavior self + ": invalid executionState: " + undefStr(exState)
+        Crash()
+    }
+}
+
+
+rule UpdateActiveStates(MI, stateNumber) = seqblock
+    // NOTE: everything needs to be sequential, as activeStates is a list and not a set
+
+    foreach x in addStates(channelFor(self), MI, stateNumber) do {
+        let xMI = nth(x, 1),
+            xN  = nth(x, 2) in {
+            add xN to activeStates(channelFor(self), xMI)
+        }
+    }
+
+    // NOTE: reset only needed for verification as optimization -> no need to carry over to next step / store globally
+    addStates(channelFor(self), MI, stateNumber) := undef
+
+    foreach x in removeStates(channelFor(self), MI, stateNumber) do {
+        let xMI = nth(x, 1),
+            xN  = nth(x, 2) in {
+            // remove one instance of xN, if any
+            remove xN from activeStates(channelFor(self), xMI)
+
+            // NOTE: reset only needed for verification as optimization
+            // FIXME 2019-02-15: what happens if a state is multiple times in activeStates - this would reset the other ones as well!
+            ResetState(xMI, xN)
+        }
+    }
+
+    // NOTE: reset only needed for verification as optimization -> no need to carry over to next step / store globally
+    removeStates(channelFor(self), MI, stateNumber) := undef
+endseqblock
+
+
+// whether to abort the state or not
+derived abortState(MI, stateNumber) = return boolres in {
+    boolres := ((timeoutActive(channelFor(self), MI, stateNumber) = true) or (cancelDecision(channelFor(self), MI, stateNumber) = true))
+}
+
+
+rule Behavior(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in {
+        debuginfo Behavior self + ": Behavior for " + channelFor(self) + " with state " + statePretty(MI, currentStateNumber)
+        debuginfo Behavior self + ": initializedState: " + undefStr(initializedState(channelFor(self), MI, currentStateNumber))
+        debuginfo Behavior self + ": timeoutActive: " + undefStr(timeoutActive(channelFor(self), MI, currentStateNumber))
+        debuginfo Behavior self + ": cancelDecision: " + undefStr(cancelDecision(channelFor(self), MI, currentStateNumber))
+        debuginfo Behavior self + ": abortState: " + undefStr(abortState(MI, currentStateNumber))
+        debuginfo Behavior self + ": completed: " + undefStr(completed(channelFor(self), MI, currentStateNumber))
+        debuginfo Behavior self + ": selectedTransition: " + undefStr(selectedTransition(channelFor(self), MI, currentStateNumber))
+        debuginfo Behavior self + ": initializedSelectedTransition: " + undefStr(initializedSelectedTransition(channelFor(self), MI, currentStateNumber))
+        debuginfo Behavior self + ": transitionCompleted: " + undefStr(transitionCompleted(channelFor(self), MI, selectedTransition(channelFor(self), MI, currentStateNumber)))
+
+        if (initializedState(channelFor(self), MI, currentStateNumber) != true) then {
+            StartState(MI, currentStateNumber)
+        }
+        else if (abortState(MI, currentStateNumber) = true) then { // -> derived from timeoutActive / cancelDecision
+            AbortState(MI, currentStateNumber)
+        }
+        else if (completed(channelFor(self), MI, currentStateNumber) != true) then {
+            Perform(MI, currentStateNumber)
+        }
+        else if (initializedSelectedTransition(channelFor(self), MI, currentStateNumber) != true) then {
+            StartSelectedTransition(MI, currentStateNumber)
+        }
+        else {
+            let transitionNumber = selectedTransition(channelFor(self), MI, currentStateNumber) in
+            let t = targetStateNumber(processID, transitionNumber) in {
+                if (transitionCompleted(channelFor(self), MI, transitionNumber) != true) then {
+                    PerformTransition(MI, currentStateNumber, transitionNumber)
+                }
+                else {
+                    Proceed(MI, currentStateNumber, t)
+
+                    SetExecutionState(MI, currentStateNumber, 1) // DONE, make global update
+                }
+            }
+        }
+    }
+}
+
+rule AbortState(MI, currentStateNumber) = {
+    if (abortionCompleted(channelFor(self), MI, currentStateNumber) != true) then {
+        debuginfo AbortState self + ": abortion not completed"
+
+        Abort(MI, currentStateNumber)
+    }
+    else {
+        if (cancelDecision(channelFor(self), MI, currentStateNumber) = true) then {
+            let transitionNumber = first_outgoingCancelTransition(processIDFor(self), currentStateNumber) in
+            let t = targetStateNumber(processIDFor(self), transitionNumber) in {
+                debuginfo AbortState self + ": proceed with outgoingCancelTransition: " + transitionPretty(MI, transitionNumber)
+                Proceed(MI, currentStateNumber, t)
+            }
+        }
+        else if (timeoutActive(channelFor(self), MI, currentStateNumber) = true) then {
+            let transitionNumber = first_outgoingTimeoutTransition(processIDFor(self), currentStateNumber) in
+            let t = targetStateNumber(processIDFor(self), transitionNumber) in {
+                debuginfo AbortState self + ": proceed with outgoingTimeoutTransition: " + transitionPretty(MI, transitionNumber)
+                Proceed(MI, currentStateNumber, t)
+            }
+        }
+        else {
+            debuginfo AbortState self + ": neither cancelDecision nor timeoutActive set!"
+            Crash()
+        }
+
+        SetExecutionState(MI, currentStateNumber, 1) // DONE, make global update
+    }
+}
+
+
+rule StartState(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in
+    let sType     = stateType(processID, currentStateNumber) in
+    seqblock
+        debuginfo StartState self + ": StartState " + statePretty(MI, currentStateNumber)
+
+        InitializeCompletion(MI, currentStateNumber)
+        abortionCompleted(channelFor(self), MI, currentStateNumber) := false
+
+        ResetTimeout(MI, currentStateNumber)
+        cancelDecision(channelFor(self), MI, currentStateNumber) := false
+
+        DisableAllTransitions(MI, currentStateNumber)
+        initializedSelectedTransition(channelFor(self), MI, currentStateNumber) := false
+
+        debuginfo StartState self + ": reset abortionCompleted, wantInput, initializedSelectedTransition, startTime, timeoutActive, cancelDecision, selectedTransition"
+        wantInput(channelFor(self), MI, currentStateNumber) := {}
+
+        case sType of
+            "function"       : StartFunction(MI, currentStateNumber)
+            "internalAction" : StartInternalAction(MI, currentStateNumber)
+            "send"           : StartSend(MI, currentStateNumber)
+            "receive"        : SetExecutionState(MI, currentStateNumber, 3) // NEXT, nothing to do. Handle all other startStates, LTS step implied afterwards
+            "end"            : StartEnd(MI, currentStateNumber)
+        endcase
+
+        initializedState(channelFor(self), MI, currentStateNumber) := true
+    endseqblock
+}
+
+
+rule ResetState(MI, stateNumber) = {
+    executionState(channelFor(self), MI, stateNumber) := undef
+
+    // from StartState
+
+    initializedState(channelFor(self), MI, stateNumber) := undef
+
+    completed(channelFor(self), MI, stateNumber) := undef
+    abortionCompleted(channelFor(self), MI, stateNumber) := undef
+
+    startTime(channelFor(self), MI, stateNumber) := undef
+    timeoutActive(channelFor(self), MI, stateNumber) := undef
+
+    cancelDecision(channelFor(self), MI, stateNumber) := undef
+
+    selectedTransition(channelFor(self), MI, stateNumber) := undef
+
+    forall transitionNumber in outgoingNormalTransitions(processIDFor(self), stateNumber) do {
+        transitionEnabled(channelFor(self), MI, transitionNumber) := undef
+        transitionCompleted(channelFor(self), MI, transitionNumber) := undef
+    }
+
+    initializedSelectedTransition(channelFor(self), MI, stateNumber) := undef
+
+    wantInput(channelFor(self), MI, stateNumber) := undef
+
+    // from StartSend
+    receivers                   (channelFor(self), MI, stateNumber) := undef
+    reservationsDone            (channelFor(self), MI, stateNumber) := undef
+    messageContent              (channelFor(self), MI, stateNumber) := undef
+    messageCorrelationID        (channelFor(self), MI, stateNumber) := undef
+    messageReceiverCorrelationID(channelFor(self), MI, stateNumber) := undef
+}
+
+rule Perform(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in
+    let sType     = stateType(processID, currentStateNumber) in {
+        debuginfo Perform self + ": Perform '" + sType + "' in state " + statePretty(MI, currentStateNumber)
+
+        case sType of
+            "function"       : PerformFunction(MI, currentStateNumber)
+            "internalAction" : PerformInternalAction(MI, currentStateNumber)
+            "send"           : PerformSend(MI, currentStateNumber)
+            "receive"        : PerformReceive(MI, currentStateNumber)
+            "end"            : PerformEnd(MI, currentStateNumber)
+        endcase
+    }
+}
+
+
+rule SelectTransition(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in {
+        debuginfo SelectTransition self + ": SelectTransition in state " + statePretty(MI, currentStateNumber)
+
+        if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
+            debuginfo SelectTransition self + ": there is already an outgoing transition selected!"
+            Crash()
+        }
+
+        debuginfo SelectTransition self + ": wantInput("+channelFor(self)+", "+MI+", "+currentStateNumber+"): " + wantInput(channelFor(self), MI, currentStateNumber)
+
+        if (|outgoingEnabledTransitions(channelFor(self), MI, currentStateNumber)| = 0) then {
+            debuginfo SelectTransition self + ": no transitions enabled, therefore none to select; allow NEXT states to be executed, but not with lower priority"
+            SetExecutionState(MI, currentStateNumber, 2)
+            // TODO: may remove "TransitionDecision" from wantInput ?
+        }
+        else if (not(contains(wantInput(channelFor(self), MI, currentStateNumber), "TransitionDecision"))) then {
+            add "TransitionDecision" to wantInput(channelFor(self), MI, currentStateNumber)
+
+            debuginfo SelectTransition self + ": DONE, make global update"
+            SetExecutionState(MI, currentStateNumber, 1)
+        }
+        else {
+            debuginfo SelectTransition self + ": waiting for selectedTransition; allow NEXT states to be executed, but not with lower priority"
+            SetExecutionState(MI, currentStateNumber, 2)
+        }
+    }
+}
+
+
+rule StartSelectedTransition(MI, currentStateNumber) = {
+    debuginfo StartSelectedTransition self + ": StartSelectedTransition in state " + statePretty(MI, currentStateNumber)
+
+    let transitionNumber = selectedTransition(channelFor(self), MI, currentStateNumber) in {
+        if (transitionNumber = undef) then {
+            debuginfo StartSelectedTransition self + ": there is no outgoing transition selected!"
+            Crash()
+        }
+
+        debuginfo StartSelectedTransition self + ": start transition " + transitionPretty(MI, transitionNumber) + " in state " + statePretty(MI, currentStateNumber)
+        InitializeCompletionTransition(MI, transitionNumber)
+        initializedSelectedTransition(channelFor(self), MI, currentStateNumber) := true
+    }
+
+    debuginfo StartSelectedTransition self + ": REPEAT"
+    SetExecutionState(MI, currentStateNumber, 0)
+}
+
+
+
+rule Abort(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in
+    let sType     = stateType(processID, currentStateNumber) in {
+        debuginfo Abort self + ": Abort(" + sType + ") state " + statePretty(MI, currentStateNumber)
+
+        case sType of
+            "function"       : AbortFunction(MI, currentStateNumber)
+            "internalAction" : SetAbortionCompleted(MI, currentStateNumber)  // sets executionState to DONE
+            "send"           : AbortSend(MI, currentStateNumber)
+            "receive"        : SetAbortionCompleted(MI, currentStateNumber)  // sets executionState to DONE
+        endcase
+    }
+}
+
+rule PerformTransition(MI, currentStateNumber, transitionNumber) = {
+    let processID = processIDFor(self) in
+    let sType     = stateType(processID, currentStateNumber) in {
+        debuginfo PerformTransition self + ": PerformTransition(" + sType + ") in state " + statePretty(MI, currentStateNumber) + " with transition " + transitionPretty(MI, transitionNumber)
+        case sType of
+            "function"       : PerformTransitionFunction(MI, currentStateNumber, transitionNumber)
+            "internalAction" : SetCompletedTransition(MI, currentStateNumber, transitionNumber) // sets executionState to REPEAT
+            "send"           : PerformTransitionSend(MI, currentStateNumber, transitionNumber)
+            "receive"        : PerformTransitionReceive(MI, currentStateNumber, transitionNumber)
+        endcase
+    }
+}
+
+
+rule Proceed(MI, s_from, s_to) = {
+    debuginfo Proceed self +  ": Proceed from state " + statePretty(MI, s_from) + " to state " + statePretty(MI, s_to)
+
+    AddState(MI, s_from, MI, s_to)
+    RemoveState(MI, s_from, MI, s_from)
+}
+
+
+
+
+
+
+
+
+// ==============================================
+
+// Initialization & Completed helpers
+
+// ==============================================
+
+
+
+rule StartTimeout(MI, currentStateNumber) = {
+    debuginfo StartTimeout self + ": for state " + statePretty(MI, currentStateNumber) + " at " + nanoTime
+
+    startTime(channelFor(self), MI, currentStateNumber) := nanoTime()
+    timeoutActive(channelFor(self), MI, currentStateNumber) := false
+}
+
+rule ResetTimeout(MI, currentStateNumber) = {
+    debuginfo ResetTimeout self + ": for state " + statePretty(MI, currentStateNumber) + " at " + nanoTime
+
+    startTime(channelFor(self), MI, currentStateNumber) := undef
+    timeoutActive(channelFor(self), MI, currentStateNumber) := undef
+}
+
+rule ActivateTimeout(MI, currentStateNumber) = {
+    if (shouldTimeout(channelFor(self), MI, currentStateNumber) != true) then {
+        debuginfo ActivateTimeout self + ": shouldTimeout != true - unable to activate timeout!"
+        Crash()
+    }
+
+    debuginfo ActivateTimeout self + ": set timeoutActive for state " + statePretty(MI, currentStateNumber) + " at " + nanoTime
+
+    timeoutActive(channelFor(self), MI, currentStateNumber) := true
+}
+
+rule InitializeCompletion(MI, currentStateNumber) = {
+    //print "InitializeCompletion " + n
+    completed(channelFor(self), MI, currentStateNumber) := false
+}
+
+rule SetCompleted(MI, currentStateNumber) = {
+    debuginfo SetCompleted self + ": REPEAT"
+    SetExecutionState(MI, currentStateNumber, 0)
+
+    completed(channelFor(self), MI, currentStateNumber) := true
+}
+
+rule SetAbortionCompleted(MI, currentStateNumber) = {
+    debuginfo SetAbortionCompleted self + ": DONE"
+    SetExecutionState(MI, currentStateNumber, 1) // DONE, make global update
+
+    abortionCompleted(channelFor(self), MI, currentStateNumber) := true
+}
+
+
+rule EnableTransition(MI, transitionNumber) = {
+    debuginfo EnableTransition self + ": transition " + transitionPretty(MI, transitionNumber)
+
+    transitionEnabled(channelFor(self), MI, transitionNumber) := true
+}
+
+rule EnableAllTransitions(MI, currentStateNumber) = {
+    forall transitionNumber in outgoingNormalTransitions(processIDFor(self), currentStateNumber) do {
+        EnableTransition(MI, transitionNumber)
+    }
+}
+
+
+rule DisableTransition(MI, currentStateNumber, transitionNumber) = {
+    debuginfo DisableTransition self + ": transition " + transitionPretty(MI, transitionNumber)
+
+    transitionEnabled(channelFor(self), MI, transitionNumber) := false
+
+    if (selectedTransition(channelFor(self), MI, currentStateNumber) = transitionNumber) then {
+        selectedTransition(channelFor(self), MI, currentStateNumber) := undef
+
+        // NOTE: just to try out if this case happens in a test, should not crash
+        debuginfo DisableTransition self + ": WARN: reset selectedTransition"
+        Crash()
+    }
+}
+
+rule DisableAllTransitions(MI, currentStateNumber) = {
+    selectedTransition(channelFor(self), MI, currentStateNumber) := undef
+
+    forall transitionNumber in outgoingNormalTransitions(processIDFor(self), currentStateNumber) do {
+        DisableTransition(MI, currentStateNumber, transitionNumber)
+    }
+}
+
+rule InitializeCompletionTransition(MI, transitionNumber) = {
+    //print "InitializeCompletionTransition: " + transitionNumber
+    transitionCompleted(channelFor(self), MI, transitionNumber) := false
+}
+
+
+rule SetCompletedTransition(MI, currentStateNumber, transitionNumber) = {
+    debuginfo SetCompletedTransition self + ": (" + MI + ", " + currentStateNumber + ", " + transitionNumber + ")"
+
+    if (transitionCompleted(channelFor(self), MI, transitionNumber) != false) then {
+        debuginfo SetCompletedTransition self + ": transitionCompleted should be false.. -> " + transitionCompleted(channelFor(self), MI, transitionNumber)
+        Crash()
+    }
+
+    if (transitionNumber = undef) then {
+        debuginfo SetCompletedTransition self + ": didn't expect transitionNumber to be undef, maybe some old leftover"
+        Crash()
+    }
+
+    debuginfo SetCompletedTransition self + ": REPEAT"
+    SetExecutionState(MI, currentStateNumber, 0)
+
+    transitionCompleted(channelFor(self), MI, transitionNumber) := true
+}
+
+
+
+// ==============================================
+
+// Core PASS State Types
+
+// ==============================================
+
+
+
+// ==============================================
+
+// Core PASS State Type: InternalAction
+
+// ==============================================
+
+
+
+
+rule StartInternalAction(MI, currentStateNumber) = {
+    debuginfo StartInternalAction self + ": stateNumber: " + currentStateNumber
+
+    let processID = processIDFor(self) in {
+        StartTimeout(MI, currentStateNumber)
+
+        EnableAllTransitions(MI, currentStateNumber)
+
+        SetExecutionState(MI, currentStateNumber, 3) // handle all other startStates, LTS step afterwards
+    }
+}
+
+rule PerformInternalAction(MI, currentStateNumber) = {
+    debuginfo PerformInternalAction self + ": state " + statePretty(MI, currentStateNumber)
+
+    if (shouldTimeout(channelFor(self), MI, currentStateNumber) = true) then {
+        debuginfo PerformInternalAction self + ": shouldTimeout"
+        SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+        ActivateTimeout(MI, currentStateNumber)
+    }
+    else {
+        debuginfo PerformInternalAction self + ": selectedTransition: " + undefStr(selectedTransition(channelFor(self), MI, currentStateNumber))
+        if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
+            SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+        }
+        else {
+            debuginfo PerformInternalAction self + ": SelectTransition"
+            SelectTransition(MI, currentStateNumber)
+        }
+    }
+}
+
+
+
+
+// ==============================================
+
+// Core PASS State Type: Action
+
+// ==============================================
+
+
+
+
+
+
+rule StartFunction(MI, currentStateNumber) = {
+    debuginfo StartFunction self + ": stateNumber: " + currentStateNumber
+
+    StartTimeout(MI, currentStateNumber)
+
+// FIXME !!!!!!!!!
+// FIXME !!!!!!!!!
+// FIXME !!!!!!!!!
+// FIXME !!!!!!!!!
+// FIXME !!!!!!!!!
+// FIXME !!!!!!!!!
+
+
+    let processID = processIDFor(self) in
+    let functionName = stateFunction(processID, currentStateNumber) in {
+        if (startFunction(functionName) = undef) then {
+            debuginfo StartFunction self + ": INFO: startFunction("+functionName+") is undefined, nothing to do"
+        }
+        else {
+            debuginfo StartFunction self + ": call " + functionName
+            call startFunction(functionName) (MI, currentStateNumber)
+            debuginfo StartFunction self + ": call done"
+        }
+    }
+
+    SetExecutionState(MI, currentStateNumber, 3) // handle all other startStates, LTS step afterwards
+}
+
+rule PerformFunction(MI, currentStateNumber) = {
+    debuginfo PerformFunction self + ": state " + statePretty(MI, currentStateNumber)
+
+    if (shouldTimeout(channelFor(self), MI, currentStateNumber) = true) then {
+        debuginfo PerformFunction self + ": shouldTimeout"
+        SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+        ActivateTimeout(MI, currentStateNumber)
+    }
+    else {
+        let processID = processIDFor(self) in
+        let functionName = stateFunction(processID, currentStateNumber),
+            args         = stateFunctionArguments(processID, currentStateNumber) in {
+            if (performFunction(functionName) = undef) then {
+                debuginfo PerformFunction self + ": WARN: performFunction("+functionName+") is undefined!"
+                Crash()
+            }
+            else {
+                debuginfo PerformFunction self + ": call " + functionName + " with parameters " + args
+                call performFunction(functionName) (MI, currentStateNumber, args)
+                debuginfo PerformFunction self + ": call done"
+            }
+        }
+    }
+}
+
+
+
+rule AbortFunction(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in
+    let functionName = stateFunction(processID, currentStateNumber) in {
+        if (abortFunction(functionName) = undef) then {
+            debuginfo AbortFunction self + ": INFO: abortFunction("+functionName+") is undefined, nothing to do"
+
+            SetAbortionCompleted(MI, currentStateNumber)  // sets executionState to DONE
+        }
+        else {
+            debuginfo AbortFunction self + ": call " + functionName
+            call abortFunction(functionName) (MI, currentStateNumber) // must set abortionCompleted eventually
+            debuginfo AbortFunction self + ": call done"
+        }
+    }
+}
+
+rule PerformTransitionFunction(MI, currentStateNumber, transitionNumber) = {
+    let processID = processIDFor(self) in
+    let functionName = stateFunction(processID, currentStateNumber) in {
+        if (performTransitionFunction(functionName) = undef) then {
+            debuginfo PerformTransitionFunction self + ": INFO: performTransitionFunction("+functionName+") is undefined!"
+            SetCompletedTransition(MI, currentStateNumber, transitionNumber) // sets executionState to REPEAT
+        }
+        else {
+            debuginfo PerformTransitionFunction self + ": call " + functionName
+            call performTransitionFunction(functionName) (MI, currentStateNumber, transitionNumber) // must set executionState
+            debuginfo PerformTransitionFunction self + ": call done"
+        }
+    }
+}
+
+
+rule SetCompletedFunction(MI, currentStateNumber, res) = {
+    let processID = processIDFor(self) in {
+        if (res = undef) then {
+            debuginfo SetCompletedFunction self + ": undef => using random normal transition"
+            choose transitionNumber in outgoingNormalTransitions(processID, currentStateNumber) do {
+                debuginfo SetCompletedFunction self + ": chosen transition: " + transitionPretty(MI, transitionNumber)
+                selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
+            }
+            ifnone {
+                debuginfo SetCompletedFunction self + ": WARN: unable to get transition! (no normal out transitions?)"
+                Crash()
+            }
+        }
+        else {
+            debuginfo SetCompletedFunction self + ": using result: ''" + res + "'"
+
+            let transitionNumber = getTransitionByLabel(processID, currentStateNumber, res) in {
+                if (transitionNumber = undef) then {
+                    debuginfo SetCompletedFunction self + ": WARN: unable to get transition! (no transition with that name?)"
+                    Crash()
+                }
+                else {
+                    debuginfo SetCompletedFunction self + ": transition: " + transitionPretty(MI, transitionNumber)
+                    debuginfo SetCompletedFunction self + ": processTransitions(processID)(transitionNumber): " + processTransitions(processID)(transitionNumber)
+                    selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
+                }
+            }
+        }
+    }
+
+    SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+}
+
+
+
+
+
+
+
+// ==============================================
+
+// Core PASS State Type: Send
+
+// ==============================================
+
+
+
+
+
+rule StartSend(MI, currentStateNumber) = {
+    debuginfo StartSend self + ": stateNumber: " + currentStateNumber
+
+    let processID = processIDFor(self) in
+    // there must be exactly one transition
+    let transitionNumber = first_outgoingNormalTransition(processID, currentStateNumber) in {
+        receivers       (channelFor(self), MI, currentStateNumber) := undef
+        reservationsDone(channelFor(self), MI, currentStateNumber) := {}
+        messageContent  (channelFor(self), MI, currentStateNumber) := loadVar(MI, messageContentVar(processID, transitionNumber))
+        // TODO: Cancel (subject, state) := {e in {true, false} | cancelDecision(subject, state) }
+
+        // generate new CorrelationID now, store in Variable once the message(s) are send
+        let cIDVarname = messageNewCorrelationVar(processID, transitionNumber) in
+            if (cIDVarname != undef and cIDVarname != "") then {
+                messageCorrelationID(channelFor(self), MI, currentStateNumber) := nextCorrelationID
+                nextCorrelationID := nextCorrelationID + 1
+                nextCorrelationIDUsedBy(nextCorrelationID) := self // ensure no other agent increments nextCorrelationID
+            }
+            else {
+                messageCorrelationID(channelFor(self), MI, currentStateNumber) := 0
+            }
+
+        // load receiver IP CorrelationID now, to avoid influences of any changes of that variable
+        messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) := loadCorrelationID(MI, messageWithCorrelationVar(processID, transitionNumber))
+    }
+
+    SetExecutionState(MI, currentStateNumber, 3) // handle all other startStates, LTS step afterwards
+}
+
+
+rule PerformSend(MI, currentStateNumber) = {
+    debuginfo PerformSend self + ": state: " + statePretty(MI, currentStateNumber)
+
+    if (receivers(channelFor(self), MI, currentStateNumber) = undef) then {
+        debuginfo PerformSend self + ": SelectReceivers"
+        SelectReceivers(MI, currentStateNumber) // sets executionState to DONE / REPEAT / NEXT
+    }
+    else if (messageContent(channelFor(self), MI, currentStateNumber) = undef) then {
+        debuginfo PerformSend self + ": SetMessageContent"
+        SetMessageContent(MI, currentStateNumber) // sets executionState to DONE / NEXT
+    }
+    else if (startTime(channelFor(self), MI, currentStateNumber) = undef) then {
+        debuginfo PerformSend self + ": StartTimeout"
+        StartTimeout(MI, currentStateNumber)
+
+        debuginfo PerformSend self + ": REPEAT"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else if ( | receivers(channelFor(self), MI, currentStateNumber) | = | reservationsDone(channelFor(self), MI, currentStateNumber) |) then {
+        debuginfo PerformSend self + ": TryContinue"
+        TryCompletePerformSend(MI, currentStateNumber) // sets executionState to NEXT / REPEAT
+    }
+    else if (shouldTimeout(channelFor(self), MI, currentStateNumber) = true) then {
+        debuginfo PerformSend self + ": shouldTimeout"
+        SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+        ActivateTimeout(MI, currentStateNumber)
+    }
+    else {
+        DoReservations(MI, currentStateNumber) // sets executionState to DONE or NEXT
+    }
+}
+
+rule TryCompletePerformSend(MI, currentStateNumber) = {
+    if (anyNonProperTerminated(receivers(channelFor(self), MI, currentStateNumber)) = true) then {
+        debuginfo TryCompletePerformSend self + ": a receiver where a reservation was placed has terminated non-proper in the meantime, refusing to continue"
+
+        if (shouldTimeout(channelFor(self), MI, currentStateNumber) = true) then {
+            debuginfo TryCompletePerformSend self + ": shouldTimeout"
+            SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+            ActivateTimeout(MI, currentStateNumber)
+        }
+        else {
+            debuginfo TryCompletePerformSend self + ": NEXT"
+            SetExecutionState(MI, currentStateNumber, 2)
+        }
+    }
+    else {
+        // there must be exactly one transition
+        let transitionNumber = first_outgoingNormalTransition(processIDFor(self), currentStateNumber) in {
+            selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
+        }
+
+        debuginfo TryCompletePerformSend self + ": SetCompleted"
+        SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+    }
+}
+
+rule SelectReceivers(MI, currentStateNumber) = {
+    let processID = processIDFor(self) in
+    // there must be exactly one transition
+    let transitionNumber = first_outgoingNormalTransition(processID, currentStateNumber) in
+    let countMin = messageSubjectCountMin(processID, transitionNumber),
+        countMax = messageSubjectCountMax(processID, transitionNumber) in {
+        debuginfo SelectReceivers self + ": countMin: " + countMin
+        debuginfo SelectReceivers self + ": countMax: " + countMax
+
+        if (messageSubjectVar(processID, transitionNumber) != undef and messageSubjectVar(processID, transitionNumber) != "") then {
+            let rChs = loadChannelsFromVariable(MI, messageSubjectVar(processID, transitionNumber), messageSubjectId(processID, transitionNumber)) in {
+                debuginfo SelectReceivers self + ": rChs: " + rChs
+
+                // countMin = 0 => ALL
+                if (| rChs | = 0 or (countMin != 0 and | rChs | < countMin)) then {
+                    debuginfo SelectReceivers self + ": WARN: not enough receivers given in '" + messageSubjectVar(processID, transitionNumber) + "'"
+
+                    SetExecutionState(MI, currentStateNumber, 2) // NEXT
+                }
+                // countMax = 0 => at least countMin, but unlimited
+                else if (countMax != 0 and | rChs | > countMax)  then {
+                    debuginfo SelectReceivers self + ": too many receivers given -> Selection"
+
+                    SelectReceivers_Selection(MI, currentStateNumber, rChs, countMin, countMax) // sets either Next or Repeat
+                }
+                else {
+                    debuginfo SelectReceivers self + ": receivers fit min/max -> use them"
+
+                    receivers(channelFor(self), MI, currentStateNumber) := rChs
+
+                    debuginfo SelectReceivers self + ": REPEAT"
+                    SetExecutionState(MI, currentStateNumber, 0)
+                }
+            }
+        }
+        else {
+            if (selectAgentsResult(channelFor(self), MI, currentStateNumber) != undef) then {
+                let y = selectAgentsResult(channelFor(self), MI, currentStateNumber) in
+                {
+                    debuginfo SelectReceivers self + ": selectAgentsResult: " + y
+
+                    if (|y| < countMin or |y| > countMax) then {
+                        debuginfo SelectReceivers self + ": invalid receivers selected, must be between "+countMin+" and "+countMax+"!"
+                        Crash()
+                    }
+
+                    receivers(channelFor(self), MI, currentStateNumber) := y
+
+                    selectAgentsResult(channelFor(self), MI, currentStateNumber) := undef
+
+                    debuginfo SelectReceivers self + ": REPEAT"
+                    SetExecutionState(MI, currentStateNumber, 0)
+                }
+            }
+            else {
+                let sIDLocal = messageSubjectId(processID, transitionNumber) in
+                {
+                    //debuginfo SelectReceivers self + ": SelectReceivers is not implemented if no variable / channel is given!"
+                    debuginfo SelectReceivers self + ": state: " + statePretty(MI, currentStateNumber)
+                    debuginfo SelectReceivers self + ": transition: " + transitionPretty(MI, transitionNumber)
+                    debuginfo SelectReceivers self + ": receiver SubjectId: " + sIDLocal
+                    debuginfo SelectReceivers self + ": receiver countMin: " + countMin
+                    debuginfo SelectReceivers self + ": receiver countMax: " + countMax
+
+                    SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) // sets executionState to DONE / REPEAT / NEXT
+                }
+            }
+        }
+    }
+}
+
+rule SelectReceivers_Selection(MI, currentStateNumber, rChs, minimum, maximum) = {
+    let res = selectionResult(channelFor(self), MI, currentStateNumber) in
+    if (res = undef) then {
+        let src = ["ChannelInformation", rChs] in {
+            Selection(MI, currentStateNumber, src, minimum, maximum)
+        }
+    }
+    else {
+        selectionResult(channelFor(self), MI, currentStateNumber) := undef
+
+        receivers(channelFor(self), MI, currentStateNumber) := res
+
+        debuginfo SelectReceivers_Selection self + ": REPEAT => Behavior should be executed again for this state"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+}
+
+
+
+rule AbortSend(MI, currentStateNumber) = {
+    debuginfo AbortSend self + ": aborting send..."
+
+    foreach r in reservationsDone(channelFor(self), MI, currentStateNumber) do {
+        CancelReservation(MI, currentStateNumber, r)
+    }
+
+    SetAbortionCompleted(MI, currentStateNumber)  // sets executionState to DONE
+
+    debuginfo AbortSend self + ": removed reservations"
+}
+
+
+rule PerformTransitionSend(MI, currentStateNumber, transitionNumber) = {
+    let processID = processIDFor(self) in {
+        debuginfo PerformTransitionSend self + ": completing send..."
+
+        foreach r in reservationsDone(channelFor(self), MI, currentStateNumber) do {
+            ReplaceReservation(MI, currentStateNumber, r)
+
+            EnsureRunning(r)
+        }
+        ifnone {
+            debuginfo PerformTransitionSend self + ": Something strange happened..."
+            Crash()
+        }
+        endforeach
+
+        let storeReceiverVarname = messageStoreReceiverVar(processID, transitionNumber) in
+            if (storeReceiverVarname != undef and storeReceiverVarname != "") then {
+                SetVar(MI, storeReceiverVarname, "ChannelInformation", reservationsDone(channelFor(self), MI, currentStateNumber))
+                debuginfo PerformTransitionSend self + ": messageStoreReceiverVar: SetVar("+MI+", "+storeReceiverVarname+", ChannelInformation, "+reservationsDone(channelFor(self), MI, currentStateNumber)+")"
+            }
+            else {
+                debuginfo PerformTransitionSend self + ": messageStoreReceiverVar not set"
+            }
+
+        let cIDVarname = messageNewCorrelationVar(processID, transitionNumber) in
+            if (cIDVarname != undef and cIDVarname != "") then {
+                SetVar(MI, cIDVarname, "CorrelationID", messageCorrelationID(channelFor(self), MI, currentStateNumber))
+                debuginfo PerformTransitionSend self + ": cIDVarname: SetVar("+MI+", "+cIDVarname+", ChannelInformation, "+messageCorrelationID(channelFor(self), MI, currentStateNumber)+")"
+            }
+            else {
+                debuginfo PerformTransitionSend self + ": cIDVarname not set"
+            }
+
+        debuginfo PerformTransitionSend self + ": replaced reservations, might stored receivers and correlationID"
+        debuginfo PerformTransitionSend self + ": REPEAT"
+        SetCompletedTransition(MI, currentStateNumber, transitionNumber) // sets executionState to REPEAT
+    }
+}
+
+
+rule SetMessageContent(MI, currentStateNumber) = {
+    debuginfo SetMessageContent self + ": messageContent is undef"
+
+    if not(contains(wantInput(channelFor(self), MI, currentStateNumber), "MessageContentDecision")) then {
+        add "MessageContentDecision" to wantInput(channelFor(self), MI, currentStateNumber)
+
+        debuginfo SetMessageContent self + ": DONE, make global update"
+        SetExecutionState(MI, currentStateNumber, 1)
+    }
+    else {
+        debuginfo SetMessageContent self + ": waiting for messageContent"
+        debuginfo SetMessageContent self + ": allow next states to be executed, but not with lower priority"
+        SetExecutionState(MI, currentStateNumber, 2)
+    }
+}
+
+
+rule DoReservations(MI, currentStateNumber) = {
+    local boolres := false in { // hasPlacedReservation
+        seq
+            let receiversTodo = (receivers(channelFor(self), MI, currentStateNumber) diff reservationsDone(channelFor(self), MI, currentStateNumber)) in
+            foreach receiver in receiversTodo do {
+                debuginfo DoReservations self + ": DoReservation for " + receiver
+
+                local boolres1 := false in {
+                    seq
+                        boolres1 <- DoReservation(MI, currentStateNumber, receiver) // returns true iff a reservation was made
+                    next
+                        if (boolres1 = true) then {
+                            boolres := true
+                        }
+                }
+            }
+            ifnone {
+                debuginfo DoReservations self + ": is this even possible? must be a weird internal error"
+                Crash()
+            }
+            endforeach
+        next
+            if (boolres = true) then {
+                debuginfo DoReservations self + ": DONE: reservation(s) placed, make update"
+                SetExecutionState(MI, currentStateNumber, 1)
+            }
+            else {
+                debuginfo DoReservations self + ": NEXT: no reservations made, allow other states"
+                SetExecutionState(MI, currentStateNumber, 2)
+            }
+    }
+}
+
+/*
+TODO 2019-02-21:
+
+Die meisten Parameter sind unabhängig vom receiverChannel und könnten für alle
+Empfänger genutzt werden. Weitergehend könnte reservationsDone umgestaltet werden,
+so dass ReplaceReservation und CancelReservation nicht noch einmal die ganze Arbeit
+machen müssen...
+*/
+
+// result = hasPlacedReservation
+rule DoReservation(MI, currentStateNumber, receiverChannel) = {
+    debuginfo DoReservation self + ": in state " + statePretty(MI, currentStateNumber) + " for channel " + receiverChannel
+
+    if (properTerminated(receiverChannel) = true) then {
+        let processID          = processIDFor(self) in
+        // there must be exactly one transition
+        let transitionNumber   = first_outgoingNormalTransition(processID, currentStateNumber),
+            senderChannel      = channelFor(self),
+            receiverProcessID  = processIDOf(receiverChannel) in
+        let senderSubjectID    = searchSenderSubjectID(processID, subjectIDFor(self), receiverProcessID),
+            msgCorrelationID   = messageCorrelationID(channelFor(self), MI, currentStateNumber),
+            ipCorrelationID    = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
+        let reservationMessage = [senderChannel, messageType(processID, transitionNumber), {}, msgCorrelationID, true] in {
+            if (senderSubjectID = undef) then {
+                debuginfo DoReservation self + ": failed to lookup own subject"
+                Crash()
+            }
+
+            seq
+                if (inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) = undef) then {
+                    add [senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID] to inputPoolDefined(receiverChannel)
+                    inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) := []
+                }
+            next
+                if (inputPoolIsClosed(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) != true) then {
+                    if (inputPoolGetFreeSpace(receiverChannel, senderSubjectID, messageType(processID, transitionNumber)) > 0) then {
+                        enqueue reservationMessage into inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID)
+                        add receiverChannel to reservationsDone(channelFor(self), MI, currentStateNumber)
+                        debuginfo DoReservation self + ": added reservation to inputPool: " + reservationMessage
+                        result := true
+                    }
+                    else {
+                        debuginfo DoReservation self + ": no free space!"
+                        result := false
+                    }
+                }
+                else {
+                    debuginfo DoReservation self + ": inputPoolIsClosed"
+                    result := false
+                }
+        }
+    }
+    else {
+        debuginfo DoReservation self + ": non-properTerminated, skipping receiver"
+        result := false
+    }
+}
+
+rule CancelReservation(MI, currentStateNumber, receiverChannel) = {
+    debuginfo CancelReservation self + ": in state " + statePretty(MI, currentStateNumber) + " for receiver channel " + receiverChannel
+
+    let processID          = processIDFor(self) in
+    // there must be exactly one transition
+    let transitionNumber   = first_outgoingNormalTransition(processID, currentStateNumber),
+        senderChannel      = channelFor(self),
+        receiverProcessID  = processIDOf(receiverChannel) in
+    let senderSubjectID    = searchSenderSubjectID(processID, subjectIDFor(self), receiverProcessID),
+        msgCorrelationID   = messageCorrelationID(channelFor(self), MI, currentStateNumber),
+        ipCorrelationID    = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
+    let reservationMessage = [senderChannel, messageType(processID, transitionNumber), {}, msgCorrelationID, true],
+        IP = inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) in {
+        inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) := dropnth(IP, head(indexes(IP, reservationMessage)))
+    }
+}
+
+rule ReplaceReservation(MI, currentStateNumber, receiverChannel) = {
+    debuginfo ReplaceReservation self + ": in state " + statePretty(MI, currentStateNumber) + " for receiver channel " + receiverChannel
+
+    let processID          = processIDFor(self) in
+    // there must be exactly one transition
+    let transitionNumber   = first_outgoingNormalTransition(processID, currentStateNumber),
+        senderChannel      = channelFor(self),
+        receiverProcessID  = processIDOf(receiverChannel) in
+    let senderSubjectID    = searchSenderSubjectID(processID, subjectIDFor(self), receiverProcessID),
+        msgCorrelationID   = messageCorrelationID(channelFor(self), MI, currentStateNumber),
+        ipCorrelationID    = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
+    let reservationMessage = [senderChannel, messageType(processID, transitionNumber), {}, msgCorrelationID, true],
+        message            = [senderChannel, messageType(processID, transitionNumber), messageContent(channelFor(self), MI, currentStateNumber), msgCorrelationID, false],
+        IP = inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) in {
+        // TODO: discuss: setnth or dropnth & enqueue?
+        inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) := setnth(IP, head(indexes(IP, reservationMessage)), message)
+    }
+}
+
+
+
+
+// ==============================================
+
+// Core PASS State Type: Receive
+
+// ==============================================
+
+
+rule PerformReceive(MI, currentStateNumber) = {
+    debuginfo PerformReceive self + ": state " + statePretty(MI, currentStateNumber)
+
+    // startTime must be the time of the first attempt to receive in order to support receiving with timeout=0
+    if (startTime(channelFor(self), MI, currentStateNumber) = undef) then {
+        debuginfo PerformReceive self + ": StartTimeout"
+        StartTimeout(MI, currentStateNumber)
+
+        debuginfo PerformReceive self + ": REPEAT"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else {
+        if (shouldTimeout(channelFor(self), MI, currentStateNumber) = true) then {
+            // FIXME: reset start time? here, where else?
+            debuginfo PerformReceive self + ": Timeout"
+            SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+            ActivateTimeout(MI, currentStateNumber)
+        }
+        else {
+            let processID = processIDFor(self) in
+            seq
+                forall transitionNumber in outgoingNormalTransitions(processID, currentStateNumber) do {
+                    CheckIP(MI, currentStateNumber, transitionNumber)
+                }
+            next
+                let enabledOutgoingTransitions = outgoingEnabledTransitions(channelFor(self), MI, currentStateNumber) in {
+                    if (|enabledOutgoingTransitions| > 0) then {
+                        seqblock
+                        debuginfo PerformReceive self + ": at least one IP with messages :)"
+
+                        if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
+                            debuginfo PerformReceive self + ": skipping automatic decision, there is already an transition selected: " + selectedTransition(channelFor(self), MI, currentStateNumber)
+                        }
+                        else if (|enabledOutgoingTransitions| = 1) then {
+                            let transitionNumber = firstFromSet(enabledOutgoingTransitions) in {
+                                if (transitionIsAuto(processID, transitionNumber) = true) then {
+                                    debuginfo PerformReceive self + ": making automatic decision for transition " + transitionPretty(MI, transitionNumber)
+                                    selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
+                                }
+                                else {
+                                    debuginfo PerformReceive self + ": can not make automatic decision, not an auto transition: " + transitionPretty(MI, transitionNumber)
+                                }
+                            }
+                        }
+                        else {
+                            debuginfo PerformReceive self + ": can not make automatic decision, too much transitions: " + enabledOutgoingTransitions
+                        }
+
+                        if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
+                            debuginfo PerformReceive self + ": the decision has been made.."
+                            SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+                        }
+                        else {
+                            debuginfo PerformReceive self + ": no decision made, waiting for selectedTransition"
+
+                            SelectTransition(MI, currentStateNumber)
+                        }
+                        endseqblock
+                    }
+                    else {
+                        debuginfo PerformReceive self + ": no IP with messages, trying later.."
+                        debuginfo PerformReceive self + ": allow all other states to be executed, especially states with lower priority"
+                        SetExecutionState(MI, currentStateNumber, 3)
+                    }
+                }
+        }
+    }
+}
+
+
+
+rule PerformTransitionReceive(MI, currentStateNumber, transitionNumber) = {
+    ReceiveMessage(MI, currentStateNumber, transitionNumber)
+}
+
+
+rule ReceiveMessage(MI, currentStateNumber, transitionNumber) = {
+    let processID   = processIDFor(self) in
+    let s           = messageSubjectId         (processID, transitionNumber),
+        sChsVarname = messageSubjectVar        (processID, transitionNumber),
+        mt          = messageType              (processID, transitionNumber),
+        cIDVarname  = messageWithCorrelationVar(processID, transitionNumber) in
+    // TODO 2019-02-22: local receivedMessages ? Or is that function used elsewhere?
+    // Alternative: directly return as listres via result in InputPool_Pop?
+    local stringres1, // subjectID
+          setres1,    // subjectChannels
+          stringres2, // messageType
+          numres1 in  // correlationID
+    seqblock
+
+        debuginfo ReceiveMessage self + ": ReceiveMessage in state " + statePretty(MI, currentStateNumber) + " with transition " + transitionPretty(MI, transitionNumber)
+
+        // TODO/NOTE: same structure as CheckIP. May refactor to reduce duplicated code?
+
+        if (s = "*") then {
+            debuginfo ReceiveMessage self + ": wildcard for subject is ? and not *"
+            Crash()
+        }
+        else if (s = "?") then {
+            stringres1 := undef
+        }
+        else {
+            stringres1 := s
+        }
+
+
+        if (sChsVarname = undef or sChsVarname = "") then {
+            setres1 := undef
+        }
+        else {
+            seq
+                setres1 := loadChannelsFromVariable(MI, sChsVarname, s) // (stringres1 would be fine too)
+            next
+                debuginfo ReceiveMessage self + ": considering only messages from the following channels: " + setres1
+        }
+
+
+        if (mt = "*") then {
+            debuginfo ReceiveMessage self + ": wildcard for message type is ? and not *"
+            Crash()
+        }
+        else if (mt = "?") then {
+            stringres2 := undef
+        }
+        else {
+            stringres2 := mt
+        }
+
+
+        if (cIDVarname = "*") then {
+            debuginfo ReceiveMessage self + ": wildcard for cID type is ? and not *"
+            Crash()
+        }
+        else if (cIDVarname = "?") then {
+            numres1 := undef
+        }
+        else {
+            numres1 := loadCorrelationID(MI, cIDVarname)
+        }
+
+
+
+        let sL    = stringres1,
+            sChsL = setres1,
+            mtL   = stringres2,
+            cL    = numres1,
+            countMinL = messageSubjectCountMin(processID, transitionNumber),
+            countMaxL = messageSubjectCountMax(processID, transitionNumber) in {
+            // InputPool_Pop stores the popped messages in receivedMessages
+            // undef is wildcard
+            InputPool_Pop(MI, currentStateNumber, sL, sChsL, mtL, cL, countMinL, countMaxL)
+        }
+
+        let msgs = receivedMessages(channelFor(self), MI, currentStateNumber) in {
+            debuginfo ReceiveMessage self + ": receivedMessages: " + msgs
+
+            if (messageStoreMessagesVar(processID, transitionNumber) != undef and messageStoreMessagesVar(processID, transitionNumber) != "") then {
+                let varname = messageStoreMessagesVar(processID, transitionNumber) in {
+                    debuginfo ReceiveMessage self + ": storing messages in: '" + varname + "'"
+                    SetMessageSet(MI, varname, msgs)
+                }
+            }
+        }
+
+        SetCompletedTransition(MI, currentStateNumber, transitionNumber) // sets executionState to REPEAT
+    endseqblock
+}
+
+
+rule CheckIP(MI, currentStateNumber, transitionNumber) = {
+    debuginfo CheckIP self + ": in state " + statePretty(MI, currentStateNumber) + " for transition " + transitionPretty(MI, transitionNumber)
+
+    let processID   = processIDFor(self) in
+    let sID         = messageSubjectId         (processID, transitionNumber),
+        sChsVarname = messageSubjectVar        (processID, transitionNumber),
+        mT          = messageType              (processID, transitionNumber),
+        cIDVarname  = messageWithCorrelationVar(processID, transitionNumber) in
+    local stringres1, // subjectID
+          setres1,    // subjectChannels
+          stringres2, // messageType
+          numres1 in  // correlationID
+    seqblock
+
+        // TODO/NOTE: same structure as ReceiveMessage. May refactor to reduce duplicated code?
+
+        if (sID = "?") then {
+            stringres1 := undef
+        }
+        else if (sID = "*") then {
+            debuginfo CheckIP self + ": subject wildcard is '?'"
+            Crash()
+        }
+        else {
+            stringres1 := sID
+        }
+
+
+        if (sChsVarname = undef or sChsVarname = "") then {
+            setres1 := undef
+        }
+        else {
+            seq
+                setres1 := loadChannelsFromVariable(MI, sChsVarname, sID) // (stringres1 would be fine too)
+            next
+                debuginfo CheckIP self + ": considering only messages from the following channels: " + setres1
+        }
+
+
+        if (mT = "?") then {
+            stringres2 := undef
+        }
+        else if (mT = "*") then {
+            debuginfo CheckIP self + ": message type wildcard is '?'"
+            Crash()
+        }
+        else {
+            stringres2 := mT
+        }
+
+
+        if (cIDVarname = "?") then {
+            numres1 := undef
+        }
+        else if (cIDVarname = "*") then {
+            debuginfo CheckIP self + ": correlationID wildcard is '?'"
+            Crash()
+        }
+        else {
+            numres1 := loadCorrelationID(MI, messageWithCorrelationVar(processID, transitionNumber))
+        }
+
+
+        // no reservations, supress multiple channels
+        let usedSpace = inputPoolUsedSpace(channelFor(self), stringres1, setres1, stringres2, numres1, true, true) in {
+            if (messageSubjectCountMin(processID, transitionNumber) = 0) then {
+                if (usedSpace > |setres1|) then {
+                    debuginfo CheckIP self + ": WARN: internal error: more messages than expected senders! " + usedSpace + " > " + |setres1|
+                    Crash()
+                }
+                else if (usedSpace = |setres1|) then {
+                    debuginfo CheckIP self + ": enough messages :) " + usedSpace + " = " + |setres1|
+                    EnableTransition(MI, transitionNumber)
+                }
+                else {
+                    debuginfo CheckIP self + ": Not enough messages: " + usedSpace + " < " + |setres1|
+                    DisableTransition(MI, currentStateNumber, transitionNumber)
+                }
+            }
+            else if (usedSpace >= messageSubjectCountMin(processID, transitionNumber)) then {
+                debuginfo CheckIP self + ": enough messages :) " + usedSpace + " >= " + messageSubjectCountMin(processID, transitionNumber)
+                EnableTransition(MI, transitionNumber)
+            }
+            else {
+                debuginfo CheckIP self + ": Not enough messages: " + usedSpace + " < " + messageSubjectCountMin(processID, transitionNumber)
+                DisableTransition(MI, currentStateNumber, transitionNumber)
+            }
+        }
+    endseqblock
+}
+
+
+
+
+// ==============================================
+
+// Core PASS State Type: End
+
+// ==============================================
+
+
+
+
+rule StartEnd(MI, currentStateNumber) = {
+    debuginfo StartEnd self + ": state: " + statePretty(MI, currentStateNumber) + " (nothing to do)"
+
+    SetExecutionState(MI, currentStateNumber, 0) // REPEAT, continue directly to PerformEnd, avoiding LTS step
+}
+
+rule PerformEnd(MI, currentStateNumber) = {
+    debuginfo PerformEnd self + ": state " + statePretty(MI, currentStateNumber)
+
+    if (|activeStates(channelFor(self), MI)| > 1) then {
+        AbortMacroInstance(MI, currentStateNumber) // do not remove self. calls ClearAllVarInMIForChannel bat that's not needed
+
+        SetExecutionState(MI, currentStateNumber, 1) // DONE, make global update
+    }
+    else {
+        if (MI = 1) then {
+            let res = head(stateFunctionArguments(processIDFor(self), currentStateNumber)) in {
+                // just for debugging purposes, a termination of the Main Macro should not have a result, but this is used in TestTransitions2
+                if (res = undef) then { // no parameters for End state
+                    debuginfo PerformEnd self + ": within mainMacro, terminate subject without result value"
+                }
+                else {
+                    debuginfo PerformEnd self + ": within mainMacro. WARN: terminate subject with result value: " + res
+                }
+            }
+
+            ClearAllVarInMIForChannel(channelFor(self), 0)
+            ClearAllVarInMIForChannel(channelFor(self), 1)
+
+            FinalizeInteraction()
+
+            program(self) := undef
+            remove self from asmAgents
+        }
+        else {
+            ClearAllVarInMIForChannel(channelFor(self), MI)
+
+            let res = head(stateFunctionArguments(processIDFor(self), currentStateNumber)) in {
+                if (res = undef) then { // no parameters for End state
+                    debuginfo PerformEnd self + ": terminated without result value"
+                    macroTerminationResult(channelFor(self), MI) := true
+                }
+                else {
+                    debuginfo PerformEnd self + ": terminated with result value: " + res
+                    macroTerminationResult(channelFor(self), MI) := res
+                }
+            }
+        }
+
+        // remove self
+        RemoveState(MI, currentStateNumber, MI, currentStateNumber)
+        SetExecutionState(MI, currentStateNumber, 1) // DONE - make global update
+    }
+}
+
+// ==============================================
+
+// ...
+
+// ==============================================
+
+
+// ==============================================
+
+// PASS Functions
+
+// ==============================================
+
+
+
+
+// PASS Function
+rule StartTau(MI, currentStateNumber) = {
+    EnableAllTransitions(MI, currentStateNumber)
+}
+
+rule Tau(MI, currentStateNumber, args) = {
+    debuginfo Tau self + ": Tau()"
+
+    let processID = processIDFor(self) in {
+        choose transitionNumber in outgoingEnabledTransitions(channelFor(self), MI, currentStateNumber) with (transitionIsAuto(processID, transitionNumber) = true) do {
+            debuginfo Tau self + ": transition chosen, it is normal and auto: " + transitionPretty(MI, transitionNumber)
+
+            selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
+
+            SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+        }
+        ifnone {
+            debuginfo Tau self + ": unable to choose auto transition!"
+
+            if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
+                debuginfo Tau self + ": selectedTransition had been set"
+                SetCompleted(MI, currentStateNumber) // sets executionState to REPEAT
+            }
+            else {
+                debuginfo Tau self + ": SelectTransition"
+                SelectTransition(MI, currentStateNumber)
+            }
+        }
+    }
+}
+
+
+rule AbortVarMan(MI, currentStateNumber) = {
+    ResetSelection(MI, currentStateNumber)
+    SetAbortionCompleted(MI, currentStateNumber)
+}
+
+// PASS Function
+rule VarMan(MI, currentStateNumber, args) = {
+    let method = head(args) in {
+        debuginfo VarMan self + ": method: " + method
+        debuginfo VarMan self + ": args: " + tail(args)
+
+        case method of
+            "assign"                : VarMan_Assign               (MI, currentStateNumber, nth(args, 2), nth(args, 3))
+            "storeData"             : VarMan_StoreData            (MI, currentStateNumber, nth(args, 2), nth(args, 3))
+            "clear"                 : VarMan_Clear                (MI, currentStateNumber, nth(args, 2))
+
+            "concatenation"         : VarMan_Concatenation        (MI, currentStateNumber, nth(args, 2), nth(args, 3), nth(args, 4))
+            "intersection"          : VarMan_Intersection         (MI, currentStateNumber, nth(args, 2), nth(args, 3), nth(args, 4))
+            "difference"            : VarMan_Difference           (MI, currentStateNumber, nth(args, 2), nth(args, 3), nth(args, 4))
+
+            "extractContent"        : VarMan_ExtractContent       (MI, currentStateNumber, nth(args, 2), nth(args, 3))
+            "extractChannel"        : VarMan_ExtractChannel       (MI, currentStateNumber, nth(args, 2), nth(args, 3))
+            "extractCorrelationID"  : VarMan_ExtractCorrelationID (MI, currentStateNumber, nth(args, 2), nth(args, 3))
+
+            "selection"             : VarMan_Selection            (MI, currentStateNumber, nth(args, 2), nth(args, 3), nth(args, 4), nth(args, 5))
+        endcase
+    }
+}
+
+
+rule VarMan_Assign(MI, currentStateNumber, A, X) = {
+    let a = loadVar(MI, A) in {
+        SetVar(MI, X, head(a), last(a))
+
+        SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+    }
+}
+
+rule VarMan_StoreData(MI, currentStateNumber, X, A) = {
+    SetVar(MI, X, "Data", A)
+
+    SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+}
+
+rule VarMan_Clear(MI, currentStateNumber, X) = {
+    ClearVar(MI, X)
+
+    SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+}
+
+rule VarMan_Concatenation(MI, currentStateNumber, A, B, X) = {
+    let a = loadVar(MI, A),
+        b = loadVar(MI, B) in {
+        debuginfo VarMan_Concatenation self + ": A = " + undefStr(A)
+        debuginfo VarMan_Concatenation self + ": a = " + undefStr(a)
+        debuginfo VarMan_Concatenation self + ": B = " + undefStr(B)
+        debuginfo VarMan_Concatenation self + ": b = " + undefStr(b)
+        debuginfo VarMan_Concatenation self + ": X = " + undefStr(X)
+
+        if (a = undef and b = undef) then {
+            ClearVar(MI, X)
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else if (a = undef) then {
+            SetVar(MI, X, head(b), last(b))
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else if (b = undef) then {
+            SetVar(MI, X, head(a), last(a))
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else if (head(a) != head(b) or not(contains({"MessageSet", "ChannelInformation"}, head(a)))) then {
+            debuginfo VarMan_Concatenation self + ": invalid parameters"
+
+            Crash()
+        }
+        else {
+            let x = (last(a) union last(b)) in {
+                SetVar(MI, X, head(a), x)
+
+                SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+            }
+        }
+    }
+}
+
+rule VarMan_Intersection(MI, currentStateNumber, A, B, X) = {
+    let a = loadVar(MI, A) in
+    let b = loadVar(MI, B) in {
+        if (a = undef or b = undef) then {
+            ClearVar(MI, X)
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else if (head(a) != head(b) or not(contains({"MessageSet", "ChannelInformation"}, head(a)))) then {
+            debuginfo VarMan_Intersection self + ": invalid parameters"
+            debuginfo VarMan_Intersection self + ": A = " + undefStr(A)
+            debuginfo VarMan_Intersection self + ": a = " + undefStr(a)
+            debuginfo VarMan_Intersection self + ": B = " + undefStr(B)
+            debuginfo VarMan_Intersection self + ": b = " + undefStr(b)
+
+            Crash()
+        }
+        else {
+            let x = (last(a) intersect last(b)) in {
+                SetVar(MI, X, head(a), x)
+
+                SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+            }
+        }
+    }
+}
+
+rule VarMan_Difference(MI, currentStateNumber, A, B, X) = {
+    let a = loadVar(MI, A) in
+    let b = loadVar(MI, B) in {
+        if (a = undef) then {
+            ClearVar(MI, X)
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else if (b = undef) then {
+            SetVar(MI, X, head(a), last(a))
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else if (head(a) != head(b) or not(contains({"MessageSet", "ChannelInformation"}, head(a)))) then {
+            debuginfo VarMan_Difference self + ": invalid parameters"
+            debuginfo VarMan_Difference self + ": A = " + undefStr(A)
+            debuginfo VarMan_Difference self + ": a = " + undefStr(a)
+            debuginfo VarMan_Difference self + ": B = " + undefStr(B)
+            debuginfo VarMan_Difference self + ": b = " + undefStr(b)
+
+            Crash()
+        }
+        else {
+            let x = (last(a) diff last(b)) in {
+                SetVar(MI, X, head(a), x)
+
+                SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+            }
+        }
+    }
+}
+
+
+rule VarMan_ExtractContent(MI, currentStateNumber, A, X) = {
+    let a = loadVar(MI, A) in {
+        // TODO: How to deal with empty / undef variables?
+        if (head(a) != "MessageSet") then {
+            debuginfo VarMan_ExtractContent self + ": invalid parameter"
+            debuginfo VarMan_ExtractContent self + ": A = " + undefStr(A)
+            debuginfo VarMan_ExtractContent self + ": a = " + undefStr(a)
+
+            Crash()
+        }
+        else {
+            let messages = last(a) in
+            let messagesContent = map(messages, @msgContent) in {
+                if (| messagesContent | = 0) then {
+                    debuginfo VarMan_ExtractContent self + ": no content to extract"
+                    Crash()
+                }
+                else if (| messagesContent | = 1) then {
+                    let content = firstFromSet(messagesContent) in {
+                        debuginfo VarMan_ExtractContent self + ": exact one content to extract: " + content
+                        SetVar(MI, X, head(content), last(content))
+                    }
+                }
+                else {
+                    // check if all contents have the same type, and that the type is union-able
+                    let x = firstFromSet(messagesContent) in {
+                        if (head(x) = "MessageSet" or head(x) = "ChannelInformation") then {
+                            // check if all are the same type
+                            if (forall y in messagesContent holds (head(y) = head(x))) then {
+                                debuginfo VarMan_ExtractContent self + ": flattening content: " + content
+                                SetVar(MI, X, head(x), flattenSet(map(messagesContent, @last)))
+                            }
+                            else {
+                                debuginfo VarMan_ExtractContent self + ": all messages must have the same underlying datatype!"
+                                debuginfo VarMan_ExtractContent self + ": messages: " + messages
+                                debuginfo VarMan_ExtractContent self + ": messagesContent: " + messagesContent
+
+                                Crash()
+                            }
+                        }
+                        else {
+                            debuginfo VarMan_ExtractContent self + ": invalid message content type, can not be merged: '" + head(x) + "'"
+
+                            Crash()
+                        }
+                    }
+                }
+
+                SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+            }
+        }
+    }
+}
+
+rule VarMan_ExtractChannel(MI, currentStateNumber, A, X) = {
+    let a = loadVar(MI, A) in {
+        // TODO: How to deal with empty / undef variables?
+        if (head(a) != "MessageSet") then {
+            debuginfo VarMan_ExtractChannel self + ": invalid parameter"
+            debuginfo VarMan_ExtractChannel self + ": A = " + undefStr(A)
+            debuginfo VarMan_ExtractChannel self + ": a = " + undefStr(a)
+
+            Crash()
+        }
+        else {
+            let messages = last(a) in
+            let messagesChannel = map(messages, @msgChannel) in {
+                if (| messagesChannel | = 0) then {
+                    debuginfo VarMan_ExtractChannel self + ": no channels to extract"
+                    Crash()
+                }
+                else {
+                    debuginfo VarMan_ExtractChannel self + ": messagesChannel: " + messagesChannel
+                    SetVar(MI, X, "ChannelInformation", messagesChannel)
+                }
+
+                SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+            }
+        }
+    }
+}
+
+rule VarMan_ExtractCorrelationID(MI, currentStateNumber, A, X) = {
+    let a = loadVar(MI, A) in {
+        // TODO: How to deal with empty / undef variables?
+        if (head(a) != "MessageSet") then {
+            debuginfo VarMan_ExtractCorrelationID self + ": invalid parameter"
+            debuginfo VarMan_ExtractCorrelationID self + ": A = " + undefStr(A)
+            debuginfo VarMan_ExtractCorrelationID self + ": a = " + undefStr(a)
+
+            Crash()
+        }
+        else {
+            let messages = last(a) in
+            let messagesCorrelationID = map(messages, @msgCorrelation) in {
+                if (| messagesCorrelationID | != 1) then {
+                    debuginfo VarMan_ExtractCorrelationID self + ": a CorrelationID can only be extracted when there is exactly one, got: " + messagesCorrelationID
+                    Crash()
+                }
+                else {
+                    debuginfo VarMan_ExtractCorrelationID self + ": messagesCorrelationID: " + messagesCorrelationID
+                    SetVar(MI, X, "CorrelationID", firstFromSet(messagesCorrelationID))
+                }
+
+                SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+            }
+        }
+    }
+}
+
+
+// CH * MI * n
+function selectionVartype  : LIST * NUMBER * NUMBER -> STRING
+function selectionData     : LIST * NUMBER * NUMBER -> LIST
+function selectionOptions  : LIST * NUMBER * NUMBER -> LIST
+function selectionMin      : LIST * NUMBER * NUMBER -> NUMBER
+function selectionMax      : LIST * NUMBER * NUMBER -> NUMBER
+function selectionDecision : LIST * NUMBER * NUMBER -> SET
+
+function selectionResult   : LIST * NUMBER * NUMBER -> SET
+
+
+rule VarMan_Selection(MI, currentStateNumber, srcVarname, dstVarname, minimum, maximum) = {
+    let src = loadVar(MI, srcVarname),
+        res = selectionResult(channelFor(self), MI, currentStateNumber) in
+    if (res = undef) then {
+        // TODO: cancel / timeout transition?
+        Selection(MI, currentStateNumber, src, minimum, maximum)
+    }
+    else {
+        selectionResult(channelFor(self), MI, currentStateNumber) := undef
+
+        SetVar(MI, dstVarname, head(src), res)
+
+        SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+    }
+}
+
+rule ResetSelection(MI, currentStateNumber) = {
+    selectionVartype (channelFor(self), MI, currentStateNumber) := undef
+    selectionData    (channelFor(self), MI, currentStateNumber) := undef
+    selectionOptions (channelFor(self), MI, currentStateNumber) := undef
+    selectionMin     (channelFor(self), MI, currentStateNumber) := undef
+    selectionMax     (channelFor(self), MI, currentStateNumber) := undef
+    selectionDecision(channelFor(self), MI, currentStateNumber) := undef
+}
+
+rule Selection(MI, currentStateNumber, src, minimum, maximum) = {
+    if (selectionData(channelFor(self), MI, currentStateNumber) = undef) then {
+        if (head(src) = "MessageSet") then {
+            let l = toList(last(src)) in {
+                selectionData   (channelFor(self), MI, currentStateNumber) := l
+                selectionOptions(channelFor(self), MI, currentStateNumber) := map(l, @msgToString)
+            }
+        }
+        else if (head(src) = "ChannelInformation") then {
+            let l = toList(last(src)) in {
+                selectionData   (channelFor(self), MI, currentStateNumber) := l
+                selectionOptions(channelFor(self), MI, currentStateNumber) := map(l, @chToString)
+            }
+        }
+        else {
+            debuginfo Selection self + ": can not perform selection on datatype '" + head(x) + "'"
+
+            Crash()
+        }
+
+        selectionVartype (channelFor(self), MI, currentStateNumber) := head(src)
+        selectionMin     (channelFor(self), MI, currentStateNumber) := minimum
+        selectionMax     (channelFor(self), MI, currentStateNumber) := maximum
+        selectionDecision(channelFor(self), MI, currentStateNumber) := undef // just to be sure
+
+        debuginfo Selection self + ": REPEAT => Behavior should be executed again for this state"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else if (selectionDecision(channelFor(self), MI, currentStateNumber) = undef) then {
+        if not(contains(wantInput(channelFor(self), MI, currentStateNumber), "SelectionDecision")) then {
+            add "SelectionDecision" to wantInput(channelFor(self), MI, currentStateNumber)
+
+            debuginfo Selection self + ": DONE, make global update"
+            SetExecutionState(MI, currentStateNumber, 1)
+        }
+        else {
+            debuginfo Selection self + ": waiting for selectionDecision"
+            debuginfo Selection self + ": allow next states to be executed, but not with lower priority"
+            SetExecutionState(MI, currentStateNumber, 2)
+        }
+    }
+    else {
+        debuginfo Selection self + ": selectionDecision is set"
+        debuginfo Selection self + ": selectionVartype: "  + selectionVartype (channelFor(self), MI, currentStateNumber)
+        debuginfo Selection self + ": selectionData: "     + selectionData    (channelFor(self), MI, currentStateNumber)
+        debuginfo Selection self + ": selectionOptions: "  + selectionOptions (channelFor(self), MI, currentStateNumber)
+        debuginfo Selection self + ": selectionMin: "      + selectionMin     (channelFor(self), MI, currentStateNumber)
+        debuginfo Selection self + ": selectionMax: "      + selectionMax     (channelFor(self), MI, currentStateNumber)
+        debuginfo Selection self + ": selectionDecision: " + selectionDecision(channelFor(self), MI, currentStateNumber)
+
+        let res = pickItems(selectionData(channelFor(self), MI, currentStateNumber), selectionDecision(channelFor(self), MI, currentStateNumber)) in {
+            selectionResult(channelFor(self), MI, currentStateNumber) := res
+        }
+
+        ResetSelection(MI, currentStateNumber)
+
+        debuginfo Selection self + ": REPEAT => Behavior should be executed again for this state"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+}
+
+
+
+
+
+
+// PASS Function
+rule ModalSplit(MI, currentStateNumber, args) = {
+    debuginfo ModalSplit self + ": state: " + statePretty(MI, currentStateNumber)
+
+    // start each following state
+    foreach transitionNumber in outgoingNormalTransitions(processIDFor(self), currentStateNumber) do {
+        let sNew = targetStateNumber(processIDFor(self), transitionNumber) in {
+            AddState(MI, currentStateNumber, MI, sNew)
+        }
+    }
+
+    // remove self
+    RemoveState(MI, currentStateNumber, MI, currentStateNumber)
+
+    debuginfo ModalSplit self + ": DONE, make global update"
+    SetExecutionState(MI, currentStateNumber, 1)
+}
+
+
+// Channel * MacroInstanceNumber * joinState -> Number
+function joinCount : LIST * NUMBER * NUMBER -> NUMBER
+
+// PASS Function
+rule ModalJoin(MI, currentStateNumber, args) = {
+    let splitCount = nth(args, 1) in
+    seqblock
+        debuginfo ModalJoin self + ": state: " + statePretty(MI, currentStateNumber)
+        debuginfo ModalJoin self + ": splitCount: " + splitCount
+
+        if (joinCount(channelFor(self), MI, currentStateNumber) = undef) then {
+            joinCount(channelFor(self), MI, currentStateNumber) := 1
+        }
+        else {
+            joinCount(channelFor(self), MI, currentStateNumber) := joinCount(channelFor(self), MI, currentStateNumber) + 1
+        }
+
+        debuginfo ModalJoin self + ": joinCount_post: " + joinCount(channelFor(self), MI, currentStateNumber)
+
+        // can we continue, or remove self and wait for next path joining?
+        if (joinCount(channelFor(self), MI, currentStateNumber) < splitCount) then {
+            // remove self
+            RemoveState(MI, currentStateNumber, MI, currentStateNumber)
+
+            debuginfo ModalJoin self + ": DONE, make global update"
+            SetExecutionState(MI, currentStateNumber, 1)
+        }
+        else {
+            joinCount(channelFor(self), MI, currentStateNumber) := undef
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+    endseqblock
+}
+
+
+
+
+rule AbortCallMacro(MI, currentStateNumber) = {
+    let childInstance = callMacroChildInstance(channelFor(self), MI, currentStateNumber) in {
+        debuginfo AbortCallMacro self + ": MI: " + MI
+        debuginfo AbortCallMacro self + ": childInstance: " + childInstance
+
+        if (|activeStates(channelFor(self), childInstance)| > 0) then {
+            AbortMacroInstance(childInstance, undef)
+
+            SetExecutionState(MI, currentStateNumber, 1) // DONE, make global update
+        }
+        else {
+            callMacroChildInstance(channelFor(self), MI, currentStateNumber) := undef
+
+            SetAbortionCompleted(MI, currentStateNumber)  // sets executionState to DONE
+        }
+    }
+}
+
+
+rule InitializeMacroArguments(MI, mIDNew, MINew, macroArgumentsValues) = {
+    local
+        listres1 := macroArguments(processIDFor(self), mIDNew),
+        listres2 := macroArgumentsValues in {
+        if (|listres1| != |listres2|) then {
+            debuginfo CallMacro self + ": Macro '"+macroID(processIDFor(self), mIDNew)+"' takes " + |listres1| + " arguments, but " + |listres2| + " given: " + listres2
+            Crash()
+        }
+
+        while (|listres1| > 0) do {
+            let varnameDst = head(listres1),
+                varnameSrc = head(listres2) in
+            let var = loadVar(MI, varnameSrc) in {
+                if (var = undef) then {
+                    debuginfo CallMacro self + ": WARN local variable '" + varnameDst + "' from '" + varnameSrc + "' is undef -> unable to determine its type!"
+                    Crash()
+                }
+
+                debuginfo CallMacro self + ": load local variable '" + varnameDst + "' from '" + varnameSrc + "': '" + var + "'"
+                SetVar(MINew, varnameDst, nth(var, 1), nth(var, 2))
+            }
+
+            listres1 := tail(listres1)
+            listres2 := tail(listres2)
+        }
+    }
+}
+
+// PASS Function
+rule CallMacro(MI, currentStateNumber, args) = {
+    debuginfo CallMacro self + ": args: " + args
+
+    let childInstance = callMacroChildInstance(channelFor(self), MI, currentStateNumber) in {
+        // if Macro is not yet running..
+        if (childInstance = undef) then {
+            debuginfo CallMacro self + ": childInstance: undef"
+            // TODO: consider to move this to a new rule StartCallMacro
+            let mIDNew = searchMacro(head(args)),
+                MINew  = nextMacroInstanceNumber(channelFor(self)) in
+            seqblock
+                nextMacroInstanceNumber(channelFor(self)) := MINew + 1
+                macroNumberOfMI(channelFor(self), MINew) := mIDNew
+                callMacroChildInstance(channelFor(self), MI, currentStateNumber) := MINew
+
+                // NOTE: macroTerminationResult doesn't need to be initialized
+                // as the MI part will be different in each iteration
+
+                // if the Macro has parameters..
+                if (|macroArguments(processIDFor(self), mIDNew)| > 0) then {
+                    InitializeMacroArguments(MI, mIDNew, MINew, tail(args))
+                }
+
+                debuginfo CallMacro self + ": DONE, make global update"
+                SetExecutionState(MI, currentStateNumber, 1)
+
+                StartMacro(MI, currentStateNumber, mIDNew, MINew)
+            endseqblock
+        }
+        else {
+            debuginfo CallMacro self + ": childInstance: " + childInstance
+            let childResult = macroTerminationResult(channelFor(self), childInstance) in {
+                if (childResult != undef) then {
+                    debuginfo CallMacro self + ": childResult: " + childResult
+
+                    callMacroChildInstance(channelFor(self), MI, currentStateNumber) := undef
+
+                    if (childResult = true) then { // completed without result
+                        SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+                    }
+                    else {
+                        SetCompletedFunction(MI, currentStateNumber, childResult) // sets executionState to REPEAT
+                    }
+                }
+                else seqblock
+                    /*
+                    debuginfo CallMacro self + ": waiting for child"
+                    debuginfo CallMacro self + ": allow next states to be executed, but not with lower priority"
+                    SetExecutionState(MI, currentStateNumber, 2)
+
+                    debuginfo CallMacro self + ": should execute activeStates("+childInstance+"): " + activeStates(channelFor(self), childInstance)
+                    Crash()
+                    */
+
+                    debuginfo CallMacro self + ": execute MacroBehavior("+childInstance+") with activeStates(ch, "+childInstance+"): " + activeStates(channelFor(self), childInstance)
+
+                    MacroBehavior(childInstance)
+
+                    let state = macroExecutionState(channelFor(self), childInstance) in {
+                        debuginfo CallMacro self + ": macroExecutionState(ch, "+childInstance+"): " + macroExecutionState(channelFor(self), childInstance)
+
+                        if (state = 1) then { // DONE
+                            SetExecutionState(MI, currentStateNumber, 1)
+                        }
+                        else if (state = 2) then { // NEXT
+                            SetExecutionState(MI, currentStateNumber, 2)
+                        }
+                        else if (state = 3) then { // LOWER
+                            SetExecutionState(MI, currentStateNumber, 3)
+                        }
+                        else {
+                            debuginfo CallMacro self + ": invalid macroExecutionState!"
+                            Crash()
+                        }
+                    }
+
+                    // reset
+                    macroExecutionState(channelFor(self), childInstance) := undef
+                endseqblock
+            }
+        }
+    }
+}
+
+
+rule CheckCancel(MI, currentStateNumber, transitionNumber) = {
+    let processID = processIDFor(self) in
+    let tName = transitionLabel(processID, transitionNumber) in
+    let nCancel = stateNumberFromID(processID, tName) in {
+        debuginfo CheckCancel self + ": state: " + statePretty(MI, currentStateNumber)
+        debuginfo CheckCancel self + ": transition: " + transitionPretty(MI, transitionNumber)
+        debuginfo CheckCancel self + ": nCancel: " + nCancel
+
+        if (contains(activeStates(channelFor(self), MI), nCancel) = true) then {
+            debuginfo CheckCancel self + ": at least one state active!" // at least? if nothing went wrong it should be at most one as cancel on modal join makes no sense..
+            EnableTransition(MI, transitionNumber)
+        }
+        else {
+            debuginfo CheckCancel self + ": currently no state active!"
+            DisableTransition(MI, currentStateNumber, transitionNumber)
+        }
+    }
+}
+
+
+// PASS Function
+rule Cancel(MI, currentStateNumber, args) = {
+    debuginfo Cancel self + ": args: " + args
+
+    let processID = processIDFor(self) in
+    seqblock
+        forall transitionNumber in outgoingNormalTransitions(processID, currentStateNumber) do {
+            CheckCancel(MI, currentStateNumber, transitionNumber)
+        }
+
+        let enabledOutgoingTransitions = outgoingEnabledTransitions(channelFor(self), MI, currentStateNumber) in {
+            if (|enabledOutgoingTransitions| > 0) then {
+                seqblock
+                debuginfo Cancel self + ": at least one transition with active states :)"
+
+                if (|enabledOutgoingTransitions| = 1) then {
+                    let transitionNumber = firstFromSet(enabledOutgoingTransitions) in {
+                        if (transitionIsAuto(processID, transitionNumber) = true) then {
+                            debuginfo Cancel self + ": making automatic decision for transition " + transitionPretty(MI, transitionNumber)
+                            selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
+                        }
+                        else {
+                            debuginfo Cancel self + ": can not make automatic decision, not an auto transition: " + transitionPretty(MI, transitionNumber)
+                        }
+                    }
+                }
+                else {
+                    debuginfo Cancel self + ": can not make automatic decision, too much transitions: " + enabledOutgoingTransitions
+                }
+
+                if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
+                    debuginfo Cancel self + ": the decision has been made for: " + transitionPretty(MI, selectedTransition(channelFor(self), MI, currentStateNumber))
+
+                    SetCompletedFunction(MI, currentStateNumber, transitionLabel(processID, selectedTransition(channelFor(self), MI, currentStateNumber))) // sets executionState to REPEAT
+                }
+                else {
+                    SelectTransition(MI, currentStateNumber)
+                }
+                endseqblock
+            }
+            else {
+                debuginfo Cancel self + ": no transition with active states, trying later.."
+                debuginfo Cancel self + ": allow all other states to be executed, especially states with lower priority"
+                SetExecutionState(MI, currentStateNumber, 3)
+                // TODO: discuss: LOWER or NEXT?
+            }
+        }
+    endseqblock
+}
+
+
+rule PerformTransitionCancel(MI, currentStateNumber, transitionNumber) = {
+    let processID = processIDFor(self) in {
+        debuginfo PerformTransitionCancel self + ": state: " + statePretty(MI, currentStateNumber)
+        debuginfo PerformTransitionCancel self + ": transition: " + transitionPretty(MI, transitionNumber)
+
+        let tLabel = transitionLabel(processID, transitionNumber) in
+        let nCancel = stateNumberFromID(processID, tLabel) in {
+            debuginfo PerformTransitionCancel self + ": MI: " + MI
+            debuginfo PerformTransitionCancel self + ": nCancel: " + nCancel
+
+            cancelDecision(channelFor(self), MI, nCancel) := true
+
+            SetCompletedTransition(MI, currentStateNumber, transitionNumber) // sets executionState to REPEAT
+
+            /*
+            choose currentActiveState in activeStates(channelFor(self), MI) with (nth(currentActiveState, 3) = nCancel) do {
+                debuginfo PerformTransitionCancel self + ": currentActiveState: " + currentActiveState
+
+                if (cancelDecision(channelFor(self), MI, nCancel) != true) then {
+                    debuginfo PerformTransitionCancel self + ": setting cancelDecision for: " + activeStatePretty(currentActiveState, MI)
+
+                }
+                else {
+                    debuginfo PerformTransitionCancel self + ": cancelDecision already set for: " + activeStatePretty(currentActiveState, MI)
+                }
+
+            }
+            ifnone {
+                debuginfo PerformTransitionCancel self + ": no possible state!"
+                Crash()
+            }
+            */
+        }
+    }
+}
+
+
+
+
+derived loadCorrelationID(MI, x) = loadCorrelationIDForChannel(channelFor(self), MI, x)
+
+derived loadCorrelationIDForChannel(ch, MI, x) = return numres in {
+    debuginfo loadCorrelationIDForChannel self + ": MI: " + MI
+    debuginfo loadCorrelationIDForChannel self + ": x: " + undefStr(x)
+
+    if (x = undef or x = 0 or x = "") then {
+        numres := 0
+    }
+    else if (x = "?" or x = "*") then {
+        debuginfo loadCorrelationIDForChannel self + ": wildcard must be handled before"
+        Crash()
+        //numres := undef // wildcard
+    }
+    else {
+        let v = loadVarForChannel(ch, MI, x) in {
+            if (v = undef) then {
+                debuginfo loadCorrelationIDForChannel self + ": variable '"+x+"' is undef!"
+
+                Crash()
+            }
+            else if (head(v) = "CorrelationID") then {
+                numres := last(v)
+            }
+            else if (head(v) = "MessageSet") then {
+                let correlations = map(last(v), @msgCorrelation) in {
+                    if (|correlations| = 1) then {
+                        numres := firstFromSet(correlations)
+                    }
+                    else {
+                        debuginfo loadCorrelationIDForChannel self + ": ambiguous CorrelationIDs: " + correlations
+                        Crash()
+                    }
+                }
+            }
+            else {
+                debuginfo loadCorrelationIDForChannel self + ": variable '"+x+"' must either be a CorrelationID or MessageSet, but it is: " + head(v)
+                Crash()
+            }
+        }
+    }
+}
+
+// PASS Function
+// no wildcards allowed
+rule CloseIP(MI, currentStateNumber, args) = {
+    debuginfo CloseIP self + ": args: " + args
+
+    let senderSubjID         = nth(args, 1),
+        messageType          = nth(args, 2),
+        correlationIDVarname = nth(args, 3) in {
+        if (messageType = "*" or messageType = "?" or senderSubjID = "*" or senderSubjID = "?" or correlationIDVarname = "*" or correlationIDVarname = "?") then {
+            debuginfo CloseIP self + ": no wildcards allowed. You may want to use CloseAllIPs"
+            Crash()
+        }
+        else {
+            let correlationID = loadCorrelationID(MI, correlationIDVarname) in {
+                inputPoolClosed(channelFor(self), senderSubjID, messageType, correlationID) := true
+                if (inputPool(channelFor(self), senderSubjID, messageType, correlationID) = undef) then {
+                    add [senderSubjID, messageType, correlationID] to inputPoolDefined(channelFor(self))
+                    inputPool(channelFor(self), senderSubjID, messageType, correlationID) := []
+                }
+            }
+        }
+
+        SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+    }
+}
+
+// PASS Function
+// no wildcards allowed
+rule OpenIP(MI, currentStateNumber, args) = {
+    debuginfo OpenIP self + ": args: " + args
+
+    let senderSubjID         = nth(args, 1),
+        messageType          = nth(args, 2),
+        correlationIDVarname = nth(args, 3) in {
+        if (messageType = "*" or messageType = "?" or senderSubjID = "*" or senderSubjID = "?" or correlationIDVarname = "*" or correlationIDVarname = "?") then {
+            debuginfo OpenIP self + ": no wildcards allowed. You may want to use CloseAllIPs"
+            Crash()
+        }
+        else {
+            let correlationID = loadCorrelationID(MI, correlationIDVarname) in {
+                inputPoolClosed(channelFor(self), senderSubjID, messageType, correlationID) := false
+                if (inputPool(channelFor(self), senderSubjID, messageType, correlationID) = undef) then {
+                    add [senderSubjID, messageType, correlationID] to inputPoolDefined(channelFor(self))
+                    inputPool(channelFor(self), senderSubjID, messageType, correlationID) := []
+                }
+            }
+        }
+
+        SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+    }
+}
+
+// PASS Function
+rule CloseAllIPs(MI, currentStateNumber, args) = {
+    debuginfo CloseAllIPs self + ": args: " + args
+
+    inputPoolClosed(channelFor(self), undef, undef, undef) := true
+
+    forall key in inputPoolDefined(channelFor(self)) do {
+        let sID = nth(key, 1),
+            mT  = nth(key, 2),
+            cID = nth(key, 3) in {
+            inputPoolClosed(channelFor(self), sID, mT, cID) := true
+        }
+    }
+
+    SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+}
+
+// PASS Function
+rule OpenAllIPs(MI, currentStateNumber, args) = {
+    debuginfo OpenAllIPs self + ": args: " + args
+
+    inputPoolClosed(channelFor(self), undef, undef, undef) := false
+
+    forall key in inputPoolDefined(channelFor(self)) do {
+        let sID = nth(key, 1),
+            mT  = nth(key, 2),
+            cID = nth(key, 3) in {
+            inputPoolClosed(channelFor(self), sID, mT, cID) := false
+        }
+    }
+
+    SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+}
+
+// PASS Function
+// only correlation can be wildcard (*)
+rule IsIPEmpty(MI, currentStateNumber, args) = {
+    debuginfo IsIPEmpty self + ": args: " + args
+
+    local numres in
+    let senderSubjID         = nth(args, 1),
+        messageType          = nth(args, 2),
+        correlationIDVarname = nth(args, 3) in
+    seqblock
+
+        if (correlationIDVarname = undef or correlationIDVarname = 0 or correlationIDVarname = "") then {
+            numres := 0
+        }
+        else if (correlationIDVarname = "*") then {
+            numres := undef
+        }
+        else if (correlationIDVarname = "?") then {
+            debuginfo OpenIP self + ": correlationIDVarname must not be '?'. wildcard is '*'"
+            Crash()
+        }
+        else {
+            numres := loadCorrelationID(MI, correlationIDVarname)
+        }
+
+        // receiverChannel * senderSubjID * messageType * correlationID
+        if (inputPoolIsEmpty(channelFor(self), senderSubjID, messageType, numres) = true) then {
+            SetCompletedFunction(MI, currentStateNumber, "true") // sets executionState to REPEAT
+        }
+        else {
+            SetCompletedFunction(MI, currentStateNumber, "false") // sets executionState to REPEAT
+        }
+    endseqblock
+}
+
+
+// Channel * MacroInstanceNumber * StateNumber -> BOOLEAN
+function selectAgentsDecision : LIST * NUMBER * NUMBER -> SET
+
+function selectAgentsProcessID : LIST * NUMBER * NUMBER -> STRING
+function selectAgentsSubjectID : LIST * NUMBER * NUMBER -> STRING
+function selectAgentsCountMin  : LIST * NUMBER * NUMBER -> NUMBER
+function selectAgentsCountMax  : LIST * NUMBER * NUMBER -> NUMBER
+
+function selectAgentsResult : LIST * NUMBER * NUMBER -> SET
+
+
+// PASS Function
+rule SelectAgentsAction(MI, currentStateNumber, args) = {
+    debuginfo SelectAgentsAction self + ": args: " + args
+
+    let
+        varname  = nth(args, 1),
+        sIDLocal = nth(args, 2),
+        countMin = nth(args, 3),
+        countMax = nth(args, 4) in
+    {
+        if (selectAgentsResult(channelFor(self), MI, currentStateNumber) != undef) then {
+            SetVar(MI, varname, "ChannelInformation", selectAgentsResult(channelFor(self), MI, currentStateNumber))
+            selectAgentsResult(channelFor(self), MI, currentStateNumber) := undef
+
+            SetCompletedFunction(MI, currentStateNumber, undef) // sets executionState to REPEAT
+        }
+        else {
+            SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax)
+        }
+    }
+}
+
+rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
+    if (sIDLocal = undef or sIDLocal = "?") then {
+        debuginfo SelectAgents self + ": sIDLocal must not be wildcard/undef"
+        Crash()
+    }
+
+    let processID = processIDFor(self),
+        PI        = processInstanceFor(self) in
+    let resolvedInterface = resolveInterfaceSubject(sIDLocal) in
+    let resolvedProcessID = nth(resolvedInterface, 1),
+        resolvedSubjectID = nth(resolvedInterface, 2) in
+    if (selectAgentsDecision(channelFor(self), MI, currentStateNumber) != undef) then {
+        // validate min/max
+        if (hasSizeWithin(selectAgentsDecision(channelFor(self), MI, currentStateNumber), countMin, countMax) != true) then {
+            debuginfo SelectAgents self + ": selectAgentsDecision is not within countMin/countMax: " + countMin + " <= " + |selectAgentsDecision(channelFor(self), MI, currentStateNumber)| + " <= " + countMax
+            Crash()
+        }
+
+        local setres1 := {} in // created channels
+            seq
+                foreach agent in selectAgentsDecision(channelFor(self), MI, currentStateNumber) do { // note: forall not possible as nextPI is incremented
+                    if (resolvedProcessID = processID) then {
+                        // local process, use own PI
+                        let ch = [processID, PI, sIDLocal, agent] in {
+                            InitializeSubject(ch)
+
+                            add ch to setres1
+                        }
+                    }
+                    else {
+                        if (resolvedProcessID = undef) then {
+                            debuginfo SelectAgents self + ": invalid resolvedProcessID"
+                            Crash()
+                        }
+
+                        if (resolvedSubjectID = undef) then {
+                            debuginfo SelectAgents self + ": invalid resolvedSubjectID"
+                            Crash()
+                        }
+
+                        // external process, create new PI
+                        local numres1 in {
+                            seq
+                                numres1 <- StartProcess(resolvedProcessID, resolvedSubjectID, agent)
+                            next {
+                                debuginfo SelectAgents self + ": created PI " + numres1 + " for " + sIDLocal + " (" + resolvedSubjectID + " in " + resolvedProcessID + ")"
+
+                                if (numres1 = undef) then {
+                                    debuginfo SelectAgents self + ": invalid PI"
+                                    Crash()
+                                }
+
+                                let ch = [resolvedProcessID, numres1, resolvedSubjectID, agent] in
+                                    add ch to setres1
+                            }
+                        }
+                    }
+                }
+            next
+                selectAgentsResult(channelFor(self), MI, currentStateNumber) := setres1
+
+        selectAgentsDecision (channelFor(self), MI, currentStateNumber) := undef
+
+        selectAgentsCountMin (channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsCountMax (channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsProcessID(channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsSubjectID(channelFor(self), MI, currentStateNumber) := undef
+
+        debuginfo SelectAgents self + ": REPEAT"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else if(hasSizeWithin(predefinedAgents(processID, sIDLocal), countMin, countMax) = true) then {
+        debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processID, sIDLocal)
+
+        selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processID, sIDLocal)
+
+        debuginfo SelectAgents self + ": REPEAT"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else {
+        if not(contains(wantInput(channelFor(self), MI, currentStateNumber), "SelectAgentsDecision")) then {
+            add "SelectAgentsDecision" to wantInput(channelFor(self), MI, currentStateNumber)
+
+            debuginfo selectAgents self + ": resolvedProcessID: " + resolvedProcessID
+            debuginfo selectAgents self + ": resolvedSubjectID: " + resolvedSubjectID
+            debuginfo selectAgents self + ": countMin: " + countMin
+            debuginfo selectAgents self + ": countMax: " + countMax
+
+            selectAgentsProcessID(channelFor(self), MI, currentStateNumber) := resolvedProcessID
+            selectAgentsSubjectID(channelFor(self), MI, currentStateNumber) := resolvedSubjectID
+            selectAgentsCountMin (channelFor(self), MI, currentStateNumber) := countMin
+            selectAgentsCountMax (channelFor(self), MI, currentStateNumber) := countMax
+
+            selectAgentsResult(channelFor(self), MI, currentStateNumber) := undef
+
+            debuginfo SelectAgents self + ": DONE, make global update"
+            SetExecutionState(MI, currentStateNumber, 1)
+        }
+        else {
+            debuginfo SelectAgents self + ": waiting for selectAgentsDecision"
+            debuginfo SelectAgents self + ": NEXT"
+            SetExecutionState(MI, currentStateNumber, 2)
+        }
+    }
+}

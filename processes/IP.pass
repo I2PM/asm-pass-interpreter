@@ -1,0 +1,47 @@
+/*
+
+Demonstrates the limited IP of B.
+
+A is blocked until B receives messages so that there is enough space in its IP.
+
+A has a Timeout after 10 seconds.
+
+*/
+
+Process Example_IP {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 1, 1) -> Entscheiden
+
+            Entscheiden: InternalAction {
+                "send X" -> SendenX
+                "send Y" -> SendenY
+                "end" -> END
+            }
+
+            SendenX: Send {
+                ["X" to B in "b"] -> Entscheiden
+                (timeout(10)) -> Entscheiden
+            }
+            SendenY: Send {
+                ["Y" to B in "b"] -> Entscheiden
+                (timeout(10)) -> Entscheiden
+            }
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive {
+                ["X" from A] -> START
+                ["Y" from A] -> START
+                (cancel) -> END
+            }
+        }
+    }
+}

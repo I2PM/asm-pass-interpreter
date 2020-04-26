@@ -1,0 +1,43 @@
+Process Transitions2_SendMultiCorrelation {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar", "baz"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+        InputPool := 1
+
+        Macro Main {
+            START: "SelectAgents" ("b1", "B", 1, 1) -> Select2
+            Select2: "SelectAgents" ("b2", "B", 1, 1) -> Senden1
+
+            Senden1: Send ["ping" to B in "b1" with content of "$empty" with new correlation "c1"] -> Senden2
+            Senden2: Send ["ping" to B in "b2" with content of "$empty" with new correlation "c2"] -> Empfangen1
+
+            Empfangen1: Receive {
+                ["pong" with correlation of "c1" from B] (auto) -> Empfangen2
+                (timeout (5)) -> END_Fail1
+            }
+            Empfangen2: Receive {
+                ["pong" with correlation of "c2" from B] (auto) -> END
+                (timeout (5)) -> END_Fail2
+            }
+
+            END_Fail1: End ("receive1 timed out")
+            END_Fail2: End ("receive2 timed out")
+        }
+    }
+
+    Subject B {
+        InputPool := 1
+
+        Macro Main {
+            START: Receive ["ping" from A store message in "tmp"] (auto) -> Senden
+
+            Senden: Send ["pong" with correlation of "tmp" to A in "tmp" with content of "tmp"] -> END
+        }
+    }
+}

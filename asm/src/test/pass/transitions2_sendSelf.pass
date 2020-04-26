@@ -1,0 +1,31 @@
+Process Transitions2_SendSelf {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping!") -> Split
+
+            Split: "ModalSplit" {
+                -> Senden
+                -> Empfangen
+            }
+
+            Senden: Send ["ping" to A in "$self" with content of "pingContent"] -> Join
+
+            Empfangen: Receive {
+                ["ping" from A] (auto) -> Join
+                (timeout (2)) -> END_FAIL
+            }
+
+            Join: "ModalJoin" -> END
+
+            END_FAIL: End ("did not receive message")
+        }
+    }
+}

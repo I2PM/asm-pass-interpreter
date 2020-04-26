@@ -1,0 +1,68 @@
+Process Transitions2_MacroPrio {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 1, 1) -> load
+            load: "VarMan" ("storeData", "tmp", "something") -> split
+
+            split: "ModalSplit" {
+                -> wait
+                -> call
+            }
+
+
+            // has a lower prio than call, but higher than states within "X";
+            // as the prio of states in other macros shouldn't matter this has effectively a lower prio than the send in X,
+            // therefore wait for CallMacro to run / cancel this afterwards
+            wait: InternalAction with priority 1 {
+                (timeout (1)) -> sendBad // NOTE: test if this timeout is more important than cancel.. and disturbs this test..
+                (cancel) -> join
+            }
+
+            sendBad: Send with priority 1 {
+                ["bad" to B in "b" with content of "tmp"] -> join
+            }
+
+
+            call: "CallMacro" with priority 2 ("X") {
+                -> cancelWait
+            }
+
+            cancelWait: "Cancel" with priority 2 {
+                "wait" (auto) -> join
+                (timeout (1)) -> END_Fail
+            }
+
+
+            join: "ModalJoin" -> END
+
+            END_Fail: End ("cancel timeout")
+        }
+
+        Macro X {
+            START: Send {
+                ["good" to B in "b" with content of "tmp"] -> END
+            }
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive {
+                ["good" from A] (auto) -> START
+                ["bad" from A] (auto with priority 1) -> END_Fail
+                (timeout (2)) -> END
+            }
+
+            END_Fail: End ("received bad message")
+        }
+    }
+}

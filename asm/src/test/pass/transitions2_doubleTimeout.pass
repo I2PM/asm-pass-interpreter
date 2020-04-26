@@ -1,0 +1,54 @@
+Process Transitions2_DoubleTimeout {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 1, 1) -> Send1
+
+            Send1: Send {
+                ["start" to B in "b" with content of "$empty"] -> Wait1
+            }
+
+            Wait1: InternalAction {
+                (timeout (1)) -> Send2
+            }
+
+            Send2: Send {
+                ["ping1" to B in "b" with content of "$empty"] -> Wait2
+            }
+
+            Wait2: InternalAction {
+                (timeout (1)) -> Send3
+            }
+
+            Send3: Send {
+                ["ping2" to B in "b" with content of "$empty"] -> END
+            }
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive {
+                ["start" from A] (auto) -> Receive1
+            }
+
+            Receive1: Receive {
+                ["ping1" from A] (auto) -> Receive1
+                ["ping2" from A] (auto) -> END
+                (timeout (7)) -> END_FAIL
+            }
+
+            END_FAIL: End ("timeout")
+        }
+    }
+}

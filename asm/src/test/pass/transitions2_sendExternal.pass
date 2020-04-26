@@ -1,0 +1,37 @@
+Process Transitions2_SendExternalA {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    InterfaceSubject B is X in Transitions2_SendExternalX
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping") -> Senden
+
+            Senden: Send ["ping" to B with content of "pingContent"] -> END
+        }
+    }
+}
+
+Process Transitions2_SendExternalX {
+    Data {
+        "agents" -> {
+            "X" -> {"bar"}
+        }
+    }
+
+    InterfaceSubject Y is A in Transitions2_SendExternalA
+
+    Subject X {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["ping" from Y] (auto) -> END
+        }
+    }
+}

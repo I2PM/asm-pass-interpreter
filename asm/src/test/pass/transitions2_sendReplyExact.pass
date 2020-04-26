@@ -1,0 +1,44 @@
+Process Transitions2_SendReplyExact {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar", "baz"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "pingContent", "Ping!") -> Erzeugen1
+
+            Erzeugen1: "SelectAgents" ("b1", "B", 1, 1) -> Erzeugen2
+            Erzeugen2: "SelectAgents" ("b2", "B", 1, 1) -> Senden1
+
+            Senden1: Send ["ping" to B in "b1" with content of "pingContent"] -> Senden2
+            Senden2: Send ["ping" to B in "b2" with content of "pingContent"] -> Sync
+
+            Sync: Receive ["sync" from 2 of B] (auto) -> Empfangen1
+
+            Empfangen1: Receive ["pong" from B in "b1"] (auto) -> Empfangen2
+            Empfangen2: Receive {
+                ["pong" from B in "b1"] (auto) -> END_FAIL
+                (timeout (0)) -> END
+            }
+
+            END_FAIL: End ("received two messages from same channel")
+        }
+    }
+
+    Subject B {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["ping" from A store message in "tmp"] (auto) -> Senden
+
+            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> Sync
+
+            Sync: Send ["sync" to A in "tmp" with content of "tmp"] -> END
+        }
+    }
+}

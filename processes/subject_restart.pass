@@ -1,0 +1,33 @@
+Process Example_SubjectRestart {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 1, 1) -> Schleife
+
+            Schleife: InternalAction {
+                "beenden" -> END
+                "ping senden" -> PingSenden
+                "etwas anderes senden" -> EtwasAnderesSenden
+            }
+            PingSenden: Send {
+                ["ping" to B in "b"] -> Empfangen
+                "timeout nach 10 Sekunden" (timeout(10)) -> Schleife
+            }
+            EtwasAnderesSenden: Send {
+                ["something" to B in "b"] -> Schleife // note: wird von B nicht empfangen -> non-proper termination
+                "timeout nach 10 Sekunden" (timeout(10)) -> Schleife
+            }
+            Empfangen: Receive ["pong" from B] -> Schleife
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive ["ping" from A store message in "foo"] (auto) -> Extrahieren
+            Extrahieren: "VarMan" ("extractContent", "foo", "foo-content") -> Senden
+            Senden: Send ["pong" to A in "foo" with content of "foo-content"] -> END
+        }
+    }
+}

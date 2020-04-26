@@ -1,0 +1,297 @@
+// @maxsteps 200
+// @minsteps 10
+
+CoreASM TestTransitions
+
+use Standard
+use MathPlugin
+use ForeachRule
+use Modularity
+use Queue
+use Time
+use DebugInfo
+
+option DebugInfo.activeChannels ALL
+option Signature.TypeChecking strict // warning
+option Signature.NoUndefinedId strict // warning
+
+include "../semantic/InitSemantic.casm"
+include "../Transitions.casm"
+
+init TestTransitions
+
+function processID : -> STRING
+function processInstance : -> NUMBER
+
+function subjectIDA : -> STRING
+function agentNameA : -> STRING
+function agentA     : -> Agents
+
+function subjectIDB : -> STRING
+function agentNameB : -> STRING
+function agentB     : -> Agents
+
+function subjectIDB1 : -> STRING
+function subjectIDB2 : -> STRING
+function agentNameB1 : -> STRING
+function agentNameB2 : -> STRING
+function agentB1     : -> Agents
+function agentB2     : -> Agents
+
+
+function CurrentTestStateNumber    : -> STRING
+function RemainingTestStateIDs : -> LIST
+
+rule TestTransitions = seqblock
+    initSemantic
+
+    processID := "Transitions"
+    processInstance := 1
+
+    subjectIDA := "A"
+    agentNameA := "foo"
+
+    subjectIDB := "B"
+    agentNameB := "test"
+
+    subjectIDB1 := "B"
+    subjectIDB2 := "B"
+    agentNameB1 := "testB1"
+    agentNameB2 := "testB2"
+
+    LoadTransitions
+
+    RemainingTestStateIDs := processData(processID)("TestStateIDs")
+
+    extend Agents with a do {
+        program(a) := @TestStates
+
+        initAgent(a, processID, processInstance, subjectIDA, agentNameA)
+
+        agentA := a
+    }
+
+    extend Agents with b do {
+        //program(b) := @checkIP
+        program(b) := undef // currently there is no need to have B actually running
+
+        initAgent(b, processID, processInstance, subjectIDB, agentNameB)
+
+        agentB := b
+    }
+
+
+    extend Agents with b do {
+        //program(b) := @checkIP
+        program(b) := undef // currently there is no need to have B actually running
+
+        initAgent(b, processID, processInstance, subjectIDB1, agentNameB1)
+
+        agentB1 := b
+    }
+
+    extend Agents with b do {
+        //program(b) := @checkIP
+        program(b) := undef // currently there is no need to have B actually running
+
+        initAgent(b, processID, processInstance, subjectIDB2, agentNameB2)
+
+        agentB2 := b
+    }
+
+    program(self) := undef
+endseqblock
+
+
+function TestStateInitialized : -> BOOLEAN
+function TestStateResult : -> BOOLEAN // Tri-State! undef => still running
+
+// @require "no next state, exit"
+// @refuse "TestStates_Fail"
+rule TestStates = {
+    if (CurrentTestStateNumber = undef) then {
+        let stID = head(RemainingTestStateIDs) in {
+            if (stID != undef) then {
+                debuginfo TestAllCasmOutput "prepare test of the next state: " + stID
+
+                remove stID from RemainingTestStateIDs
+
+                CurrentTestStateNumber := stID
+                TestStateInitialized := false
+                TestStateResult := undef
+            }
+            else {
+                debuginfo TestAllCasmOutput "no next state, exit"
+                program(self) := undef
+            }
+        }
+    }
+    else if (TestStateResult = undef) then {
+        debuginfo TestAllCasmOutput CurrentTestStateNumber + ": running.."
+        TestState(CurrentTestStateNumber, 1, 1) // TODO: count must be dynamic e.g. for Macro/Split
+    }
+    else {
+        if (TestStateResult = true) then {
+            debuginfo TestAllCasmOutput CurrentTestStateNumber + ": TestStates_Success :)"
+        }
+        else {
+            debuginfo TestAllCasmOutput CurrentTestStateNumber + ": TestStates_Fail :("
+        }
+
+        CurrentTestStateNumber     := undef
+        activeStates(channelFor(self), 1) := []
+    }
+}
+
+// @refuse "TestState_WrongActiveCount"
+rule TestState(stID, activeCountMin, activeCountMax) = {
+    let MI = 1 in
+    let stateNumber        = stateNumberFromID(processID, stID) in
+    let stateNumberSuccess = stateNumberFromID(processID, stID+"Success") in
+    let stateNumberFail    = stateNumberFromID(processID, stID+"Fail") in {
+        if (TestStateInitialized != true) then {
+            seqblock
+                ClearIPs
+
+                LoadData(MI, stateNumber, "BeforeInit")
+
+                add stateNumber to activeStates(channelFor(self), MI)
+
+                StartState(MI, stateNumber)
+
+                LoadData(MI, stateNumber, "AfterInit")
+            endseqblock
+
+            TestStateInitialized := true
+        }
+        else {
+            debuginfo TestState "activeStates: " + activeStates(channelFor(self), MI)
+
+            if (|activeStates(channelFor(self), MI)| < activeCountMin or |activeStates(channelFor(self), MI)| > activeCountMax) then {
+                debuginfo TestState "TestState_WrongActiveCount"
+            }
+            else {
+                if (exists x in activeStates(channelFor(self), MI) with (x = stateNumberFail)) then {
+                    debuginfo TestState "stateFail: " + stateNumberFail
+                    TestStateResult := false
+                }
+                else if (exists x in activeStates(channelFor(self), MI) with (x = stateNumberSuccess)) then {
+                    debuginfo TestState "stateSuccess: " + stateNumberSuccess
+                    TestStateResult := true
+                }
+                else {
+                    debuginfo TestState "perform: calling ExecuteSubject.."
+                    ExecuteSubject()
+                }
+            }
+        }
+    }
+}
+
+rule ClearIPs = {
+    let ch = channelFor(self) in {
+        forall x in inputPoolDefined(ch) do {
+            let s = nth(x, 1) in
+            let t = nth(x, 2) in
+            let c = nth(x, 3) in {
+                inputPool(ch, s, t, c) := undef
+            }
+        }
+        inputPoolDefined(ch) := {}
+    }
+}
+
+derived replaceChannel(x) = return listres in {
+    if (x = "$A") then {
+        listres := channelFor(agentA)
+    }
+    else if (x = "$B") then {
+        listres := channelFor(agentB)
+    }
+    else if (x = "$B1") then {
+        listres := channelFor(agentB1)
+    }
+    else if (x = "$B2") then {
+        listres := channelFor(agentB2)
+    }
+    else {
+        debuginfo replaceChannel self + ": unable to substitute channel for '" + x + "'"
+        Crash()
+    }
+}
+
+rule LoadData(MI, stateNumber, phase) = {
+    debuginfo TestState "LoadData(" + phase + ")"
+    let stID = stateID(processID, stateNumber) in
+    let k = subjectIDA + " " + stID + " " + phase in // TODO: use actual subjectID when executing this for B too!
+    let jobs = processData(processID)(k) in {
+        debuginfo TestState "processData(processID)("+k+"): " + undefStr(jobs)
+        if (jobs != undef) then {
+            local listres in seqblock
+            listres := jobs
+
+            while (|listres| > 0) do {
+                listres := tail(listres)
+
+                let job = head(listres) in
+                let jobName = head(job) in {
+                    if (matches(jobName, "SetVar")) then {
+                        let vartype = nth(job, 2) in
+                        let varname = nth(job, 3) in
+                        let value   = nth(job, 4) in {
+                            debuginfo TestState "SetVar(0, "+vartype+", "+varname+", "+value+")"
+
+                            // TODO: look for recursive messages containing channels?
+                            if (vartype = "ChannelInformation") then {
+                                SetVar(0, varname, vartype, map(value, @replaceChannel))
+                            }
+                            else {
+                                SetVar(0, varname, vartype, value)
+                            }
+                        }
+                    }
+                    else if (matches(jobName, "TransitionDecision")) then {
+                        choose transitionNumber in outgoingEnabledTransitions(channelFor(self), MI, stateNumber) with transitionHasLabel(processID, transitionNumber, nth(job, 2)) do {
+                            debuginfo TestState "making TransitionDecision for transition '" + nth(job, 2) + "' (" + transitionNumber + ")"
+                            selectedTransition(channelFor(self), MI, stateNumber) := transitionNumber
+                            wantInput(channelFor(self), MI, stateNumber) := {}
+                        }
+                        ifnone {
+                            debuginfo TestState "WARN: unable to making TransitionDecision for transition '" + nth(job, 2) + "' (either not found or not enabled)"
+                        }
+                    }
+                    else if (matches(jobName, "CancelDecision")) then {
+                        debuginfo TestState "making cancelDecision for state " + stID
+                        cancelDecision(channelFor(self), MI, stateNumber) := true
+                    }
+                    else if (matches(jobName, "StoreMessage")) then {
+                        let senderChannel   = replaceChannel(nth(job, 2)) in
+                        let subjectIDSender = subjectIDOf(senderChannel) in
+                        let receiverChannel = replaceChannel(nth(job, 3)) in
+                        let messageType     = nth(job, 4) in
+                        let messageContent  = ["Data", nth(job, 5)] in
+                        let correlationId   = nth(job, 6) in
+                        let isReservation   = false in
+                        let message = [senderChannel, messageType, messageContent, correlationId, isReservation] in {
+                            debuginfo TestState "storing Message for '" + receiverChannel + "': " + message
+
+                            seqblock
+                                if (inputPool(receiverChannel, subjectIDSender, messageType, correlationId) = undef) then {
+                                    inputPool(receiverChannel, subjectIDSender, messageType, correlationId) := []
+                                }
+
+                                add [subjectIDSender, messageType, correlationId] to inputPoolDefined(receiverChannel)
+                                enqueue message into inputPool(receiverChannel, subjectIDSender, messageType, correlationId)
+                            endseqblock
+                        }
+                    }
+                    else {
+                        debuginfo TestState "not implemented: '" + jobName + "'"
+                        Crash()
+                    }
+                }
+            }
+            endseqblock
+        }
+    }
+}

@@ -1,0 +1,70 @@
+Process Transitions2_CancelMacroTwice {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "Proxy" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "msgContent", "please end with 'ok'") -> split
+
+            split: "ModalSplit" {
+                -> call
+                -> wait1
+            }
+
+            call: "CallMacro" ("Foo") {
+                "ok"  -> join
+                "bad" -> END_Fail1
+                (cancel) -> call
+            }
+
+            // give CallMacro a chance to run
+            wait1: InternalAction {
+                (timeout (2)) -> "cancel1"
+            }
+            "cancel1": "Cancel" {
+                "call" (auto) -> wait2
+                (timeout (2)) -> END_Fail2
+            }
+
+            // give CallMacro a chance to run
+            wait2: InternalAction {
+                (timeout (1)) -> "cancel2"
+            }
+            "cancel2": "Cancel" {
+                "call" (auto) -> "send"
+                (timeout (2)) -> END_Fail2
+            }
+
+            "send": Send ["end" to Proxy with content of "msgContent"] -> join
+
+            join: "ModalJoin" -> END
+
+            END_Fail1: End ("something bad happened")
+            END_Fail2: End ("cancel timed out")
+        }
+
+        Macro Foo {
+            START: Receive {
+                ["end" from Proxy] (auto) -> END_ok
+            }
+
+            END_ok:  End ("ok")
+            END_bad: End ("bad")
+        }
+    }
+
+    Subject Proxy {
+        Macro Main {
+            START: Receive {
+                ["end" from A store message in "tmp"] (auto) -> reply
+            }
+            reply: Send ["end" to A in "tmp" with content of "tmp"] -> END
+        }
+    }
+}

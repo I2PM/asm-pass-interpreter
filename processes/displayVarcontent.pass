@@ -1,0 +1,19 @@
+Process Example_DisplayVarContent {
+    Subject A {
+        StartSubject := true
+        MainMacro := Main
+        InputPool := 100
+
+        Macro Main {
+            StartState := SetTextData
+            LocalVariables := {}
+
+            SetTextData:   "VarMan" ("storeData", "myText", "Hallo Welt") -> SetNumberData
+            SetNumberData: "VarMan" ("storeData", "myNumber", 42) -> SetListData
+            SetListData:   "VarMan" ("storeData", "myList", [1, 2, 3]) -> ShowData
+            ShowData "text: '$myText'; number: '$myNumber'; list: '$myList'": InternalAction "end" -> END
+
+            // TODO: Show some channels
+        }
+    }
+}

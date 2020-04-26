@@ -1,0 +1,31 @@
+Process Example_SelectReceivers {
+
+    Subject SurveyInstitute {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("clients", "Client", 5, 10) -> SendSurveyA
+
+            SendSurveyA: Send ["surveyA" to min 2 max 4 of Client in "clients" store receiver in "clientsA"] -> Diff
+            Diff: "VarMan" ("difference", "clients", "clientsA", "clientsB") -> SendSurveyB
+            SendSurveyB: Send ["surveyB" to * of Client in "clientsB"] -> ReceiveA
+
+            ReceiveA: Receive ["replyA" from * of Client in "clientsA"] -> ReceiveB
+            ReceiveB: Receive ["replyB" from * of Client in "clientsB"] -> END
+        }
+    }
+
+    Subject Client {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive {
+                ["surveyA" from SurveyInstitute store message in "survey-msg-a"] -> ReplyA
+                ["surveyB" from SurveyInstitute store message in "survey-msg-b"] -> ReplyB
+            }
+
+            ReplyA: Send ["replyA" to SurveyInstitute in "survey-msg-a"] -> END
+            ReplyB: Send ["replyB" to SurveyInstitute in "survey-msg-b"] -> END
+        }
+    }
+}

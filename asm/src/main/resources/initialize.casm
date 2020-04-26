@@ -1,0 +1,79 @@
+// Set[Task]
+function taskSetIn : -> SET // elements are added from the UI
+
+// Set[Task]
+function taskSetOut : -> SET // elements are read and removed from the UI
+
+
+rule AkkaStorage = {
+    // FIXME: what happens if a conflict occurs?
+    // The update instructions from the UI are lost, aren't they?
+    AggregateAkkaStorage()
+}
+
+rule StartPASS = {
+    StartPASSInner(true)
+}
+
+rule StartPASSInner(withAkkaStorage) = seqblock
+    debuginfo StartPASS self + ": starting.."
+
+    DefineFunctions()
+
+    aALL := {}
+    pALL := {}
+
+    taskSetIn := {}
+    taskSetOut := {}
+
+    nextPI := 1
+    nextPIUsedBy(1) := self
+    nextCorrelationID := 1
+    nextCorrelationIDUsedBy(1) := self
+
+    debuginfo StartPASS self + ": initialize Agents"
+
+    if (withAkkaStorage = true) then {
+        extend Agents with a do
+            program(a) := @AkkaStorage
+    }
+
+    asmAgents := {}
+
+    debuginfo StartPASS self + ": initialization done"
+
+    program(self) := @WatchTaskSetIn
+endseqblock
+
+rule WatchTaskSetIn = {
+    debuginfo WatchTaskSetIn self + ": taskSetIn: " + taskSetIn
+    debuginfo WatchTaskSetIn self + ": taskSetOut: " + taskSetOut
+
+    if (|taskSetIn| > 0) then {
+        choose task in taskSetIn do
+        let taskType       = (task())("task"),
+            taskCh         = (task())("ch"),
+            taskProcessID  = (task())("processID"),
+            taskProcessMap = (task())("processMap"),
+            taskPI         = (task())("PI") in
+        {
+            remove task from taskSetIn
+            debuginfo WatchTaskSetIn self + ": taskType: " + taskType
+
+            case taskType of
+                "InitializeAndStartSubject" : seqblock
+                    InitializeSubject(taskCh)
+                    StartSubject(taskCh)
+                endseqblock
+                "AddProcess"   : AddProcess(taskProcessID, taskProcessMap)
+                "StartProcess" : local numres1 in {
+                    numres1 <- StartProcess(taskProcessID, undef, undef)
+                }
+                "StopProcess"  : StopProcess(taskPI)
+            endcase
+        }
+    }
+    else {
+        debuginfo WatchTaskSetIn self + ": no tasks"
+    }
+}

@@ -1,0 +1,65 @@
+Process Deadlock {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            StartState := SelectX1
+
+            SelectX1: "SelectAgents" ("x1", "X", 1, 1) -> SelectX2
+            SelectX2: "SelectAgents" ("x2", "X", 1, 1) -> SelectY1
+
+            SelectY1: "SelectAgents" ("y1", "Y", 1, 1) -> SelectY2
+            SelectY2: "SelectAgents" ("y2", "Y", 1, 1) -> SelectY3
+            SelectY3: "SelectAgents" ("y3", "Y", 1, 1) -> MergeY12
+
+            MergeY12: "VarMan" ("concatenation", "y1", "y2", "y12") -> MergeY23
+            MergeY23: "VarMan" ("concatenation", "y2", "y3", "y23") -> Send1
+
+            Send1: Send ["request1" to X in "x1" with content of "y1"]  -> Wait1
+            Wait1: InternalAction (auto timeout(5)) -> Send2
+            Send2: Send ["request2" to X in "x1" with content of "y12"] -> Send3
+            Wait2: InternalAction (auto timeout(5)) -> Send3
+            Send3: Send ["request2" to X in "x2" with content of "y23"] -> Foo
+
+            Foo: Receive {
+                // TODO: receive something.. // FIXME: failed Structural Soundness!
+                (cancel) -> END
+            }
+        }
+    }
+
+    Subject X {
+        InputPool := 1
+
+        Macro Main {
+            START: Receive {
+                ["request1" from A store message in "req1"] (auto) -> Extract1
+                ["request2" from A store message in "req2"] (auto) -> Extract2
+                // TODO: better termination
+                (cancel) -> END
+            }
+
+            Extract1: "VarMan" ("extractContent", "req1", "req1-channel") -> Send1
+            Send1: Send ["ping" to 1 of Y in "req1-channel" with content of "req1"] -> START
+
+            Extract2: "VarMan" ("extractContent", "req2", "req2-channel") -> Send2
+            Send2: Send ["ping" to 2 of Y in "req2-channel" with content of "req2"] -> START
+        }
+    }
+
+    Subject Y {
+        InputPool := 1
+
+        Macro Main {
+            START: Receive {
+                // TODO: receive something first; without cancel or timeout should block the whole process..
+                (cancel) -> Foo
+            }
+
+            Foo: Receive {
+                ["ping" from X] (auto) -> END
+            }
+        }
+    }
+}

@@ -1,0 +1,76 @@
+Process Example_Macro {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "SendFooContent", "Hallo Welt") -> LOOP
+
+            LOOP: InternalAction {
+                "end" -> END
+                "simple macro" -> CALL_M1
+                "recursive macro" -> CALL_M2
+                "exit-parameter macro (cancel-able)" -> CALL_M3
+                "send macro with one arg" -> CALL_SendFoo
+            }
+
+            CALL_M1: "CallMacro" ("M1") -> LOOP
+            CALL_M2: "CallMacro" ("M2") -> LOOP
+
+            CALL_M3: "CallMacro" ("M3") {
+                "a" -> M3_A
+                "b" -> M3_B
+                "c1" -> M3_C1
+                "c2" (cancel) -> M3_C2
+            }
+            M3_A: InternalAction "M3 ended with: a" -> LOOP
+            M3_B: InternalAction "M3 ended with: b" -> LOOP
+            M3_C1: InternalAction "M3 was inner-cancelled" -> LOOP
+            M3_C2: InternalAction "M3 was outer-cancelled" -> LOOP
+
+            CALL_SendFoo: "CallMacro" ("Send foo", "SendFooContent") -> LOOP
+        }
+
+        Macro M1 {
+            START: InternalAction "end simple macro" -> END
+        }
+
+        Macro M2 {
+            LocalVariables := {"bar"}
+
+            START: InternalAction {
+                "end recursive macro" -> END
+                "do recursion" -> CALL
+                "set var content" -> SET
+                "send var content" -> SEND
+            }
+            SET: "VarMan" ("storeData", "bar", "mein Inhalt") -> START
+            SEND: Send ["foo" to B with content of "bar"] -> START
+            CALL: "CallMacro" ("M2") -> START // NOTE: allowed for execution, but not for verification
+        }
+
+        Macro M3 {
+            START: InternalAction {
+                "angenommen" -> END_A
+                "abgelehnt" -> END_B
+                (cancel) -> END_C1
+            }
+            END_A: End ("a")
+            END_B: End ("b")
+            END_C1: End ("c1")
+        }
+
+        Macro "Send foo" ("bar") {
+            START: Send ["foo" to B with content of "bar"] -> END
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive {
+                ["foo" from A] -> START
+                (cancel) -> END
+            }
+        }
+    }
+}

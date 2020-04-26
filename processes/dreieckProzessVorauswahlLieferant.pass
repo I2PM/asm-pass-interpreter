@@ -1,0 +1,95 @@
+Process DreieckKundeVorauswahlLieferant {
+    InterfaceSubject Hersteller is Hersteller in DreieckHerstellerVorauswahlLieferant
+    InterfaceSubject Lieferant is Lieferant in DreieckLieferantVorauswahlLieferant
+
+    Subject Kunde {
+        StartSubject := true
+
+        Macro Main {
+            StartState := "Bestellformular ausfüllen"
+
+            "Bestellformular ausfüllen": InternalAction {
+                "erledigt" -> bestellungSenden
+            }
+
+            bestellungSenden: Send {
+                ["Bestellung" to Hersteller store receiver in "herstellerKanal"] -> lieferantWaehlen
+            }
+
+            lieferantWaehlen: "SelectAgents" ("Lieferantenkanal", "Lieferant", 1, 1) -> lieferantSenden
+
+            lieferantSenden: Send {
+                ["Lieferantenkanal" to Hersteller in "herstellerKanal" with content of "Lieferantenkanal"] -> produktEmpfangen
+            }
+
+            produktEmpfangen: Receive {
+                ["Produkt" from Lieferant] -> END
+            }
+        }
+    }
+
+}
+
+Process DreieckHerstellerVorauswahlLieferant {
+    InterfaceSubject Lieferant is Lieferant in DreieckLieferantVorauswahlLieferant
+    InterfaceSubject Kunde is Kunde in DreieckKundeVorauswahlLieferant
+
+    Subject Hersteller {
+        StartSubject := false
+
+        Macro Main {
+            START: Receive {
+                ["Bestellung" from Kunde store message in "Bestellung"] -> extrahiereKundenKanal
+            }
+
+            extrahiereKundenKanal: "VarMan" ("extractChannel", "Bestellung", "Kundenkanal") -> "Produkt herstellen"
+
+            "Produkt herstellen": InternalAction {
+                "erledigt" -> lieferantenkanalEmpfangen
+            }
+
+            lieferantenkanalEmpfangen: Receive {
+                ["Lieferantenkanal" from Kunde store message in "LieferantenkanalNachricht"] -> extrahiereLieferantenKanal
+            }
+
+            extrahiereLieferantenKanal: "VarMan" ("extractContent", "LieferantenkanalNachricht", "Lieferantenkanal") -> produktSenden
+
+            produktSenden: Send {
+                ["Produkt" to Lieferant in "Lieferantenkanal"] -> kundenkanalSenden
+            }
+
+            kundenkanalSenden: Send {
+                ["Lieferziel" to Lieferant in "Lieferantenkanal" with content of "Kundenkanal"] -> END
+            }
+        }
+    }
+
+}
+
+Process DreieckLieferantVorauswahlLieferant {
+    InterfaceSubject Hersteller is Hersteller in DreieckHerstellerVorauswahlLieferant
+    InterfaceSubject Kunde is Kunde in DreieckKundeVorauswahlLieferant
+
+    Subject Lieferant {
+        StartSubject := false
+
+        Macro Main {
+            START: Receive {
+                ["Lieferziel" from Hersteller store message in "LieferzielNachricht"] -> extrahiereKanal
+            }
+
+            extrahiereKanal: "VarMan" ("extractContent", "LieferzielNachricht", "Lieferziel") -> empfangen2
+
+            empfangen2: Receive {
+                ["Produkt" from Hersteller store message in "ProduktNachricht"] -> extrahiereProdukt
+            }
+
+            extrahiereProdukt: "VarMan" ("extractContent", "ProduktNachricht", "Produkt") -> weiterleiten
+
+            weiterleiten: Send {
+                ["Produkt" to Kunde in "Lieferziel" with content of "Produkt"] -> END
+            }
+        }
+    }
+
+}

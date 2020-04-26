@@ -1,0 +1,40 @@
+Process Transitions2_VarManUndef {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            // prepare one MessageSet variable "x"
+            START: Send ["x" to "A" in "$self" with content of "$empty"] -> Receive
+            Receive: Receive ["x" from "A" store message in "x"] (auto) -> Concatenation1
+
+            // undef v x = x
+            Concatenation1: "VarMan" ("concatenation", "undef", "x", "c1") -> Concatenation2
+            // x v undef = x
+            Concatenation2: "VarMan" ("concatenation", "x", "undef", "c2") -> Concatenation3
+            // undef v undef = undef
+            Concatenation3: "VarMan" ("concatenation", "undef", "undef", "c3") -> Intersection1 // FIXME: failed Structural Soundness!
+
+            // undef ^ x = undef
+            Intersection1: "VarMan" ("intersection", "undef", "x", "i1") -> Intersection2
+            // x ^ undef = undef
+            Intersection2: "VarMan" ("intersection", "x", "undef", "i2") -> Intersection3
+            // undef ^ undef = undef
+            Intersection3: "VarMan" ("intersection", "undef", "undef", "i3") -> Difference1 // FIXME: failed Structural Soundness!
+
+            // undef \ x = undef
+            Difference1: "VarMan" ("difference", "undef", "x", "d1") -> Difference2
+            // x \ undef = x
+            Difference2: "VarMan" ("difference", "x", "undef", "d2") -> Difference3
+            // undef \ undef = x
+            Difference3: "VarMan" ("difference", "undef", "undef", "d3") -> END // FIXME: failed Structural Soundness!
+
+            // TODO: how to validate results?
+        }
+    }
+}

@@ -1,0 +1,61 @@
+Process Example_Observer {
+    Subject Manager {
+        StartSubject := true
+
+        Macro Main {
+
+            START: Send {
+                ["task" to Worker store receiver in "worker"] -> Wait
+            }
+
+            Wait: Receive {
+                ["result" from Worker] -> END
+                "abort worker" (cancel) -> AbortTask
+            }
+
+            AbortTask: Send {
+                ["abortTask" to Worker in "worker"] -> END
+            }
+        }
+    }
+
+    Subject Worker {
+        Macro Main {
+            START: Receive {
+                ["task" from Manager store message in "currentTask"] -> PrepareHandling
+                ["abortTask" from Manager] (with priority 1) -> END
+            }
+
+            PrepareHandling: "ModalSplit" {
+                "a" -> HandleTask
+                "b" -> Observe
+            }
+
+            HandleTask: InternalAction {
+                "taskCompleted" -> CancelObserve
+                "cancel task handling" (hidden cancel) -> Join
+            }
+
+            CancelObserve: "Cancel" with priority 2 {
+                "Observe" (auto) -> SendResult
+            }
+
+            SendResult: Send ["result" to Manager in "currentTask"] -> Join
+
+
+
+            Observe: Receive with priority 1 {
+                ["abortTask" from Manager] -> AbortHandling
+                "end observer early" (hidden cancel) -> Join
+            }
+
+            AbortHandling: "Cancel" with priority 1 {
+                "HandleTask" (auto) -> Join
+            }
+
+
+
+            Join: "ModalJoin" -> END
+        }
+    }
+}

@@ -1,0 +1,409 @@
+function numres     : -> NUMBER
+function numres1    : -> NUMBER
+function numres2    : -> NUMBER
+function boolres    : -> BOOLEAN
+function boolres1   : -> BOOLEAN
+function queueres   : -> Queue
+function listres    : -> LIST
+function listres1   : -> LIST
+function listres2   : -> LIST
+function listres3   : -> LIST
+function listres4   : -> LIST
+function setres     : -> SET
+function setres1    : -> SET
+function setres2    : -> SET
+function setres3    : -> SET
+function mapres     : -> MAP
+function mapres1    : -> MAP
+function mapres2    : -> MAP
+function elres      : -> ELEMENT
+function stringres  : -> STRING
+function stringres1 : -> STRING
+function stringres2 : -> STRING
+function stringres3 : -> STRING
+
+
+rule Crash = {
+    debuginfo Crash "this is a forced crash"
+    if (nth(undef, 0) = undef) then debuginfo Crash "strange, should have crashed"
+}
+
+derived nonEmpty(s) = not(isEmpty(s) = true)
+
+derived isEmpty(s) = return boolres in {
+    if (s = undef) then {
+        boolres := true
+    }
+    else {
+        boolres := (|s| = 0)
+    }
+}
+
+derived hasSizeWithin(s, min, max) = return boolres in {
+    if (s = undef) then {
+        boolres := false
+    }
+    else {
+        let x = |s| in {
+            boolres := (x >= min and x <= max)
+        }
+    }
+}
+
+derived undefStr(x) = return stringres in {
+    if (x = undef) then {
+        stringres := "undef"
+    }
+    else {
+        stringres := x + ""
+    }
+}
+
+derived undefHead(l) = return listres in {
+    if (l = undef) then {
+        listres := undef
+    }
+    else {
+        listres := head(l)
+    }
+}
+
+// always returns a list; list will be empty if the argument is undef
+derived safeList(l) = return listres in {
+    if (l = undef) then {
+        listres := []
+    }
+    else {
+        listres := toList(l)
+    }
+}
+
+// always returns a set; set will be empty if the argument is undef
+derived safeSet(s) = return setres in {
+    if (s = undef) then {
+        setres := {}
+    }
+    else {
+        setres := toSet(s)
+    }
+}
+
+derived chooseUndef(s) = return elres in {
+    if (s = undef) then {
+        elres := undef
+    }
+    else {
+        choose x in s do {
+            elres := x
+        }
+        ifnone {
+            elres := undef
+        }
+    }
+}
+
+derived firstFromSet(x) = head(toList(x))
+derived keySet(m) = map(mapToPairs(m), @head)
+
+derived mapOfListsToList(m) = return listres in {
+    seq
+        listres := []
+    next
+        foreach k in keySet(m) do {
+            listres := listres + m(k)
+        }
+}
+
+derived mapOfListsToSet(m) = return setres in {
+    seq
+        setres := {}
+    next
+        foreach k in keySet(m) do {
+            setres := setres union toSet(m(k))
+        }
+}
+
+derived dropnth(l, n) = return listres in {
+    listres := take(l, n-1) + drop(l, n)
+}
+
+/*
+derived rangeList(a, b) = return listres in {
+    seqblock
+    listres := []
+    debuginfo a "listres: " + listres
+    while ( | listres | < (b-a+1) ) {
+        debuginfo a "listres: " + listres
+        add (| listres | + 1) to listres
+    }
+    endseqblock
+}
+
+derived zipwithindexes(l) = zip(rangeList( 1 , | l |), l)
+*/
+
+derived contains(s, value) = return boolres in {
+    choose x in s with x = value do {
+        boolres := true
+    }
+    ifnone {
+        boolres := false
+    }
+    endchoose
+}
+
+derived containsAny(s, values) = return boolres in {
+    choose x in values with contains(s, x) do {
+        boolres := true
+    }
+    ifnone {
+        boolres := false
+    }
+    endchoose
+}
+
+
+derived unionFunc(a, b) = a union b
+
+derived flattenSet(x) = return setres in {
+    setres := fold(x, @unionFunc, {})
+}
+
+derived tryGet(m, key) = return elres in {
+    if (contains(keySet(m), key) = true) then {
+        elres := m(key)
+    }
+    else {
+        elres := undef
+    }
+}
+
+/*
+inspired by mapToPairs, but for maps having Sets as values
+
+input: {1 -> {"John", "Doe"}, 2 -> {"Mary"}}
+result: {[1, "John"], [1, "Doe"], [2, "Mary"]}
+*/
+
+derived mapWithSetsToPairs(m) = return setres in {
+    seq
+        setres := {}
+    next
+        foreach s in mapToPairs(m) do
+            foreach s2 in last(s) do
+                add [head(s), s2] to setres
+}
+
+/*
+adds an element to the set at the given key
+
+example:
+input: addToSetMap({"A" -> {"a"}, "B" -> {"b"}}, "A", "x")
+returns: {"A" -> {"a", "x"}, "B" -> {"b"}}
+*/
+
+derived addToSetMap(map, k, v) = return mapres in {
+    seqblock
+        mapres := map
+        if ((mapres())(k) = undef) then {
+            add {k -> {v}} to mapres
+        }
+        else {
+            let v2 = (mapres()(k)) union {v} in
+            let x = {k -> v2} in{
+                add x to mapres
+            }
+        }
+    endseqblock
+}
+
+/*
+like `filter`, but passes an extra argument to the function
+*/
+derived filterList1(l, fun, a1) = return listres in {
+    if (l = undef) then
+        listres := undef
+    else
+        seqblock
+            listres := []
+            foreach x in l with ((fun)(x, a1) = true) do
+                add x to listres
+        endseqblock
+}
+
+/*
+like `filter`, but passes two extra arguments to the function
+*/
+derived filterList2(l, fun, a1, a2) = return listres in {
+    if (l = undef) then
+        listres := undef
+    else
+        seqblock
+            listres := []
+            foreach x in l with ((fun)(x, a1, a2) = true) do
+                add x to listres
+        endseqblock
+}
+
+/*
+like `filter`, but passes an extra argument to the function
+*/
+derived filterSet1(l, fun, a1) = return setres in {
+    if (l = undef) then
+        setres := undef
+    else
+        seqblock
+            setres := {}
+            foreach x in l with ((fun)(x, a1) = true) do
+                add x to setres
+        endseqblock
+}
+
+/*
+like `filter`, but passes two extra arguments to the function
+*/
+derived filterSet2(l, fun, a1, a2) = return setres in {
+    if (l = undef) then
+        setres := undef
+    else
+        seqblock
+            setres := {}
+            foreach x in l with ((fun)(x, a1, a2) = true) do
+                add x to setres
+        endseqblock
+}
+
+/*
+like `filter`, but passes three extra arguments to the function
+*/
+derived filterSet3(l, fun, a1, a2, a3) = return setres in {
+    if (l = undef) then
+        setres := undef
+    else
+        seqblock
+            setres := {}
+            foreach x in l with ((fun)(x, a1, a2, a3) = true) do
+                add x to setres
+        endseqblock
+}
+
+
+/*
+like `map`, but passes an extra argument to the function
+*/
+derived mapList1(l, fun, a1) = return listres in {
+    seqblock
+        listres := []
+        foreach x in l do
+            add (fun)(x, a1) to listres
+    endseqblock
+}
+
+
+/*
+like `map`, but passes an extra argument to the function
+*/
+derived mapSet1(l, fun, a1) = return setres in {
+    seqblock
+        setres := {}
+        foreach x in l do
+            add (fun)(x, a1) to setres
+    endseqblock
+}
+
+
+/*
+like `map`, but passes an extra argument to the function. However this time the arguments to fun are switched
+*/
+derived mapSet1Reverse(l, fun, a1) = return setres in {
+    seqblock
+        setres := {}
+        foreach x in l do
+            add (fun)(a1, x) to setres
+    endseqblock
+}
+
+
+/*
+like `map`, but passes two extra arguments to the function
+*/
+derived mapSet2(l, fun, a1, a2) = return setres in {
+    seqblock
+        setres := {}
+        foreach x in l do
+            add (fun)(x, a1, a2) to setres
+    endseqblock
+}
+
+
+/*
+like `map`, but passes three extra arguments to the function
+*/
+derived mapSet3(l, fun, a1, a2, a3) = return setres in {
+    seqblock
+        setres := {}
+        foreach x in l do
+            add (fun)(x, a1, a2, a3) to setres
+    endseqblock
+}
+
+
+// uses `undef` as wildcatch
+derived eqOrUndef3(x, a, b, c) = ((nth(x, 1) = a or a = undef) and (nth(x, 2) = b or b = undef) and (nth(x, 3) = c or c = undef))
+
+derived id(x) = x
+derived id_neg(x) = -x
+derived head_neg(x) = -head(x)
+
+// inserts in a sorted list. appends after x if f(x) = f(el)
+derived insertSortedBy(l, f, el) = return listres in {
+    debuginfo insertSortedBy "("+undefStr(l)+", "+f+", "+el+")"
+    if (l = undef or |l| = 0) then {
+        listres := [el]
+    }
+    else {
+        if ((f)(head(l)) > (f)(el)) then {
+            listres := [el] + l
+        }
+        else {
+            listres := [head(l)] + insertSortedBy(tail(l), f, el)
+        }
+    }
+}
+
+
+// filters for a list of list
+
+derived listEqN(x, n, a) = nth(x, n) = a
+derived listLtEqN(x, n, a) = nth(x, n) <= a
+derived listNEqN(x, n, a) = nth(x, n) != a
+
+// input: list of lists
+// filters for lists having the n-th item equal to a
+derived filterListOfListEqN(l, n, a) = filterList2(l, @listEqN, n, a)
+
+// input: set of lists
+// filters for lists having the n-th item equal to a
+derived filterSetOfListNEqN(s, n, a) = filterSet2(s, @listNEqN, n, a)
+
+derived wrapSet(x) = {x}
+
+// input: list of items, set of indices which should be returned as a new set
+derived pickItems(l, x) = flattenSet(map(mapSet1Reverse(x, @nth, l), @wrapSet))
+
+
+derived join(l, sep) = return stringres in seqblock
+    stringres := ""
+
+    local boolres := false in {
+        foreach x in l do seqblock
+            if (boolres) then {
+                stringres := stringres + sep
+            }
+            else {
+                boolres := true
+            }
+            stringres := stringres + x
+        endseqblock
+    }
+endseqblock

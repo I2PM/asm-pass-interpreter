@@ -1,0 +1,43 @@
+Process Transitions2_OpenClosedIP {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "B" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "SelectAgents" ("b", "B", 1, 1) -> close
+
+            close: "CloseIP" ("B", "pong", 0) -> openAll
+            openAll:  "OpenAllIPs"  -> send
+
+            send: Send ["ping" to B in "b" with content of "$empty"] -> receive
+
+            receive: Receive {
+                ["pong" from B] (auto) -> END
+                (timeout(5)) -> END_Fail
+            }
+
+            END_Fail: End ("receive timeout")
+        }
+    }
+
+    Subject B {
+        Macro Main {
+            START: Receive {
+                ["ping" from A store message in "msg"] (auto) -> reply
+            }
+
+            reply: Send {
+                ["pong" to "A" in "msg" with content of "msg"] -> END
+                (timeout(0)) -> END_Fail
+            }
+
+            END_Fail: End ("send timeout")
+        }
+    }
+}

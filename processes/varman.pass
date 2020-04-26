@@ -1,0 +1,38 @@
+Process Example_VarMan {
+
+    Subject Principal {
+        StartSubject := true
+
+        Macro Main {
+            StartState := SendInquiry
+
+            SendInquiry: Send ["inquiry" to 2 of Contractor] -> ReceiveFirstOffer
+            ReceiveFirstOffer:  Receive ["offer" from 1 of Contractor store messages in "first offer"]        -> ReceiveSecondOffer
+            ReceiveSecondOffer: Receive ["offer" from 1 of Contractor store messages in "second offer"]       -> VarManConcat
+
+            VarManConcat:      "VarMan" ("concatenation", "first offer",    "second offer", "both offers")      -> VarManSelect
+            VarManSelect "Bitte einen Gewinner auswählen": "VarMan" ("selection", "both offers", "accepted offer", 1, 1) -> VarManDiff
+            VarManDiff:        "VarMan" ("difference",    "both offers",    "accepted offer", "rejected offer") -> VarManAssign
+            VarManAssign:      "VarMan" ("assign",        "rejected offer", "copy of rejected offer")          -> SendOrder
+
+            SendOrder: Send ["order" to Contractor in "accepted offer" with new correlation "correlation"] -> SendCancel
+            SendCancel: Send ["cancel" to Contractor in "copy of rejected offer"] -> ReceiveProduct
+
+            ReceiveProduct: Receive ["product" with correlation of "correlation" from Contractor] -> END
+        }
+    }
+
+    Subject Contractor {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive ["inquiry" from Principal store message in "inquiry-msg"] -> SendOffer
+            SendOffer: Send ["offer" to Principal in "inquiry-msg"] -> ReceiveOrder
+            ReceiveOrder: Receive {
+                ["order" from Principal store message in "order"] -> SendProduct
+                ["cancel" from Principal] -> END
+            }
+            SendProduct: Send ["product" with correlation of "order" to Principal in "order"] -> END
+        }
+    }
+}
