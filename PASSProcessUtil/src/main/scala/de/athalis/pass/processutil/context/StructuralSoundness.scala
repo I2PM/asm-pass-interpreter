@@ -8,6 +8,7 @@ private trait StructuralSoundnessAnalysisAction {
   def outgoingTransitionToString(e: Transition): String = {
     e.condition.collect({
       case DoTransitionCondition(text) => text
+      case MessageExchangeCondition(messageType, subject, _, _, _, _, _, _, label) => label.getOrElse("None") + " (" + messageType + " to/from " + subject + ")"
     }).getOrElse("")
   }
 }

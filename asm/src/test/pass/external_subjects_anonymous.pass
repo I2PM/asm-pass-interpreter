@@ -3,7 +3,7 @@ Process ExternalSubjectsAnonymousA {
         StartSubject := true
 
         Macro Main {
-            START: Send ["a" to B] -> END
+            START: Send ["a" to B] -> TERMINATE
         }
     }
 
@@ -15,7 +15,7 @@ Process ExternalSubjectsAnonymousB {
 
     Subject Y {
         Macro Main {
-            START: Receive ["a" from X] (auto) -> END
+            START: Receive ["a" from X] (auto) -> TERMINATE
         }
     }
 }

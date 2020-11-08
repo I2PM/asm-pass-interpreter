@@ -55,7 +55,7 @@ object Model2ASMMap {
     // Note: InternalAction does not exist in OWL, only DoState.
     // Both FunctionState and InternalAction are just DoState.
     case None => "internalAction"
-    case Some(End(_)) => "end"
+    case Some(Terminate(_)) => "terminate"
     case Some(AutoSend) | Some(ManualSend) => "send"
     case Some(AutoReceive) | Some(ManualReceive) => "receive"
     case _ => "function"
@@ -173,7 +173,7 @@ object Model2ASMMap {
       }
 
       a.state.function match {
-        case Some(End(Some(resultValue))) => {
+        case Some(Terminate(Some(resultValue))) => {
           x += ("functionArguments" -> Seq(resultValue))
         }
         case Some(ModalJoin) => throw new IllegalArgumentException("ModalJoin must be transformed to ModalJoinRich first")

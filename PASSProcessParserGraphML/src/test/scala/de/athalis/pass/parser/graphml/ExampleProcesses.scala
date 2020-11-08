@@ -1,4 +1,4 @@
-package de.athalis.graphml
+package de.athalis.pass.parser.graphml
 
 import java.io.File
 
@@ -6,9 +6,10 @@ import de.athalis.pass.parser.graphml.parser.GraphMLParser
 import de.athalis.pass.parser.graphml.parser.GraphMLParser.MsgTypes
 import de.athalis.pass.parser.ast.pass.ProcessNode
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class ExampleProcesses extends FunSuite with Matchers {
+class ExampleProcesses extends AnyFunSuite with Matchers {
   test("ServiceDesk") {
     val file = new File("processes/ServiceDesk.graphml")
 

@@ -2,6 +2,8 @@ package de.athalis.pass.writer.asm
 
 import org.slf4j.LoggerFactory
 
+import scala.collection.immutable.{TreeMap, TreeSet}
+
 object ASMCodeGenerator {
   private val logger = LoggerFactory.getLogger(ASMCodeGenerator.getClass)
 
@@ -103,7 +105,9 @@ object ASMCodeGenerator {
     else {
       var first = true
 
-      for (o <- x) {
+      val maybeSorted = maybeSortedSet(x)
+
+      for (o <- maybeSorted) {
         if (first) {
           first = false
           sb.append("{")
@@ -130,7 +134,9 @@ object ASMCodeGenerator {
     else {
       var first = true
 
-      for ((k, v) <- x) {
+      val maybeSorted = maybeSortedMap(x)
+
+      for ((k, v) <- maybeSorted) {
         if (first) {
           first = false
           sb.append("{\n")
@@ -149,6 +155,30 @@ object ASMCodeGenerator {
       sb.append("\n}\n")
 
       sb
+    }
+  }
+
+  private def maybeSortedSet(x: Set[_]): Set[_] = {
+    if (x.forall(_.isInstanceOf[Int])) {
+      TreeSet[Int]() ++ x.asInstanceOf[Set[Int]]
+    }
+    else if (x.forall(_.isInstanceOf[String])) {
+      TreeSet[String]() ++ x.asInstanceOf[Set[String]]
+    }
+    else {
+      x
+    }
+  }
+
+  private def maybeSortedMap[X](x: Map[_, X]): Map[_, X] = {
+    if (x.keys.forall(_.isInstanceOf[Int])) {
+      TreeMap[Int, X]() ++ x.asInstanceOf[Map[Int, X]]
+    }
+    else if (x.keys.forall(_.isInstanceOf[String])) {
+      TreeMap[String, X]() ++ x.asInstanceOf[Map[String, X]]
+    }
+    else {
+      x
     }
   }
 }

@@ -1,10 +1,11 @@
 package de.athalis.pass.parser.util
 
-import org.scalatest.{FunSuite, Matchers}
-
 import de.athalis.pass.parser.ast._
 
-class ParserUtilsSpec extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class ParserUtilsSpec extends AnyFunSuite with Matchers {
 
   test("nodeToStringTest") {
     val id = new IDNode("test")

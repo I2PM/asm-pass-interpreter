@@ -5,9 +5,10 @@ import de.athalis.pass.parser.PASSProcessReaderAST
 import de.athalis.pass.processutil.context.AnalysisException
 import de.athalis.pass.writer.asm.Model2ASMMap
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class ModalJoinTests extends FunSuite with Matchers {
+class ModalJoinTests extends AnyFunSuite with Matchers {
 
   private val process1 =
     """
@@ -18,7 +19,7 @@ class ModalJoinTests extends FunSuite with Matchers {
       |        Macro Main {
       |            START: InternalAction {
       |                "split" -> Split
-      |                "end" -> END
+      |                "terminate" -> TERMINATE
       |            }
       |
       |            Split: "ModalSplit" {
@@ -49,7 +50,7 @@ class ModalJoinTests extends FunSuite with Matchers {
       |                "join" -> Join
       |            }
       |
-      |            Join: "ModalJoin" -> END
+      |            Join: "ModalJoin" -> TERMINATE
       |        }
       |    }
       |}
@@ -71,10 +72,10 @@ class ModalJoinTests extends FunSuite with Matchers {
       |
       |            Split2: "ModalSplit" {
       |                -> Join
-      |                -> END // Split without Join is fine
+      |                -> TERMINATE // Split without Join is fine
       |            }
       |
-      |            Join: "ModalJoin" -> END
+      |            Join: "ModalJoin" -> TERMINATE
       |        }
       |    }
       |}

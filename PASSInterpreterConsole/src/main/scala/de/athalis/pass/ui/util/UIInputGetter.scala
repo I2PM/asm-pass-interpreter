@@ -29,7 +29,7 @@ class UIInputGetter(implicit val timeout: Timeout, executionContext: ExecutionCo
     PASSActivityInputMessageContent(messageContent)
   }
 
-  override def performSelection(options: Seq[String], min: Int, max: Option[Int]): PASSActivityInputSelection = {
+  override def performSelection(options: Seq[String], min: Int, max: Int): PASSActivityInputSelection = {
     if (min < 1) throw new IllegalArgumentException("`min` must be at least 1")
 
     for ((x, i) <- options.zipWithIndex) {
@@ -40,17 +40,17 @@ class UIInputGetter(implicit val timeout: Timeout, executionContext: ExecutionCo
 
     var abort: Boolean = false
 
-    val isInvalidSelection = () => (selection.size < min || (max.isDefined && selection.size > max.get))
+    val isInvalidSelection = () => (selection.size < min || (max > 0 && selection.size > max))
 
     while (isInvalidSelection() && !abort) {
       val prompt = {
         val sep = "(seperate multiple options with a simple space)"
 
-        if (!max.isDefined && min == 1) "Select at least one element " + sep + ": "
-        else if (!max.isDefined) "Select at least " + min + " elements " + sep + ": "
-        else if (max.get == 1) "Select one element: "
-        else if (max.get == min) "Select " + min + " elements " + sep + ": "
-        else "Select between " + min + " and " + max.get + " elements " + sep + ": "
+        if (max == 0 && min == 1) "Select at least one element " + sep + ": "
+        else if (max == 0) "Select at least " + min + " elements " + sep + ": "
+        else if (max == 1) "Select one element: "
+        else if (max == min) "Select " + min + " elements " + sep + ": "
+        else "Select between " + min + " and " + max + " elements " + sep + ": "
       }
       val input: String = JLineHelper.readLine(prompt)
 

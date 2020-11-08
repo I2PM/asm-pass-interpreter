@@ -15,7 +15,7 @@ Process Example_Timeout_Cancel {
 
             abbruch: InternalAction {
                 "noch einmal" -> START
-                "beenden" -> END
+                "terminieren" -> TERMINATE
             }
         }
     }
@@ -32,7 +32,7 @@ Process Example_Timeout_Cancel {
             empfangen: InternalAction "alles ok; erneut empfangen" -> START
             nichtEmpfangen: InternalAction {
                 "noch einmal" -> START
-                "beenden" -> END
+                "terminieren" -> TERMINATE
             }
         }
     }

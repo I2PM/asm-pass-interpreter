@@ -1,11 +1,15 @@
 package de.athalis.pass.parser.graphml.parser
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
 import de.athalis.pass.parser.test._
 
-class GraphMLJParserSpec extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class GraphMLJParserSpec extends AnyFunSuite with Matchers {
   import Util._
+
+  private implicit val loc: ParserLocation = ParserLocation("GraphMLJParserSpec", None)
 
   test("single receive edge") {
     val e = parse(GraphMLJParser.receiveMsgEdgePropertiesParser, "Test from Foo")

@@ -6,13 +6,12 @@ import org.slf4j.LoggerFactory
 import org.jparsec.{Parser, Parsers}
 import org.jparsec.error.ParserException
 
-import de.athalis.pass.parser.util.ParserUtils
-
 import de.athalis.pass.parser.ast._
 import de.athalis.pass.parser.ast.pass._
 import de.athalis.pass.parser.PASSParser
 import de.athalis.pass.parser.PASSParser._
-
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
+import de.athalis.pass.parser.util.ParserUtils
 import de.athalis.pass.parser.util.ScalaMapper._
 
 object GraphMLJParser {
@@ -46,7 +45,7 @@ object GraphMLJParser {
     from._1 +: from._2
   }
 
-  private def parse[T](parser: Parser[T], source: String): T = {
+  private def parse[T](parser: Parser[T], source: String)(implicit loc: ParserLocation): T = {
     logger.trace("parsing: {}", source)
 
     val _parser: Parser[T] = parser.from(TOKENIZER, IGNORED)
@@ -54,20 +53,20 @@ object GraphMLJParser {
       _parser.parse(source)
     }
     catch {
-      case e: ParserException => throw new IllegalArgumentException("invalid source: '"+source+"'", e)
+      case e: ParserException => throw new IllegalArgumentException("unable to parse: '"+source+"' " + loc, e)
     }
   }
 
-  def parseDataNode(label: String): DataNode = parse(dataParser, label)
-  def parseSubjectLabel(label: String): (MapAbleNode[String], MapAbleNode[Map[Any, Any]]) = parse(subjectLabelParser, label)
-  def parseSendTransitionLabel(label: String): CommunicationTransitionNode = parse(sendMsgEdgePropertiesParser, label)
-  def parseReceiveTransitionLabel(label: String): CommunicationTransitionNode = parse(receiveMsgEdgePropertiesParser, label)
-  def parseVarManEdgeLabel(label: String): Seq[MapAbleNode[Any]] = parse(varMan, label)
-  def parseSelectAgentsEdgeLabel(label: String): Seq[MapAbleNode[Any]] = parse(PASSParser.stateArguments, label)
-  def parseIdArgsLabel(label: String): (MapAbleNode[String], Seq[MapAbleNode[Any]]) = parse(idArgsParser, label)
-  def parseIdOptionalStringArgsLabel(label: String): (MapAbleNode[String], Seq[MapAbleNode[String]]) = parse(idOptionalStringArgsParser, label)
+  def parseDataNode(label: String)(implicit loc: ParserLocation): DataNode = parse(dataParser, label)
+  def parseSubjectLabel(label: String)(implicit loc: ParserLocation): (MapAbleNode[String], MapAbleNode[Map[Any, Any]]) = parse(subjectLabelParser, label)
+  def parseSendTransitionLabel(label: String)(implicit loc: ParserLocation): CommunicationTransitionNode = parse(sendMsgEdgePropertiesParser, label)
+  def parseReceiveTransitionLabel(label: String)(implicit loc: ParserLocation): CommunicationTransitionNode = parse(receiveMsgEdgePropertiesParser, label)
+  def parseVarManEdgeLabel(label: String)(implicit loc: ParserLocation): Seq[MapAbleNode[Any]] = parse(varMan, label)
+  def parseSelectAgentsEdgeLabel(label: String)(implicit loc: ParserLocation): Seq[MapAbleNode[Any]] = parse(PASSParser.stateArguments, label)
+  def parseIdArgsLabel(label: String)(implicit loc: ParserLocation): (MapAbleNode[String], Seq[MapAbleNode[Any]]) = parse(idArgsParser, label)
+  def parseIdOptionalStringArgsLabel(label: String)(implicit loc: ParserLocation): (MapAbleNode[String], Seq[MapAbleNode[String]]) = parse(idOptionalStringArgsParser, label)
 
-  def parseSubjectLabelRich(label: String): (String, Map[Any, Any]) = {
+  def parseSubjectLabelRich(label: String)(implicit loc: ParserLocation): (String, Map[Any, Any]) = {
     val x = parseSubjectLabel(label)
     (x._1.value, x._2.value)
   }
@@ -76,5 +75,5 @@ object GraphMLJParser {
     from.value
   })
 
-  def cleanQuotes(x: String): String = parse(cleanQuotesParser, x)
+  def cleanQuotes(x: String)(implicit loc: ParserLocation): String = parse(cleanQuotesParser, x)
 }

@@ -1,0 +1,27 @@
+Process Example_SendMin {
+
+    Subject SurveyInstitute {
+        StartSubject := true
+
+        Macro Main {
+            StartState := SendSurvey
+
+            SendSurvey: Send ["survey" to min 2 max * of Client store receiver in "clients"] -> Receive
+
+            Receive: Receive ["reply" from * of Client in "clients"] -> TERMINATE
+        }
+    }
+
+    Subject Client {
+        InputPool := 2
+
+        Macro Main {
+            START: Receive {
+                ["survey" from SurveyInstitute store message in "survey-msg"] -> Reply
+            }
+
+            Reply: Send ["reply" to SurveyInstitute in "survey-msg"] -> TERMINATE
+        }
+    }
+
+}

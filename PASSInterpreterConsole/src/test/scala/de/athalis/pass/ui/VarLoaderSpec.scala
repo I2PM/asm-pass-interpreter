@@ -6,12 +6,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.async.Async.async
 import akka.util.Timeout
 import de.athalis.pass.ui.loading.VarLoader
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 
-class VarLoaderSpec extends FunSuite with Matchers with ScalaFutures {
+class VarLoaderSpec extends AnyFunSuite with Matchers with ScalaFutures {
   implicit val timeout: Timeout = Timeout(5.seconds)
 
   def varLoaderMock(varname: String): Future[String] = async {

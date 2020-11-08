@@ -11,7 +11,7 @@ Process Example_DisplayVarContent {
             SetTextData:   "VarMan" ("storeData", "myText", "Hallo Welt") -> SetNumberData
             SetNumberData: "VarMan" ("storeData", "myNumber", 42) -> SetListData
             SetListData:   "VarMan" ("storeData", "myList", [1, 2, 3]) -> ShowData
-            ShowData "text: '$myText'; number: '$myNumber'; list: '$myList'": InternalAction "end" -> END
+            ShowData "text: '$myText'; number: '$myNumber'; list: '$myList'": InternalAction "terminate" -> TERMINATE
 
             // TODO: Show some channels
         }

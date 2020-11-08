@@ -1,12 +1,18 @@
 package de.athalis.pass.parser.graphml
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
 import org.scalatest.OptionValues._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class NodeSpec extends FunSuite with Matchers {
+import scala.collection.immutable
 
-  val keys = Util.keys
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
+import de.athalis.pass.parser.graphml.structure.Key
+
+class NodeSpec extends AnyFunSuite with Matchers {
+  private implicit val loc: ParserLocation = ParserLocation("NodeSpec", None)
+
+  private val keys: immutable.Seq[Key[_]] = Util.keys
 
   test("basic node") {
     val nodeXML = <node id="test" />

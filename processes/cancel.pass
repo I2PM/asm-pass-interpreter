@@ -5,7 +5,7 @@ Process Example_Cancel {
         Macro Main {
             START: InternalAction {
                 "split" -> Split
-                "end" -> END
+                "terminate" -> TERMINATE
             }
 
             Split: "ModalSplit" {

@@ -12,6 +12,13 @@ import de.athalis.pass.parser.graphml.structure._
 object Helper {
   private val logger = LoggerFactory.getLogger(Helper.getClass)
 
+  case class ParserLocation(pos: String, parent: Option[ParserLocation]) {
+    override def toString: String = {
+      val tail = if (parent.isDefined) { " " + parent.get.toString} else { "" }
+      "AT " + pos + tail
+    }
+  }
+
   implicit class ColonString(self: String) {
     val pre: String = self.split(":")(0)
     val post: String = self.split(":")(1)
@@ -36,7 +43,7 @@ object Helper {
     }
   }
 
-  def parseKey(x: XMLNode): Key[_] = {
+  def parseKey(x: XMLNode)(implicit loc: ParserLocation): Key[_] = {
     val id = x \@ "id"
     val keyFor = x \@ "for"
     val attrName = (x \ "@attr.name").headOption.map(_.text)
@@ -46,7 +53,7 @@ object Helper {
     (x \ "@attr.type").headOption.map(_.text) match {
       case Some("string") => StringKey(id, keyFor, attrName, default.map(_.text))
       case Some("int") => IntKey(id, keyFor, attrName, default.map(_.text.toInt))
-      case Some(unknown) => throw new IllegalArgumentException("unknown key-Element: " + unknown)
+      case Some(unknown) => throw new IllegalArgumentException("unknown key-Element: " + unknown + " " + loc)
       case None => {
         (x \ "@yfiles.type").headOption.map(_.text) match {
           case yfilesType @ Some("resources")    => NothingKey(id, keyFor, yfilesType)
@@ -58,7 +65,7 @@ object Helper {
           case yfilesType @ Some("nodegraphics") => YNodeGraphicsKey(id, keyFor, yfilesType)
           case yfilesType @ Some("edgegraphics") => YEdgeGraphicsKey(id, keyFor, yfilesType)
           case Some(unknown) => throw new IllegalArgumentException("unknown yfiles.type attribute: " + unknown)
-          case None => throw new IllegalArgumentException("a key-Element must have a yfiles.type attribute")
+          case None => throw new IllegalArgumentException("a key-Element must have a yfiles.type attribute " + loc)
         }
       }
     }
@@ -104,7 +111,7 @@ object Helper {
     YProperty(clazz, name, value)
   }
 
-  def parseYProxyAutoBoundsNode(x: XMLNode): YProxyAutoBoundsNode = {
+  def parseYProxyAutoBoundsNode(x: XMLNode)(implicit loc: ParserLocation): YProxyAutoBoundsNode = {
     val groupNodes1: Seq[YGroupNode] = ((x \: "y:Realizers") \: "y:GroupNode") map parseYGroupNode
     val groupNodes2: Seq[YGroupNode] = ((x \: "y:Realizers") \: "y:GenericGroupNode") map parseYGroupNode
 
@@ -116,7 +123,7 @@ object Helper {
     (hasText == "false")
   }
 
-  def parseYGroupNode(x: XMLNode): YGroupNode = {
+  def parseYGroupNode(x: XMLNode)(implicit loc: ParserLocation): YGroupNode = {
     val label: Seq[YNodeLabel] = (x \: "y:NodeLabel") filterNot hasNoText map parseYNodeLabel
     val borderStyle: Option[YBorderStyle] = (x \: "y:BorderStyle").headOption map parseYBorderStyle
     val styleProperties: Option[Seq[YProperty]] = (x \: "y:StyleProperties").headOption map parseYStyleProperties
@@ -125,34 +132,34 @@ object Helper {
 
     val label2: Set[YNodeLabel] = label.filterNot(_.text == "M").toSet
 
-    if (label2.size > 1) throw new Exception("Expected max one label, got: " + label2 + ". xml: " + x)
+    if (label2.size > 1) throw new Exception("Expected max one label, got: " + label2 + ". xml: " + x + " " + loc)
 
     YGroupNode(label.headOption, borderStyle, styleProperties.getOrElse(Seq()))
   }
 
-  def parseYGenericNode(x: XMLNode): YGenericNode = {
+  def parseYGenericNode(x: XMLNode)(implicit loc: ParserLocation): YGenericNode = {
     val configuration: Option[String] = (x \ "@configuration").headOption.map(_.text)
     val borderStyle: Option[YBorderStyle] = (x \: "y:BorderStyle").headOption map parseYBorderStyle
     val label: Seq[YNodeLabel] = (x \: "y:NodeLabel") filterNot hasNoText map parseYNodeLabel
     val styleProperties: Option[Seq[YProperty]] = (x \: "y:StyleProperties").headOption map parseYStyleProperties
 
-    if (label.size > 1) throw new Exception("Expected max one label, got: " + label + ". xml: " + x)
+    if (label.size > 1) throw new Exception("Expected max one label, got: " + label + ". xml: " + x + " " + loc)
 
     YGenericNode(configuration, borderStyle, label.headOption, styleProperties.getOrElse(Seq()))
   }
 
-  def parseYGenericEdge(x: XMLNode): YGenericEdge = {
+  def parseYGenericEdge(x: XMLNode)(implicit loc: ParserLocation): YGenericEdge = {
     val configuration: Option[String] = (x \ "@configuration").headOption.map(_.text)
     val lineStyle: Option[YLineStyle] = ((x \: "y:LineStyle") map parseYLineStyle).headOption
     val label: Seq[YEdgeLabel] = (x \: "y:EdgeLabel") filterNot hasNoText map parseYEdgeLabel
     val styleProperties: Option[Seq[YProperty]] = (x \: "y:StyleProperties").headOption map parseYStyleProperties
 
-    if (label.size > 1) throw new Exception("Expected max one label, got: " + label + ". xml: " + x)
+    if (label.size > 1) throw new Exception("Expected max one label, got: " + label + ". xml: " + x + " " + loc)
 
     YGenericEdge(configuration, lineStyle, label.headOption, styleProperties.getOrElse(Seq()))
   }
 
-  def parseData(x: XMLNode, keys: Seq[Key[_]]): Data[_] = {
+  def parseData(x: XMLNode, keys: Seq[Key[_]])(implicit loc: ParserLocation): Data[_] = {
     val keyId = x \@ "key"
     val key: Key[_] = Helper.findKeyById(keys, keyId).get
 
@@ -160,7 +167,7 @@ object Helper {
   }
 
   // TODO: may split into parseDataInt etc to avoid weird typeTags
-  def parseData[T](x: XMLNode, key: Key[T])(implicit tag: TypeTag[T]): Data[T] = {
+  def parseData[T](x: XMLNode, key: Key[T])(implicit tag: TypeTag[T], loc: ParserLocation): Data[T] = {
     val value: Option[T] = if (x.child.isEmpty) None else key match {
       case k: IntKey  => Some(x.text.trim.toInt)
       case k: StringKey  => Some(x.text.trim)
@@ -203,13 +210,13 @@ object Helper {
 
   def asInstanceOfOption[T: ClassTag](o: Any): Option[T] = Some(o) collect { case m: T => m }
 
-  def parseNode(x: XMLNode, keys: Seq[Key[_]]): Node = {
+  def parseNode(x: XMLNode, keys: Seq[Key[_]])(implicit loc: ParserLocation): Node = {
     val id = x \@ "id"
 
     val yFoldertype = (x \ "@yfiles.foldertype").headOption.map(_.text)
     val data = x \ "data" map {x => parseData(x, keys) }
     val subgraphs = x \ "graph" map {x => parseGraph(x, keys) }
-    if (subgraphs.size > 1) throw new Exception("id: " + id + ". Expected max one subgraph. subgraphs: " + subgraphs)
+    if (subgraphs.size > 1) throw new Exception("id: " + id + ". Expected max one subgraph. subgraphs: " + subgraphs + " " + loc)
     val subgraph: Option[Graph] = subgraphs.headOption
 
     val description = findData[String](data, "node", "description").flatMap(_.value)
@@ -228,10 +235,10 @@ object Helper {
       val taskTypes: Set[String] = groupNodes.flatMap(_.styleProperties.find(_.clazz == "com.yworks.yfiles.bpmn.view.TaskTypeEnum").map(_.value)).toSet
 
       if (bpmnTypes.size > 1) {
-        throw new Exception("id: " + id + ". Expected max one bpmnType. bpmnTypes: " + bpmnTypes)
+        throw new Exception("id: " + id + ". Expected max one bpmnType. bpmnTypes: " + bpmnTypes + " " + loc)
       }
       if (taskTypes.size > 1) {
-        throw new Exception("id: " + id + ". Expected max one taskType. taskTypes: " + taskTypes)
+        throw new Exception("id: " + id + ". Expected max one taskType. taskTypes: " + taskTypes + " " + loc)
       }
 
       (bpmnTypes.headOption, taskTypes.headOption)
@@ -242,12 +249,12 @@ object Helper {
 
     var labels: Set[YNodeLabel] = (groupNodes.flatMap(_.label) ++ genericNode.flatMap(_.label)).toSet
 
-    if (labels.size > 1) throw new Exception("id: " + id + ". Expected max one label. labels: " + labels)
+    if (labels.size > 1) throw new Exception("id: " + id + ". Expected max one label. labels: " + labels + " " + loc)
 
     Node(id, description, data, subgraph, yFoldertype, genericNode, groupNodes, labels.headOption, bpmnType, taskType)
   }
 
-  def parseEdge(x: XMLNode, keys: Seq[Key[_]], nodes: Seq[Node]): Edge = {
+  def parseEdge(x: XMLNode, keys: Seq[Key[_]], nodes: Seq[Node])(implicit loc: ParserLocation): Edge = {
     val id = x \@ "id"
     val data = x \ "data" map {x => parseData(x, keys) }
 
@@ -266,13 +273,13 @@ object Helper {
     val source = Helper.findNode(nodes, sourceId)
     val target = Helper.findNode(nodes, targetId)
 
-    if (source.isEmpty) throw new Exception("Can not find source '" + sourceId +"' of edge '" + id  + "'")
-    if (target.isEmpty) throw new Exception("Can not find target '" + targetId +"' of edge '" + id  + "'")
+    if (source.isEmpty) throw new Exception("Can not find source '" + sourceId +"' of edge '" + id  + "' " + loc)
+    if (target.isEmpty) throw new Exception("Can not find target '" + targetId +"' of edge '" + id  + "' " + loc)
 
     Edge(id, description, source.get.reference, target.get.reference, genericEdge, lineColor, lineType, label, data, bpmnType)
   }
 
-  def parseGraph(x: XMLNode, keys: Seq[Key[_]]): Graph = {
+  def parseGraph(x: XMLNode, keys: Seq[Key[_]])(implicit loc: ParserLocation): Graph = {
     val id = x \@ "id"
     val edgedefault = x \@ "edgedefault"
     val data = x \ "data" map {x => parseData(x, keys) }
@@ -282,7 +289,7 @@ object Helper {
     Graph(id, edgedefault, data, nodes, edges)
   }
 
-  def parseGraphML(x: XMLNode): GraphML = {
+  def parseGraphML(x: XMLNode)(implicit loc: ParserLocation): GraphML = {
     logger.trace("parseGraphML: {}", x)
 
     val keys = x \ "key" map parseKey

@@ -19,15 +19,15 @@ Process Transitions2_SendMultiCorrelation {
 
             Empfangen1: Receive {
                 ["pong" with correlation of "c1" from B] (auto) -> Empfangen2
-                (timeout (5)) -> END_Fail1
+                (timeout (5)) -> TERMINATE_Fail1
             }
             Empfangen2: Receive {
-                ["pong" with correlation of "c2" from B] (auto) -> END
-                (timeout (5)) -> END_Fail2
+                ["pong" with correlation of "c2" from B] (auto) -> TERMINATE
+                (timeout (5)) -> TERMINATE_Fail2
             }
 
-            END_Fail1: End ("receive1 timed out")
-            END_Fail2: End ("receive2 timed out")
+            TERMINATE_Fail1: Terminate ("receive1 timed out")
+            TERMINATE_Fail2: Terminate ("receive2 timed out")
         }
     }
 
@@ -37,7 +37,7 @@ Process Transitions2_SendMultiCorrelation {
         Macro Main {
             START: Receive ["ping" from A store message in "tmp"] (auto) -> Senden
 
-            Senden: Send ["pong" with correlation of "tmp" to A in "tmp" with content of "tmp"] -> END
+            Senden: Send ["pong" with correlation of "tmp" to A in "tmp" with content of "tmp"] -> TERMINATE
         }
     }
 }

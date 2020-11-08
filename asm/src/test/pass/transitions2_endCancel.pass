@@ -21,29 +21,29 @@ Process Transitions2_EndCancel {
 
             Call1: "CallMacro" ("TrySendBlock") {
                 "ok" -> Call2
-                "failed" -> END_Fail1
+                "failed" -> TERMINATE_Fail1
             }
 
             Call2: "CallMacro" ("TrySendBlock") {
-                "ok" -> END_Fail2
+                "ok" -> TERMINATE_Fail2
                 "failed" -> Send3
             }
 
 
             Send3: Send {
                 ["block" to B in "b2" with content of "pingContent"] -> Clear1
-                (timeout (5)) -> END_Fail3
+                (timeout (5)) -> TERMINATE_Fail3
             }
 
             Clear1: Send ["clearBlock" to B in "b1" with content of "pingContent"] -> Clear2
 
             Clear2: Send ["clearBlock" to 2 of B in "b" with content of "pingContent"] -> Clear3
 
-            Clear3: Send ["end" to 2 of B in "b" with content of "pingContent"] -> END
+            Clear3: Send ["terminate" to 2 of B in "b" with content of "pingContent"] -> TERMINATE
 
-            END_Fail1: End ("first TrySendBlock should have succeeded as there is at most one message in the IPs")
-            END_Fail2: End ("second TrySendBlock should have failed as the first subject has already two messages in the IP")
-            END_Fail3: End ("a leaked reservation message must be left in the IP, as the second subject should have only one message in its IP")
+            TERMINATE_Fail1: Terminate ("first TrySendBlock should have succeeded as there is at most one message in the IPs")
+            TERMINATE_Fail2: Terminate ("second TrySendBlock should have failed as the first subject has already two messages in the IP")
+            TERMINATE_Fail3: Terminate ("a leaked reservation message must be left in the IP, as the second subject should have only one message in its IP")
         }
 
         Macro TrySendBlock {
@@ -53,14 +53,14 @@ Process Transitions2_EndCancel {
             }
 
             Send "TrySendBlock: Send": Send {
-                ["block" to 2 of B in "b" with content of "pingContent"] -> END_ok
+                ["block" to 2 of B in "b" with content of "pingContent"] -> TERMINATE_ok
             }
             Guard "TrySendBlock: Guard Send timeout": InternalAction {
-                (timeout (5)) -> END_fail
+                (timeout (5)) -> TERMINATE_fail
             }
 
-            END_ok:   End ("ok")
-            END_fail: End ("failed")
+            TERMINATE_ok:   Terminate ("ok")
+            TERMINATE_fail: Terminate ("failed")
         }
     }
 
@@ -70,7 +70,7 @@ Process Transitions2_EndCancel {
         Macro Main {
             START: Receive {
                 ["clearBlock" from A] (auto with priority 1) -> Clear
-                ["end" from A] (auto) -> END
+                ["terminate" from A] (auto) -> TERMINATE
             }
 
             Clear: Receive {

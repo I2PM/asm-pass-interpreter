@@ -3,8 +3,8 @@ import Keys._
 import sbtassembly.AssemblyPlugin.autoImport.assembly
 
 object Commons {
-  val appVersion = "2.0.0-M4-public"
-  val appScalaVersion = "2.12.11"
+  val appVersion = "2.0.0-M5-public"
+  val appScalaVersion = "2.12.12"
 
   val settings: Def.SettingsDefinition = Def.settings(
     Global / cancelable := true,

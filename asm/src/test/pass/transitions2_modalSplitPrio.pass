@@ -16,8 +16,8 @@ Process Transitions2_ModalSplitPrio {
 
             a1: InternalAction with priority 1 {
                 "a1" (timeout (1)) -> Join
-                (cancel) -> END_FAIL2
-                //"a2" -> END_FAIL3
+                (cancel) -> TERMINATE_FAIL2
+                //"a2" -> TERMINATE_FAIL3
             }
 
             a2: InternalAction with priority 0 {
@@ -25,15 +25,15 @@ Process Transitions2_ModalSplitPrio {
             }
 
             c2: "Cancel" with priority 0 {
-                "a1" (auto) -> END_FAIL1
+                "a1" (auto) -> TERMINATE_FAIL1
                 (timeout (1)) -> Join
             }
 
-            END_FAIL1: End ("c2 shouldn't be able to cancel a state with higher priority")
-            END_FAIL2: End ("a1 shouldn't even have a chance of getting here, as this transition shouldn't be cancelled from a2")
-            //END_FAIL3: End ("a1 shouldn't even have a chance of getting here, as this transition is manual")
+            TERMINATE_FAIL1: Terminate ("c2 shouldn't be able to cancel a state with higher priority")
+            TERMINATE_FAIL2: Terminate ("a1 shouldn't even have a chance of getting here, as this transition shouldn't be cancelled from a2")
+            //TERMINATE_FAIL3: Terminate ("a1 shouldn't even have a chance of getting here, as this transition is manual")
 
-            Join: "ModalJoin" -> END
+            Join: "ModalJoin" -> TERMINATE
         }
     }
 }

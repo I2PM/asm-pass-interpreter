@@ -49,12 +49,14 @@ object GraphMLParser {
   val functionsWithoutArguments: Seq[String] = Seq("Tau", "Cancel", "ModalJoin", "ModalSplit", "CloseAllIPs", "OpenAllIPs")
   val predefinedFunctions: Seq[String] = functionsWithArgumentsFromEdge ++ functionsWithArgumentsFromNode ++ functionsWithoutArguments
 
-  def parseTransition(subjectId: String, x: Edge, msgTypes: MsgTypes, stateIdMapping: Map[String, StateNode]): (StateNode, TransitionNode) = {
+  def parseTransition(subjectId: String, x: Edge, msgTypes: MsgTypes, stateIdMapping: Map[String, StateNode])(parentLoc: ParserLocation): (StateNode, TransitionNode) = {
     logger.trace("parseTransition for '{}': {}", Seq(subjectId, x): _*)
 
     val labelTextOption: Option[String] = x.getLabel
 
-    if (x.label.flatMap(_.iconData).isDefined) throw new IllegalArgumentException("iconData present, will be ignored: " + x)
+    val loc1: ParserLocation = ParserLocation("parseTransition(" + labelTextOption + ")", Some(parentLoc))
+
+    if (x.label.flatMap(_.iconData).isDefined) throw new IllegalArgumentException("iconData present, will be ignored: " + x + " " + loc1)
 
     val sourceNodeId = x.source.id
     val targetNodeId = x.target.id
@@ -67,6 +69,8 @@ object GraphMLParser {
 
     logger.trace("sourceState: {}", sourceState.mkString)
     logger.trace("targetState: {}", targetState.mkString)
+
+    implicit val loc: ParserLocation = ParserLocation("parseTransition(" + sourceState.label.getOrElse(sourceState.id) + " -> " + targetState.label.getOrElse(targetState.id) + ", " + labelTextOption + ")", Some(parentLoc))
 
     val transitionId: Option[String] = x.label.flatMap(l => l("ID"))
 
@@ -120,11 +124,11 @@ object GraphMLParser {
             sourceState.functionArguments = Some(args.map(_.value))
           }
           else {
-            throw new InternalError("undefined Function requiring arguments from edge")
+            throw new InternalError("undefined Function requiring arguments from edge " + loc)
           }
         }
         else {
-          throw new IllegalArgumentException("unknown Function: " + sourceState.function)
+          throw new IllegalArgumentException("unknown Function: " + sourceState.function + " " + loc)
         }
       }
       else if (sourceState.stateType == Send) {
@@ -134,11 +138,11 @@ object GraphMLParser {
 
         if (!msgTypes.contains(key)) {
           logger.warn("msgTypes has no key for {}", key)
-          throw new IllegalArgumentException("there are no messages defined to be send from '" + subjectId + "' to '" + props.subject + "'")
+          throw new IllegalArgumentException("there are no messages defined to be send from '" + subjectId + "' to '" + props.subject + "' " + loc)
         }
         else if (!msgTypes(key).contains(props.msgType)) {
           logger.warn("{} does not contain {}", Seq(msgTypes(key), props.msgType): _*)
-          throw new IllegalArgumentException("message type '" + props.msgType + "' is not defined to be send from '" + subjectId + "' to '" + props.subject + "'. defined msgTypes: " + msgTypes)
+          throw new IllegalArgumentException("message type '" + props.msgType + "' is not defined to be send from '" + subjectId + "' to '" + props.subject + "'. defined msgTypes: " + msgTypes + " " + loc)
         }
 
         // TODO: may store which keys have been used in order to inform about unused message types
@@ -152,11 +156,11 @@ object GraphMLParser {
 
         if (!msgTypes.contains(key)) {
           logger.warn("msgTypes has no key for {}", key)
-          throw new IllegalArgumentException("there are no messages defined to be received by '" + subjectId + "' from '" + props.subject + "'")
+          throw new IllegalArgumentException("there are no messages defined to be received by '" + subjectId + "' from '" + props.subject + "' " + loc)
         }
         else if (!msgTypes(key).contains(props.msgType)) {
           logger.warn("{} does not contain {}", Seq(msgTypes(key), props.msgType): _*)
-          throw new IllegalArgumentException("message type '" + props.msgType + "' is not defined to be received by '" + subjectId + "' from '" + props.subject + "'. defined msgTypes: " + msgTypes)
+          throw new IllegalArgumentException("message type '" + props.msgType + "' is not defined to be received by '" + subjectId + "' from '" + props.subject + "'. defined msgTypes: " + msgTypes + " " + loc)
         }
 
         transition.communicationProperties = Some(props)
@@ -167,20 +171,20 @@ object GraphMLParser {
         if (functionsWithArgumentsFromEdge.contains(sourceState.function)) {
           logger.trace("transition: {}", x)
           logger.trace("label: {}", x.label)
-          throw new IllegalArgumentException("edge without label, but belongs to a Function that requires one")
+          throw new IllegalArgumentException("edge without label, but belongs to a Function that requires one " + loc)
         }
       }
       else if (Seq(Send, Receive).contains(sourceState.stateType)) {
         logger.trace("transition: {}", x)
         logger.trace("label: {}", x.label)
-        throw new IllegalArgumentException("edge without label, but belongs to a Function that requires one")
+        throw new IllegalArgumentException("edge without label, but belongs to a Function that requires one " + loc)
       }
     }
 
     if (transitionType == TransitionType.TIMEOUT && transition.timeout.isEmpty) {
       logger.trace("transition: {}", x)
       logger.trace("label: {}", x.label)
-      throw new IllegalArgumentException("timeout transition, but no timeout given")
+      throw new IllegalArgumentException("timeout transition, but no timeout given " + loc)
     }
 
     if (prio.isDefined) {
@@ -191,34 +195,35 @@ object GraphMLParser {
       case TransitionType.NORMAL => Unit
       case TransitionType.CANCEL => { transition.cancel = true }
       case TransitionType.AUTO => { transition.auto = true }
-      case TransitionType.TIMEOUT if transition.timeout.isEmpty => { throw new IllegalArgumentException("timeout transition, timeout overwritten with: " + transition.timeout) }
+      case TransitionType.TIMEOUT if transition.timeout.isEmpty => { throw new IllegalArgumentException("timeout transition, timeout overwritten with: " + transition.timeout + " " + loc) }
       case TransitionType.TIMEOUT => Unit // seems to be right
     }
 
     lineType match {
       case Some("line") => Unit
       case Some("dashed") => { transition.hidden = true }
-      case x => { throw new IllegalArgumentException("unknown lineType: " + x) }
+      case x => { throw new IllegalArgumentException("unknown lineType: " + x + " " + loc) }
     }
 
     (sourceState, transition)
   }
 
-  def getStateType(x: Node): StateType = {
+  def getStateType(x: Node)(implicit loc: ParserLocation): StateType = {
     x.BPMNType match {
       case Some("ACTIVITY_TYPE")    if (x.BPMNTaskType == Some("TASK_TYPE_SEND"))    => Send
       case Some("ACTIVITY_TYPE")    if (x.BPMNTaskType == Some("TASK_TYPE_RECEIVE")) => Receive
       case Some("ACTIVITY_TYPE")    if (x.BPMNTaskType == Some("TASK_TYPE_SERVICE")) => InternalAction
       case Some("ACTIVITY_TYPE")    if (x.BPMNTaskType == Some("TASK_TYPE_SCRIPT"))  => FunctionState
-      case Some("EVENT_TYPE_PLAIN") if (x.BPMNTaskType == None)                      => End
+      case Some("EVENT_TYPE_PLAIN") if (x.BPMNTaskType == None)                      => Terminate
       case _ => {
-        throw new Exception("unknown BPMNTask: " + x.BPMNType + " - " + x.BPMNTaskType)
+        throw new Exception("unknown BPMNTask: " + x.BPMNType + " - " + x.BPMNTaskType + " " + loc)
       }
     }
   }
 
-  def parseState(x: Node, tempId: String): StateNode = {
+  def parseState(x: Node, tempId: String)(parentLoc: ParserLocation): StateNode = {
     val id: String = x.label.flatMap(x => x("ID")).getOrElse(tempId)
+    implicit val loc: ParserLocation = ParserLocation("parseState(" + id + ")", Some(parentLoc))
     val prio: Option[String] = x.label.flatMap(x => x("PRIO"))
 
     val stateType: StateType = getStateType(x)
@@ -233,7 +238,7 @@ object GraphMLParser {
     stateNode.label = x.getLabel
 
     if (stateType == FunctionState) {
-      if (stateNode.label.isEmpty) throw new IllegalArgumentException("predefinedFunction state, but no label")
+      if (stateNode.label.isEmpty) throw new IllegalArgumentException("predefinedFunction state, but no label " + loc)
 
       val labelText = stateNode.label.get
 
@@ -249,7 +254,7 @@ object GraphMLParser {
             GraphMLJParser.parseIdArgsLabel(labelText)
           }
           catch {
-            case ex: ParserException => throw new IllegalArgumentException("predefinedFunction state, but unable to parse predefined function: '" + labelText + "'", ex)
+            case ex: ParserException => throw new IllegalArgumentException("predefinedFunction state, but unable to parse predefined function: '" + labelText + "' " + loc, ex)
           }
 
         val predefinedFunction: String = idArgs._1.value
@@ -260,11 +265,11 @@ object GraphMLParser {
           stateNode.functionArguments = Some(functionArguments)
         }
         else {
-          throw new IllegalArgumentException("unknown predefinedFunction with arguments  from state: '" + predefinedFunction + "' (arguments: '" + functionArguments + "')")
+          throw new IllegalArgumentException("unknown predefinedFunction with arguments  from state: '" + predefinedFunction + "' (arguments: '" + functionArguments + "') " + loc)
         }
       }
     }
-    else if (stateType == End) {
+    else if (stateType == Terminate) {
       stateNode.label match {
         case None => {}
         case Some(text) => {
@@ -276,15 +281,15 @@ object GraphMLParser {
     stateNode
   }
 
-  def parseMacro(s: SubjectNode, x: Graph, msgTypes: MsgTypes, labelText: String = "Main"): (Map[String, StateNode], Seq[MacroNode]) = {
+  def parseMacro(s: SubjectNode, x: Graph, msgTypes: MsgTypes, labelText: String = "Main")(parentLoc: ParserLocation): (Map[String, StateNode], Seq[MacroNode]) = {
     logger.trace("parseMacro: {}", labelText)
-
+    implicit val loc: ParserLocation = ParserLocation("parseMacro(" + labelText + ")", Some(parentLoc))
 
     val idArgs: (MapAbleNode[String], scala.Seq[MapAbleNode[String]])= try {
       GraphMLJParser.parseIdOptionalStringArgsLabel(labelText)
     }
     catch {
-      case ex: ParserException => throw new IllegalArgumentException("macro node, but unable to parse id / arguments: '" + labelText + "'", ex)
+      case ex: ParserException => throw new IllegalArgumentException("macro node, but unable to parse id / arguments: '" + labelText + "' " + loc, ex)
     }
 
     val macroName: String = idArgs._1.value
@@ -294,7 +299,7 @@ object GraphMLParser {
 
     if (macroArguments.nonEmpty) m.arguments = Some(macroArguments)
 
-    var macros = Seq(m)
+    var macros: Seq[MacroNode] = Seq(m)
 
     val allStartNodes: Seq[Node] = x.nodes.filter({ n =>
       n.genericNode.flatMap(_.borderStyle).map(_.width) == Some(3.0)
@@ -304,8 +309,8 @@ object GraphMLParser {
       n.genericNode.flatMap(_.borderStyle).map(_.typ) == Some("line")
     })
 
-    if (majorStartNodes.size != 1) throw new Exception("There must be excactly one major start node, found: " + majorStartNodes.map(_.mkString) + " for Macro '" + macroName + "' of '" + s.id + "'")
-    if (minorStartNodes.nonEmpty) throw new Exception("There must be no minor start nodes, found: " + minorStartNodes.map(_.mkString) + " for Macro '\" + name + \"' of '" + s.id + "'")
+    if (majorStartNodes.size != 1) throw new Exception("There must be excactly one major start node, found: " + majorStartNodes.map(_.mkString) + " for Macro '" + macroName + "' of '" + s.id + "' " + loc)
+    if (minorStartNodes.nonEmpty) throw new Exception("There must be no minor start nodes, found: " + minorStartNodes.map(_.mkString) + " for Macro '\" + name + \"' of '" + s.id + "' " + loc)
 
     val startNode = majorStartNodes.head
 
@@ -316,7 +321,7 @@ object GraphMLParser {
       if (PASSHelper.isMacro(n)) {
         // TODO: sepatare parseMacro into a parseMainMacro ?
         val labelText = n.label.get.text
-        val (a, b) = parseMacro(s, n.subgraph.get, msgTypes, labelText)
+        val (a, b): (Map[String, StateNode], Seq[MacroNode]) = parseMacro(s, n.subgraph.get, msgTypes, labelText)(loc)
         stateIdMapping ++= a // edges belonging to the subgraph could be in this level
         macros ++= b
       }
@@ -329,7 +334,7 @@ object GraphMLParser {
 
         logger.trace("parseState: {}", n)
 
-        val stateNode = parseState(n, tempId)
+        val stateNode: StateNode = parseState(n, tempId)(loc)
         stateIdMapping += (n.id -> stateNode)
 
         if (n == startNode) {
@@ -346,7 +351,7 @@ object GraphMLParser {
 
       logger.trace("parseTransition: {}", e)
 
-      val (sourceNode, transitionNode) = parseTransition(s.id, e, msgTypes, stateIdMapping)
+      val (sourceNode, transitionNode): (StateNode, TransitionNode) = parseTransition(s.id, e, msgTypes, stateIdMapping)(loc)
 
       logger.trace("adding transition to {}: {}", Seq(sourceNode, transitionNode.mkString): _*)
       sourceNode.addOutgoingTransition(transitionNode)
@@ -355,7 +360,8 @@ object GraphMLParser {
     (stateIdMapping, macros)
   }
 
-  def parseExternalSubject(x: Node): SubjectNode = {
+  def parseExternalSubject(x: Node)(parentLoc: ParserLocation): SubjectNode = {
+    implicit val loc: ParserLocation = ParserLocation("parseExternalSubject(" + x.getLabel + ")", Some(parentLoc))
     val (id, params) = GraphMLJParser.parseSubjectLabelRich(x.getLabel.get)
     val s = new SubjectNode(id, true)
 
@@ -371,7 +377,8 @@ object GraphMLParser {
     s
   }
 
-  def parseInternalSubject(x: Node, msgTypes: MsgTypes, ipDefault: Option[Int]): SubjectNode = {
+  def parseInternalSubject(x: Node, msgTypes: MsgTypes, ipDefault: Option[Int])(parentLoc: ParserLocation): SubjectNode = {
+    implicit val loc: ParserLocation = ParserLocation("parseInternalSubject(" + x.getLabel + ")", Some(parentLoc))
     val (id, params) = GraphMLJParser.parseSubjectLabelRich(x.getLabel.get)
     // NOTE: x.getData left for capability, should be removed
     val ipSize: Option[Int] = x.getData[Int](IPKeyName).flatMap(_.value).orElse(params.get("IPSize").map(_.asInstanceOf[Int])).orElse(ipDefault)
@@ -384,11 +391,11 @@ object GraphMLParser {
     logger.trace("")
     logger.trace("")
 
-    if (x.subgraph.isEmpty) throw new IllegalArgumentException("expected a subgraph!")
+    if (x.subgraph.isEmpty) throw new IllegalArgumentException("expected a subgraph! " + loc)
 
     logger.trace("parse subgraph: {}", x.subgraph)
 
-    val (_, macros) = parseMacro(s, x.subgraph.get, msgTypes)
+    val (_, macros): (Map[String, StateNode], Seq[MacroNode]) = parseMacro(s, x.subgraph.get, msgTypes)(loc)
 
     for (m <- macros) {
       logger.trace("adding macro: {}", m.mkString)
@@ -398,7 +405,8 @@ object GraphMLParser {
     s
   }
 
-  def parseProcess(g: GraphML, name: String = "GraphMLImport"): (ProcessNode, MsgTypes) = {
+  def parseProcess(g: GraphML, name: String = "GraphMLImport")(parentLoc: ParserLocation): (ProcessNode, MsgTypes) = {
+    implicit val loc: ParserLocation = ParserLocation("parseProcess(" + name + ")", Some(parentLoc))
     logger.trace("parseProcess '{}': {}", Seq(name, g): _*)
 
     val p = new ProcessNode(name)
@@ -421,7 +429,8 @@ object GraphMLParser {
     val msgTypeBoxes: Map[(String, String), Set[String]] = edgesLabel.mapValues(_.map(_.text))
 
     def parseMsgTypes(x: String): Set[String] = {
-      x.split("\n").map(_.trim).filterNot(_.isEmpty).map(_.drop(1)).map(GraphMLJParser.cleanQuotes).toSet
+      val locParseMsgTypes: ParserLocation = ParserLocation("parseMsgTypes(" + x + ")", Some(loc))
+      x.split("\n").map(_.trim).filterNot(_.isEmpty).map(_.drop(1)).map(x => GraphMLJParser.cleanQuotes(x)(locParseMsgTypes)).toSet
     }
 
     // note: lazy mapping
@@ -442,13 +451,13 @@ object GraphMLParser {
 
       val subjectNode: SubjectNode =
         if (PASSHelper.isInternalSubject(x)) {
-          parseInternalSubject(x, msgTypes, ipDefault)
+          parseInternalSubject(x, msgTypes, ipDefault)(loc)
         }
         else if (PASSHelper.isExternalSubject(x)) {
-          parseExternalSubject(x)
+          parseExternalSubject(x)(loc)
         }
         else {
-          throw new IllegalArgumentException("Subject '"+x.getLabel.get+"' is neither internal nor external!")
+          throw new IllegalArgumentException("Subject '"+x.getLabel.get+"' is neither internal nor external! " + loc)
         }
 
       logger.trace("adding subject: {}", subjectNode.mkString)
@@ -476,6 +485,7 @@ object GraphMLParser {
   }
 
   def loadProcesses(source: Elem, sourceName: String): Set[(ProcessNode, MsgTypes)] = {
+    implicit val loc: ParserLocation = ParserLocation("loadProcesses(" + sourceName + ")", None)
     val g: GraphML = parseGraphML(source)
 
     val gPruned: GraphML = PASSHelper.pruneGraphML(g)
@@ -484,7 +494,7 @@ object GraphMLParser {
     val hasOnlySubjects = gPruned.graph.nodes.forall(n => (PASSHelper.isSubject(n) || PASSHelper.isData(n)))
 
     if (hasOnlySubjects) {
-      Set(parseProcess(gPruned, sourceName))
+      Set(parseProcess(gPruned, sourceName)(loc))
     }
     else if (hasOnlyProcesses) {
       val processGraphs: Seq[(GraphML, String)] = gPruned.graph.nodes.map(n => (gPruned.copy(graph = n.subgraph.get), n.getLabel.get))
@@ -492,11 +502,11 @@ object GraphMLParser {
       processGraphs.map(t => {
         val (gProcess: GraphML, processName: String) = t
 
-        parseProcess(gProcess, processName)
+        parseProcess(gProcess, processName)(loc)
       }).toSet
     }
     else {
-      throw new IllegalArgumentException("mixed process and subject(group) nodes on root level")
+      throw new IllegalArgumentException("mixed process and subject(group) nodes on root level " + loc)
     }
   }
 

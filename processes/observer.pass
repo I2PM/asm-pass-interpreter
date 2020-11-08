@@ -9,12 +9,12 @@ Process Example_Observer {
             }
 
             Wait: Receive {
-                ["result" from Worker] -> END
+                ["result" from Worker] -> TERMINATE
                 "abort worker" (cancel) -> AbortTask
             }
 
             AbortTask: Send {
-                ["abortTask" to Worker in "worker"] -> END
+                ["abortTask" to Worker in "worker"] -> TERMINATE
             }
         }
     }
@@ -23,7 +23,7 @@ Process Example_Observer {
         Macro Main {
             START: Receive {
                 ["task" from Manager store message in "currentTask"] -> PrepareHandling
-                ["abortTask" from Manager] (with priority 1) -> END
+                ["abortTask" from Manager] (with priority 1) -> TERMINATE
             }
 
             PrepareHandling: "ModalSplit" {
@@ -55,7 +55,7 @@ Process Example_Observer {
 
 
 
-            Join: "ModalJoin" -> END
+            Join: "ModalJoin" -> TERMINATE
         }
     }
 }

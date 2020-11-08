@@ -3,7 +3,7 @@ import org.apache.commons.io.filefilter.FalseFileFilter
 
 val releaseFolder = file("./release/")
 val scriptsFolder = file("./scripts/")
-val processesFolder = file("processes")
+val processesFolder = file("./processes/").getAbsoluteFile
 
 lazy val cleanRelease = taskKey[Unit]("cleans release folder")
 lazy val prepareRelease = taskKey[File]("prepares all files for the release folder and returns it")
@@ -133,11 +133,14 @@ lazy val asm = (project in file("asm"))
     },
 
     // parse process files for test
-    ParsePASS / includeFilter := ("*.pass" | "*.graphml"), // overwrite *.owl that is present by default
+    ParsePASS / parsePASS / fileInputExcludeFilter := (
+        (ParsePASS / parsePASS / fileInputExcludeFilter).value ||
+        "**/*.owl"// overwrite *.owl that is present by default
+      ),
     ParsePASS / parsePASSFileType := "asm",
     ParsePASS / parsePASSProject := PASSProcessUtil,
 
-    // fork is necessary as the Engine only writes to System.out
+    // fork is necessary as the CoreASM Engine only writes to System.out
     Test / fork := true,
   )
   .enablePlugins(ParsePASSPlugin)

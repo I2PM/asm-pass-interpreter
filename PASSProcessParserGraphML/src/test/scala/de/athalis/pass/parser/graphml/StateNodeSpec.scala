@@ -1,21 +1,24 @@
 package de.athalis.pass.parser.graphml
 
-import scala.xml.{ Node => XMLNode }
-
+import scala.xml.{Node => XMLNode}
 import scala.collection.immutable._
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import org.scalatest.OptionValues._
-
-import de.athalis.pass.parser.graphml.parser.GraphMLParser
+import de.athalis.pass.parser.ast.pass.StateNode
 import de.athalis.pass.parser.ast.pass.StateNode.StateType._
+import de.athalis.pass.parser.graphml.parser.GraphMLParser
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
+import de.athalis.pass.parser.graphml.structure.{Key, Node}
+
+import org.scalatest.OptionValues._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 object StateNodeSpec {
+  private implicit val loc: ParserLocation = ParserLocation("StateNodeSpec", None)
 
-  val keys = Util.keys
+  private val keys: Seq[Key[_]] = Util.keys
 
-  def createXMLStateNode(id: String, labelText: String, taskType: String, description: Option[String] = None, borderWidth: Double = 1.0): XMLNode =
+  private def createXMLStateNode(id: String, labelText: String, taskType: String, description: Option[String] = None, borderWidth: Double = 1.0): XMLNode =
         <node id={id}>
           <data key="d5"/>
           {if (description.isDefined) {<data key="d6">{description.get}</data>}}
@@ -43,29 +46,28 @@ object StateNodeSpec {
           </data>
         </node>
 
-  val minimalActionXML = createXMLStateNode("graphml-state-01", "Discover need for Service", "TASK_TYPE_SERVICE", Some("Internal Action"), 3.0)
-  val minimalActionNode = Helper.parseNode(minimalActionXML, keys)
-  val minimalActionState = GraphMLParser.parseState(minimalActionNode, "pass-state-01")
+  private val minimalActionXML: XMLNode = createXMLStateNode("graphml-state-01", "Discover need for Service", "TASK_TYPE_SERVICE", Some("Internal Action"), 3.0)
+  private val minimalActionNode: Node = Helper.parseNode(minimalActionXML, keys)
+  private val minimalActionState: StateNode = GraphMLParser.parseState(minimalActionNode, "pass-state-01")(loc)
 
-  val sendXML = createXMLStateNode("graphml-state-02", "Send", "TASK_TYPE_SEND")
-  val sendNode = Helper.parseNode(sendXML, keys)
-  val sendState = GraphMLParser.parseState(sendNode, "pass-state-02")
+  private val sendXML: XMLNode = createXMLStateNode("graphml-state-02", "Send", "TASK_TYPE_SEND")
+  private val sendNode: Node = Helper.parseNode(sendXML, keys)
+  private val sendState: StateNode = GraphMLParser.parseState(sendNode, "pass-state-02")(loc)
 
-  val receiveXML = createXMLStateNode("graphml-state-03", "Receive", "TASK_TYPE_RECEIVE")
-  val receiveNode = Helper.parseNode(receiveXML, keys)
-  val receiveState = GraphMLParser.parseState(receiveNode, "pass-state-03")
+  private val receiveXML: XMLNode = createXMLStateNode("graphml-state-03", "Receive", "TASK_TYPE_RECEIVE")
+  private val receiveNode: Node = Helper.parseNode(receiveXML, keys)
+  private val receiveState: StateNode = GraphMLParser.parseState(receiveNode, "pass-state-03")(loc)
 
 
-
-  val nodes = Seq(minimalActionNode, sendNode, receiveNode)
-  val nodeStates = Map(
+  val nodes: Seq[Node] = Seq(minimalActionNode, sendNode, receiveNode)
+  val nodeStates: Map[String, StateNode] = Map(
       "graphml-state-01" -> minimalActionState,
       "graphml-state-02" -> sendState,
       "graphml-state-03" -> receiveState
     )
 }
 
-class StateNodeSpec extends FunSuite with Matchers {
+class StateNodeSpec extends AnyFunSuite with Matchers {
   import StateNodeSpec._
 
   test("minimal action state") {

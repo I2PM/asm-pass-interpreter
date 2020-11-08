@@ -32,7 +32,7 @@ Process Transitions2_VarManUndef {
             // x \ undef = x
             Difference2: "VarMan" ("difference", "x", "undef", "d2") -> Difference3
             // undef \ undef = x
-            Difference3: "VarMan" ("difference", "undef", "undef", "d3") -> END // FIXME: failed Structural Soundness!
+            Difference3: "VarMan" ("difference", "undef", "undef", "d3") -> TERMINATE // FIXME: failed Structural Soundness!
 
             // TODO: how to validate results?
         }

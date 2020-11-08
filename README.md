@@ -1,10 +1,10 @@
 # Readme
 
-Version 2.0.0-M4-public
+Version 2.0.0-M5-public
 
 ## About
 
-This is a development snapshot! For publication, some contents have been removed, for example support of OWL which is under heavy development right now.
+This is the fifth milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is under heavy development right now.
 
 This project contains the reference implementation for "Spezifikation einer Ausführungssemantik für das Subjektorientierte Prozessmanagement mit CoreASM", available at https://tuprints.ulb.tu-darmstadt.de/id/eprint/8360
 
@@ -73,6 +73,10 @@ It takes a single path to a process file as argument.
 For example, run in a console `parse_processfile.cmd processes\Macro.graphml` on Windows
 or `./parse_processfile.sh processes/Macro.graphml` on Unix.
 
+You can parse multiple files at once, which might be required if a process is distributed
+across multiple files, if you separate the files with the system path separator.
+For example on Windows: `parse_processfile.cmd processes\Macro.graphml;processes\echo_server.pass`
+For example on \*nix: `./parse_processfile.sh processes\Macro.graphml:processes\echo_server.pass`
 
 
 ## Development

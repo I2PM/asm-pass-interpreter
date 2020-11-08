@@ -5,9 +5,11 @@ import java.io.File
 import de.athalis.pass.model.TUDarmstadtModel.{Examples, Process}
 import de.athalis.pass.parser.PASSProcessReaderAST
 import de.athalis.pass.writer.asm.Model2ASMMap
-import org.scalatest.{FunSuite, Matchers}
 
-class ProcessParsingToASMMapTest extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class ProcessParsingToASMMapTest extends AnyFunSuite with Matchers {
 
   test("emptyProcess") {
     // tests only if no exceptions occur

@@ -839,11 +839,11 @@ derived inputPoolGetFreeSpace(ch, s, mt) = return numres in {
 
 
 // senderSubjID, messageType and correlationID can be undef for wildcard match
-derived inputPoolUsedSpace(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels) = | inputPoolMessages(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels) |
+derived inputPoolUsedSpace(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, suppressMultipleChannels) = | inputPoolMessages(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, suppressMultipleChannels) |
 
 
 // senderSubjID, senderChannels, messageType and correlationID can be undef for wildcard match
-derived inputPoolMessages(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels) = return listres in {
+derived inputPoolMessages(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, suppressMultipleChannels) = return listres in {
     /*
     If wildcards are used the order of the messages is non-deterministic!
 
@@ -853,7 +853,7 @@ derived inputPoolMessages(receiverChannel, senderSubjID, senderChannels, message
     debuginfo inputPoolMessages self + ": (" + receiverChannel + ", " + undefStr(senderSubjID) + ", " + undefStr(senderChannels) + ", " + undefStr(messageType) + ", " + undefStr(correlationID) + ") [undef is wildcard]"
 
     // unlimited TODO: really??
-    let m = inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels, 0) in seqblock
+    let m = inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, suppressMultipleChannels, 0) in seqblock
         listres := mapOfListsToList(m)
     endseqblock
 }
@@ -861,9 +861,9 @@ derived inputPoolMessages(receiverChannel, senderSubjID, senderChannels, message
 
 
 // senderSubjID, messageType and correlationID can be undef for wildcard match
-derived inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, supressMultipleChannels, limit) = return mapres in {
+derived inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, messageType, correlationID, noReservations, suppressMultipleChannels, limit) = return mapres in {
 
-    debuginfo inputPoolMessagesNested self + ": (" + receiverChannel + ", " + undefStr(senderSubjID) + ", " + undefStr(senderChannels) + ", " + undefStr(messageType) + ", " + undefStr(correlationID) + ", " + noReservations + ", " + supressMultipleChannels + ", " + limit + ") [undef is wildcard]"
+    debuginfo inputPoolMessagesNested self + ": (" + receiverChannel + ", " + undefStr(senderSubjID) + ", " + undefStr(senderChannels) + ", " + undefStr(messageType) + ", " + undefStr(correlationID) + ", " + noReservations + ", " + suppressMultipleChannels + ", " + limit + ") [undef is wildcard]"
 
     let definedIPs = filterSet3(inputPoolDefined(receiverChannel), @eqOrUndef3, senderSubjID, messageType, correlationID) in {
 
@@ -901,7 +901,7 @@ derived inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, m
 
                         listres2 := []
 
-                        if (supressMultipleChannels) then {
+                        if (suppressMultipleChannels) then {
                             // consider only one message per sender
                             foreach msg in listres1 do {
                                 let senderChannel = msgChannel(msg) in {
@@ -985,7 +985,7 @@ derived getIPMessages(receiverChannel, MI, stateNumber, transitionNumber) = retu
             numres1 := loadCorrelationIDForChannel(receiverChannel, MI, stringres3)
         }
 
-        // all senderChannels, no reservations, supress multiple channels
+        // all senderChannels, no reservations, suppress multiple channels
         let m = inputPoolMessagesNested(receiverChannel, stringres1, undef, stringres2, numres1, true, true, countMax) in
         seqblock
             debuginfo getIPMessages self + ": m: " + m
@@ -1101,7 +1101,7 @@ derived searchMacro(name) = return numres in {
 }
 
 
-// called from PerformEnd (iff other states are active / ignoreState will be the end state) and AbortCallMacro (ignoreState will be undef)
+// called from PerformTerminate (iff other states are active / ignoreState will be the Terminate state) and AbortCallMacro (ignoreState will be undef)
 rule AbortMacroInstance(MIAbort, ignoreState) = {
     debuginfo AbortMacroInstance self + ": MIAbort: " + MIAbort
 
@@ -1191,7 +1191,7 @@ rule StopProcess(PI) = {
     debuginfo StopProcess self + ": stopping " + PI + ".."
 
     // TODO: update taskSetOut, remove StartSubject tasks for this PI
-    // TODO: call PerformEnd -> Cancel everything (i.e. remove reservation messages) and set properTerminated
+    // TODO: call PerformTerminate -> Cancel everything (i.e. remove reservation messages) and set properTerminated
 
     forall a in asmAgents with processInstanceFor(a) = PI do {
         remove a from asmAgents
@@ -1513,7 +1513,7 @@ rule MacroBehavior(MI) = {
     debuginfo MacroBehavior self + ": -"
     debuginfo MacroBehavior self + ": MI: " + MI
     debuginfo MacroBehavior self + ": nanoTime: " + nanoTime
-    debuginfo MacroBehavior self + ": " + channelFor(self)
+    debuginfo MacroBehavior self + ": channelFor(self): " + channelFor(self)
     debuginfo MacroBehavior self + ": activeStates: " + activeStatesPretty(MI, activeStates(channelFor(self), MI))
 
     let processID = processIDFor(self) in
@@ -1802,7 +1802,7 @@ rule StartState(MI, currentStateNumber) = {
             "internalAction" : StartInternalAction(MI, currentStateNumber)
             "send"           : StartSend(MI, currentStateNumber)
             "receive"        : SetExecutionState(MI, currentStateNumber, 3) // NEXT, nothing to do. Handle all other startStates, LTS step implied afterwards
-            "end"            : StartEnd(MI, currentStateNumber)
+            "terminate"      : StartTerminate(MI, currentStateNumber)
         endcase
 
         initializedState(channelFor(self), MI, currentStateNumber) := true
@@ -1854,7 +1854,7 @@ rule Perform(MI, currentStateNumber) = {
             "internalAction" : PerformInternalAction(MI, currentStateNumber)
             "send"           : PerformSend(MI, currentStateNumber)
             "receive"        : PerformReceive(MI, currentStateNumber)
-            "end"            : PerformEnd(MI, currentStateNumber)
+            "terminate"      : PerformTerminate(MI, currentStateNumber)
         endcase
     }
 }
@@ -2394,8 +2394,12 @@ rule SelectReceivers(MI, currentStateNumber) = {
                 {
                     debuginfo SelectReceivers self + ": selectAgentsResult: " + y
 
-                    if (|y| < countMin or |y| > countMax) then {
-                        debuginfo SelectReceivers self + ": invalid receivers selected, must be between "+countMin+" and "+countMax+"!"
+                    if ((countMax = 0) and (|y| < countMin)) then {
+                        debuginfo SelectReceivers self + ": invalid receivers selected, must be at least " + countMin + "!"
+                        Crash()
+                    }
+                    else if ((|y| < countMin) or (countMax != 0 and |y| > countMax)) then {
+                        debuginfo SelectReceivers self + ": invalid receivers selected, must be between " + countMin + " and " + countMax + "!"
                         Crash()
                     }
 
@@ -2882,7 +2886,7 @@ rule CheckIP(MI, currentStateNumber, transitionNumber) = {
         }
 
 
-        // no reservations, supress multiple channels
+        // no reservations, suppress multiple channels
         let usedSpace = inputPoolUsedSpace(channelFor(self), stringres1, setres1, stringres2, numres1, true, true) in {
             if (messageSubjectCountMin(processID, transitionNumber) = 0) then {
                 if (usedSpace > |setres1|) then {
@@ -2915,21 +2919,21 @@ rule CheckIP(MI, currentStateNumber, transitionNumber) = {
 
 // ==============================================
 
-// Core PASS State Type: End
+// Core PASS State Type: Terminate
 
 // ==============================================
 
 
 
 
-rule StartEnd(MI, currentStateNumber) = {
-    debuginfo StartEnd self + ": state: " + statePretty(MI, currentStateNumber) + " (nothing to do)"
+rule StartTerminate(MI, currentStateNumber) = {
+    debuginfo StartTerminate self + ": state: " + statePretty(MI, currentStateNumber) + " (nothing to do)"
 
-    SetExecutionState(MI, currentStateNumber, 0) // REPEAT, continue directly to PerformEnd, avoiding LTS step
+    SetExecutionState(MI, currentStateNumber, 0) // REPEAT, continue directly to PerformTerminate, avoiding LTS step
 }
 
-rule PerformEnd(MI, currentStateNumber) = {
-    debuginfo PerformEnd self + ": state " + statePretty(MI, currentStateNumber)
+rule PerformTerminate(MI, currentStateNumber) = {
+    debuginfo PerformTerminate self + ": state " + statePretty(MI, currentStateNumber)
 
     if (|activeStates(channelFor(self), MI)| > 1) then {
         AbortMacroInstance(MI, currentStateNumber) // do not remove self. calls ClearAllVarInMIForChannel bat that's not needed
@@ -2940,11 +2944,11 @@ rule PerformEnd(MI, currentStateNumber) = {
         if (MI = 1) then {
             let res = head(stateFunctionArguments(processIDFor(self), currentStateNumber)) in {
                 // just for debugging purposes, a termination of the Main Macro should not have a result, but this is used in TestTransitions2
-                if (res = undef) then { // no parameters for End state
-                    debuginfo PerformEnd self + ": within mainMacro, terminate subject without result value"
+                if (res = undef) then { // no parameters for this Terminate state
+                    debuginfo PerformTerminate self + ": within mainMacro, terminate subject without result value"
                 }
                 else {
-                    debuginfo PerformEnd self + ": within mainMacro. WARN: terminate subject with result value: " + res
+                    debuginfo PerformTerminate self + ": within mainMacro. WARN: terminate subject with result value: " + res
                 }
             }
 
@@ -2960,12 +2964,12 @@ rule PerformEnd(MI, currentStateNumber) = {
             ClearAllVarInMIForChannel(channelFor(self), MI)
 
             let res = head(stateFunctionArguments(processIDFor(self), currentStateNumber)) in {
-                if (res = undef) then { // no parameters for End state
-                    debuginfo PerformEnd self + ": terminated without result value"
+                if (res = undef) then { // no parameters for this Terminate state
+                    debuginfo PerformTerminate self + ": terminated without result value"
                     macroTerminationResult(channelFor(self), MI) := true
                 }
                 else {
-                    debuginfo PerformEnd self + ": terminated with result value: " + res
+                    debuginfo PerformTerminate self + ": terminated with result value: " + res
                     macroTerminationResult(channelFor(self), MI) := res
                 }
             }
@@ -3897,7 +3901,11 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
         resolvedSubjectID = nth(resolvedInterface, 2) in
     if (selectAgentsDecision(channelFor(self), MI, currentStateNumber) != undef) then {
         // validate min/max
-        if (hasSizeWithin(selectAgentsDecision(channelFor(self), MI, currentStateNumber), countMin, countMax) != true) then {
+        if ((countMax = 0) and (hasMinimalSize(selectAgentsDecision(channelFor(self), MI, currentStateNumber), countMin) != true)) then {
+            debuginfo SelectAgents self + ": selectAgentsDecision is less than countMin: " + countMin + " <= " + |selectAgentsDecision(channelFor(self), MI, currentStateNumber)|
+            Crash()
+        }
+        else if ((countMax > 0) and (hasSizeWithin(selectAgentsDecision(channelFor(self), MI, currentStateNumber), countMin, countMax) != true)) then {
             debuginfo SelectAgents self + ": selectAgentsDecision is not within countMin/countMax: " + countMin + " <= " + |selectAgentsDecision(channelFor(self), MI, currentStateNumber)| + " <= " + countMax
             Crash()
         }
@@ -3955,7 +3963,15 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
         debuginfo SelectAgents self + ": REPEAT"
         SetExecutionState(MI, currentStateNumber, 0)
     }
-    else if(hasSizeWithin(predefinedAgents(processID, sIDLocal), countMin, countMax) = true) then {
+    else if((countMax = 0) and (hasMinimalSize(predefinedAgents(processID, sIDLocal), countMin) = true)) then {
+        debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processID, sIDLocal)
+
+        selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processID, sIDLocal)
+
+        debuginfo SelectAgents self + ": REPEAT"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else if((countMax > 0) and (hasSizeWithin(predefinedAgents(processID, sIDLocal), countMin, countMax) = true)) then {
         debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processID, sIDLocal)
 
         selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processID, sIDLocal)

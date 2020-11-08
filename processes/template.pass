@@ -10,7 +10,7 @@ Process Template {
 
             START: InternalAction {
                 "send" -> Senden
-                "end" -> END
+                "terminate" -> TERMINATE
             }
             Senden: Send ["a" to B] -> START
         }
@@ -19,7 +19,7 @@ Process Template {
     Subject B {
         Macro Main {
             START: Receive {
-                ["a" from A] (auto) -> END
+                ["a" from A] (auto) -> TERMINATE
             }
         }
     }

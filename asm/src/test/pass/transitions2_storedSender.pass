@@ -15,7 +15,7 @@ Process Transitions2_StoredSender {
             Senden1: Send ["ping1" to B with content of "pingContent" store receiver in "myB"] -> Senden2
             Senden2: Send ["ping2" to B in "myB" with content of "pingContent"] -> Empfangen
 
-            Empfangen: Receive ["pong" from B] (auto) -> END
+            Empfangen: Receive ["pong" from B] (auto) -> TERMINATE
         }
     }
 
@@ -28,7 +28,7 @@ Process Transitions2_StoredSender {
 
             Vereinigen: "VarMan" ("concatenation", "tmp1", "tmp2", "tmp") -> Senden
 
-            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> END
+            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> TERMINATE
         }
     }
 }

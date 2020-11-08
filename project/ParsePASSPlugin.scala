@@ -1,7 +1,10 @@
-import java.io.File
+import org.apache.commons.io.FileUtils
+import java.nio.file.Path
 
 import sbt.Keys._
 import sbt.{Def, _}
+import sbt.nio.Keys._
+import sbt.nio.file.FileTreeView
 
 object ParsePASSPlugin extends AutoPlugin {
   override def requires: Plugins = plugins.JvmPlugin
@@ -22,52 +25,46 @@ object ParsePASSPlugin extends AutoPlugin {
     sourceDirectory := ((Compile / sourceDirectory) { _ / "pass" }).value,
     resourceManaged := ((Compile / resourceManaged) { _ / "pass" }).value,
 
-    includeFilter := "*.pass" | "*.graphml" | "*.owl",
-    excludeFilter := HiddenFileFilter,
-
-    sources := {
-      val srcDir = sourceDirectory.value
-      val incl = includeFilter.value
-      val excl = excludeFilter.value
-      (srcDir * (incl -- excl)).get
-    },
+    parsePASS / fileInputs += sourceDirectory.value.toGlob / "*.{pass,graphml,owl}",
+    parsePASS / fileOutputs += resourceManaged.value.toGlob / "*.{casm,owl}",
 
     // have to be defined in actual project
     // parsePASSFileType
     // parsePASSProject
 
     parsePASS := (Def.taskDyn[Seq[File]] {
+      val logger = streams.value.log
+
       lazy val runTask = (PASSProcessParserPlugin.autoImport.runParsePASSClassToFiles in parsePASSProject.value)
 
       val typ: String = parsePASSFileType.value
 
       val outDir: File = resourceManaged.value
 
-      val sourcesValue: Seq[File] = sources.value
+      val changes: sbt.nio.FileChanges = parsePASS.inputFileChanges
 
-      if (sourcesValue.nonEmpty) {
-        lazy val args: Seq[String] = PASSProcessParserPlugin.prepareArguments(typ, outDir, sourcesValue)
-        runTask.toTask(" " + args.map(_.replace("\\", "\\\\")).mkString(" "))
+      // unfortunately, we do not easily know which source file created which casm file(s)
+      // therefore to be safe, re-parse everything
+      if (changes.hasChanges) {
+        logger.info("ParsePASS: changes detected, re-parsing all process files")
+
+        if (outDir.exists()) {
+          FileUtils.cleanDirectory(outDir)
+        }
+
+        val sourcesValue: Seq[Path] = changes.created ++ changes.modified ++ changes.unmodified
+
+        val args: Seq[String] = PASSProcessParserPlugin.prepareArguments(typ, outDir, sourcesValue)
+
+        // return task, that generates the files and returns them
+        runTask.toTask(" " + args.mkString(" "))
       }
       else {
+        // return task, that returns all existing files for resourceGenerator
         Def.task {
-          Seq.empty
+          FileTreeView.default.list((parsePASS / fileOutputs).value).map(_._1.toFile)
         }
       }
-
-      /*
-       TODO: restore caching functionality.
-         The approach below is no longer possible with the new structure.
-         sbt 1.3 brings a new feature that should be looked at https://www.scala-sbt.org/1.0/docs/Howto-Track-File-Inputs-and-Outputs.html
-
-      val cachedFun = FileFunction.cached(streams.value.cacheDirectory / "pass", FilesInfo.lastModified, FilesInfo.lastModified) {
-        (in: Set[File]) => {
-          val args: Seq[String] = ParsePASSProcesses.prepareArguments(typ, outDir, in)
-          runTask.fullInput(args.mkString(" ")).evaluated
-        }
-      }
-      cachedFun(sources.value.toSet).toSeq
-      */
     }).value
   )
 
@@ -78,10 +75,6 @@ object ParsePASSPlugin extends AutoPlugin {
 
     parsePASS := (parsePASS dependsOn (ParsePASS / parsePASS)).value,
 
-    // default: use from parent in case it is overwritten there
-    includeFilter := (ParsePASS / includeFilter).value,
-    excludeFilter := (ParsePASS / excludeFilter).value,
-
     parsePASSFileType := (ParsePASS / parsePASSFileType).value,
     parsePASSProject := (ParsePASS / parsePASSProject).value
   )
@@ -89,13 +82,15 @@ object ParsePASSPlugin extends AutoPlugin {
   override lazy val projectSettings: Seq[Setting[_]] =
     inConfig(ParsePASS)(basePASSSettings) ++
     inConfig(ParsePASSTest)(testPASSSettings) ++ Def.settings(
+      // FIXME: it looks like there is a bug in sbt regarding test:clean and test:copyResources. This works around that, as now test:clean depends on parse-pass:clean, which somehow magically cleans everything (altough it should just clean for itself)
+
       (Compile / resourceGenerators) += (ParsePASS / parsePASS).taskValue,
       (Compile / managedResourceDirectories) += (ParsePASS / resourceManaged).value,
-      cleanFiles += (ParsePASS / resourceManaged).value,
+      (Compile / clean) := (Compile / clean).dependsOn(clean in ParsePASS).value,
 
       (resourceGenerators in Test) += (ParsePASSTest / parsePASS).taskValue,
       (managedResourceDirectories in Test) += (ParsePASSTest / resourceManaged).value,
-      cleanFiles += (ParsePASSTest / resourceManaged).value
+      (clean in Test) := (clean in Test).dependsOn(clean in ParsePASSTest).value,
     )
   
 }

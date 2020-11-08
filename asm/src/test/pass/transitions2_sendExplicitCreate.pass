@@ -14,7 +14,7 @@ Process Transitions2_SendExplicitCreate {
 
             Erzeugen: "SelectAgents" ("foobar", "B", 1, 1) -> Senden
 
-            Senden: Send ["ping" to B in "foobar" with content of "pingContent"] -> END
+            Senden: Send ["ping" to B in "foobar" with content of "pingContent"] -> TERMINATE
         }
     }
 
@@ -22,7 +22,7 @@ Process Transitions2_SendExplicitCreate {
         InputPool := 2
 
         Macro Main {
-            START: Receive ["ping" from A] (auto) -> END
+            START: Receive ["ping" from A] (auto) -> TERMINATE
             // FIXME: add reply. Should already know a Channel to A without creating it.
         }
     }

@@ -126,7 +126,7 @@ Process Transitions {
         StartSubject := true
 
         Macro Main {
-            START: InternalAction -> END
+            START: InternalAction -> TERMINATE
 
 
 
@@ -134,8 +134,8 @@ Process Transitions {
                 "TestInternalAction1" -> TestInternalActionSuccess
                 "TestInternalAction2" -> TestInternalActionFail
             }
-            TestInternalActionSuccess: InternalAction -> END
-            TestInternalActionFail:    InternalAction -> END
+            TestInternalActionSuccess: InternalAction -> TERMINATE
+            TestInternalActionFail:    InternalAction -> TERMINATE
 
 
 
@@ -143,8 +143,8 @@ Process Transitions {
                 "TestAutoTimeout1" (timeout (0)) -> TestAutoTimeoutSuccess
                 "TestAutoTimeout2"               -> TestAutoTimeoutFail
             }
-            TestAutoTimeoutSuccess: InternalAction -> END
-            TestAutoTimeoutFail:    InternalAction -> END
+            TestAutoTimeoutSuccess: InternalAction -> TERMINATE
+            TestAutoTimeoutFail:    InternalAction -> TERMINATE
 
 
 
@@ -152,8 +152,8 @@ Process Transitions {
                 "TestCancel1" (cancel) -> TestCancelSuccess
                 "TestCancel2"          -> TestCancelFail
             }
-            TestCancelSuccess: InternalAction -> END
-            TestCancelFail:    InternalAction -> END
+            TestCancelSuccess: InternalAction -> TERMINATE
+            TestCancelFail:    InternalAction -> TERMINATE
 
 
 
@@ -162,8 +162,8 @@ Process Transitions {
                 ["sendSelf" to A in "channelA" with content of "foo"] -> TestSendSelfSuccess
                 (timeout (0)) -> TestSendSelfFail
             }
-            TestSendSelfSuccess: InternalAction -> END
-            TestSendSelfFail:    InternalAction -> END
+            TestSendSelfSuccess: InternalAction -> TERMINATE
+            TestSendSelfFail:    InternalAction -> TERMINATE
 
 
             // succeeds to send as the IP of B is empty
@@ -171,8 +171,8 @@ Process Transitions {
                 ["sendTimeoutA" to B in "channelB" with content of "foo"] -> TestSendTimeoutASuccess
                 (timeout (0)) -> TestSendTimeoutAFail
             }
-            TestSendTimeoutASuccess: InternalAction -> END
-            TestSendTimeoutAFail:    InternalAction -> END
+            TestSendTimeoutASuccess: InternalAction -> TERMINATE
+            TestSendTimeoutAFail:    InternalAction -> TERMINATE
 
 
             // succeeds to send as the IPs of B are empty
@@ -180,8 +180,8 @@ Process Transitions {
                 ["sendTimeoutA" to 2 of B in "channelBMulti" with content of "foo"] -> TestSendTimeoutAMultiSuccess
                 (timeout (0)) -> TestSendTimeoutAMultiFail
             }
-            TestSendTimeoutAMultiSuccess: InternalAction -> END
-            TestSendTimeoutAMultiFail:    InternalAction -> END
+            TestSendTimeoutAMultiSuccess: InternalAction -> TERMINATE
+            TestSendTimeoutAMultiFail:    InternalAction -> TERMINATE
 
 
 
@@ -190,8 +190,8 @@ Process Transitions {
                 ["sendTimeoutB" to B in "channelB" with content of "foo"] -> TestSendTimeoutBFail
                 (timeout (0)) -> TestSendTimeoutBSuccess
             }
-            TestSendTimeoutBSuccess: InternalAction -> END
-            TestSendTimeoutBFail:    InternalAction -> END
+            TestSendTimeoutBSuccess: InternalAction -> TERMINATE
+            TestSendTimeoutBFail:    InternalAction -> TERMINATE
 
 
 
@@ -201,8 +201,8 @@ Process Transitions {
                 ["sendTimeoutC" to B in "channelB" with content of "foo"] -> TestSendTimeoutCFail
                 (timeout (0)) -> TestSendTimeoutCSuccess
             }
-            TestSendTimeoutCSuccess: InternalAction -> END
-            TestSendTimeoutCFail:    InternalAction -> END
+            TestSendTimeoutCSuccess: InternalAction -> TERMINATE
+            TestSendTimeoutCFail:    InternalAction -> TERMINATE
 
 
 
@@ -233,8 +233,8 @@ Process Transitions {
                 ["sendSelfZ" to A in "channelA" with content of "foo"] -> TestCloseIPSuccess
                 (timeout (0)) -> TestCloseIPFail
             }
-            TestCloseIPSuccess: InternalAction -> END
-            TestCloseIPFail:    InternalAction -> END
+            TestCloseIPSuccess: InternalAction -> TERMINATE
+            TestCloseIPFail:    InternalAction -> TERMINATE
 
 
 
@@ -245,8 +245,8 @@ Process Transitions {
                 ["x" from B] (auto) -> TestReceiveSuccess
                 ["y" from B] (auto) -> TestReceiveFail
             }
-            TestReceiveSuccess: InternalAction -> END
-            TestReceiveFail:    InternalAction -> END
+            TestReceiveSuccess: InternalAction -> TERMINATE
+            TestReceiveFail:    InternalAction -> TERMINATE
 
 
             // two messages had been placed, both must be received in separate steps. No third receive must be possible
@@ -262,8 +262,8 @@ Process Transitions {
                 ["x" from B] (auto) -> TestReceiveTwoFail
                 (timeout (0))       -> TestReceiveTwoSuccess
             }
-            TestReceiveTwoSuccess: InternalAction -> END
-            TestReceiveTwoFail:    InternalAction -> END
+            TestReceiveTwoSuccess: InternalAction -> TERMINATE
+            TestReceiveTwoFail:    InternalAction -> TERMINATE
 
 
 
@@ -280,8 +280,8 @@ Process Transitions {
                 ["x" from 1 of B] (auto) -> TestReceiveMultiFail
                 (timeout (0))            -> TestReceiveMultiSuccess
             }
-            TestReceiveMultiSuccess: InternalAction -> END
-            TestReceiveMultiFail:    InternalAction -> END
+            TestReceiveMultiSuccess: InternalAction -> TERMINATE
+            TestReceiveMultiFail:    InternalAction -> TERMINATE
 
 
 
@@ -294,8 +294,8 @@ Process Transitions {
                 ["x" from 1 of B] (auto) -> TestReceiveMulti2ASuccess
                 (timeout (0))          -> TestReceiveMulti2AFail
             }
-            TestReceiveMulti2ASuccess: InternalAction -> END
-            TestReceiveMulti2AFail:    InternalAction -> END
+            TestReceiveMulti2ASuccess: InternalAction -> TERMINATE
+            TestReceiveMulti2AFail:    InternalAction -> TERMINATE
 
 
 
@@ -308,8 +308,8 @@ Process Transitions {
                 ["x" from 1 of B] (auto) -> TestReceiveMulti2BFail
                 (timeout (0))            -> TestReceiveMulti2BSuccess
             }
-            TestReceiveMulti2BSuccess: InternalAction -> END
-            TestReceiveMulti2BFail:    InternalAction -> END
+            TestReceiveMulti2BSuccess: InternalAction -> TERMINATE
+            TestReceiveMulti2BFail:    InternalAction -> TERMINATE
 
 
 
@@ -322,8 +322,8 @@ Process Transitions {
                 ["x" from 1 of B] (auto) -> TestReceiveMultiMinFail
                 (timeout (0))            -> TestReceiveMultiMinSuccess
             }
-            TestReceiveMultiMinSuccess: InternalAction -> END
-            TestReceiveMultiMinFail:    InternalAction -> END
+            TestReceiveMultiMinSuccess: InternalAction -> TERMINATE
+            TestReceiveMultiMinFail:    InternalAction -> TERMINATE
 
 
 
@@ -340,8 +340,8 @@ Process Transitions {
                 [? with correlation of ? from 1 of ?] (auto) -> TestReceiveWildcardFail
                 (timeout (0)) -> TestReceiveWildcardSuccess
             }
-            TestReceiveWildcardSuccess: InternalAction -> END
-            TestReceiveWildcardFail:    InternalAction -> END
+            TestReceiveWildcardSuccess: InternalAction -> TERMINATE
+            TestReceiveWildcardFail:    InternalAction -> TERMINATE
 
 
 
@@ -350,8 +350,8 @@ Process Transitions {
                 ["x" from B] (auto with priority 1) -> TestReceivePrioFail
                 ["y" from B] (auto with priority 2) -> TestReceivePrioSuccess
             }
-            TestReceivePrioSuccess: InternalAction -> END
-            TestReceivePrioFail:    InternalAction -> END
+            TestReceivePrioSuccess: InternalAction -> TERMINATE
+            TestReceivePrioFail:    InternalAction -> TERMINATE
 
 
             // message has been placed -> receiving at the first attempt should succeed
@@ -359,8 +359,8 @@ Process Transitions {
                 ["x" from B] (auto) -> TestReceiveTimeoutSuccess
                 (timeout (0))       -> TestReceiveTimeoutFail
             }
-            TestReceiveTimeoutSuccess: InternalAction -> END
-            TestReceiveTimeoutFail:    InternalAction -> END
+            TestReceiveTimeoutSuccess: InternalAction -> TERMINATE
+            TestReceiveTimeoutFail:    InternalAction -> TERMINATE
 
 
             // message is sent with correlationID = 0 => receive should only consider messages with correlationID = 5 -> must timeout
@@ -368,8 +368,8 @@ Process Transitions {
                 ["x" with correlation of "foo" from B] (auto) -> TestReceiveCorrelationAFail
                 (timeout (0)) -> TestReceiveCorrelationASuccess
             }
-            TestReceiveCorrelationASuccess: InternalAction -> END
-            TestReceiveCorrelationAFail:    InternalAction -> END
+            TestReceiveCorrelationASuccess: InternalAction -> TERMINATE
+            TestReceiveCorrelationAFail:    InternalAction -> TERMINATE
 
 
 
@@ -378,8 +378,8 @@ Process Transitions {
                 ["x" with correlation of "foo" from B] (auto) -> TestReceiveCorrelationBSuccess
                 (timeout (0)) -> TestReceiveCorrelationBFail
             }
-            TestReceiveCorrelationBSuccess: InternalAction -> END
-            TestReceiveCorrelationBFail:    InternalAction -> END
+            TestReceiveCorrelationBSuccess: InternalAction -> TERMINATE
+            TestReceiveCorrelationBFail:    InternalAction -> TERMINATE
 
 
 
@@ -388,8 +388,8 @@ Process Transitions {
                 ["x" from B] (auto) -> TestReceiveCorrelationCFail
                 (timeout (0))       -> TestReceiveCorrelationCSuccess
             }
-            TestReceiveCorrelationCSuccess: InternalAction -> END
-            TestReceiveCorrelationCFail:    InternalAction -> END
+            TestReceiveCorrelationCSuccess: InternalAction -> TERMINATE
+            TestReceiveCorrelationCFail:    InternalAction -> TERMINATE
 
 
 
@@ -402,8 +402,8 @@ Process Transitions {
                 "true"  -> TestIPEmptyASuccess
                 "false" -> TestIPEmptyAFail
             }
-            TestIPEmptyASuccess: InternalAction -> END
-            TestIPEmptyAFail:    InternalAction -> END
+            TestIPEmptyASuccess: InternalAction -> TERMINATE
+            TestIPEmptyAFail:    InternalAction -> TERMINATE
 
 
 
@@ -412,8 +412,8 @@ Process Transitions {
                 "true"  -> TestIPEmptyBFail
                 "false" -> TestIPEmptyBSuccess
             }
-            TestIPEmptyBSuccess: InternalAction -> END
-            TestIPEmptyBFail:    InternalAction -> END
+            TestIPEmptyBSuccess: InternalAction -> TERMINATE
+            TestIPEmptyBFail:    InternalAction -> TERMINATE
 
 
 
@@ -422,8 +422,8 @@ Process Transitions {
                 "true"  -> TestIPEmptyCSuccess
                 "false" -> TestIPEmptyCFail
             }
-            TestIPEmptyCSuccess: InternalAction -> END
-            TestIPEmptyCFail:    InternalAction -> END
+            TestIPEmptyCSuccess: InternalAction -> TERMINATE
+            TestIPEmptyCFail:    InternalAction -> TERMINATE
 
 
 
@@ -432,8 +432,8 @@ Process Transitions {
                 "true"  -> TestIPEmptyDSuccess
                 "false" -> TestIPEmptyDFail
             }
-            TestIPEmptyDSuccess: InternalAction -> END
-            TestIPEmptyDFail:    InternalAction -> END
+            TestIPEmptyDSuccess: InternalAction -> TERMINATE
+            TestIPEmptyDFail:    InternalAction -> TERMINATE
 
 
 
@@ -442,8 +442,8 @@ Process Transitions {
                 "true"  -> TestIPEmptyEFail
                 "false" -> TestIPEmptyESuccess
             }
-            TestIPEmptyESuccess: InternalAction -> END
-            TestIPEmptyEFail:    InternalAction -> END
+            TestIPEmptyESuccess: InternalAction -> TERMINATE
+            TestIPEmptyEFail:    InternalAction -> TERMINATE
 
 
 
@@ -468,8 +468,8 @@ Process Transitions {
                 "false" -> TestSendReceiveCycleFail
             }
 
-            TestSendReceiveCycleSuccess: InternalAction -> END
-            TestSendReceiveCycleFail:    InternalAction -> END
+            TestSendReceiveCycleSuccess: InternalAction -> TERMINATE
+            TestSendReceiveCycleFail:    InternalAction -> TERMINATE
         }
     }
 
@@ -478,7 +478,7 @@ Process Transitions {
         InputPool := 2
 
         Macro Main {
-            START: InternalAction -> END
+            START: InternalAction -> TERMINATE
         }
     }
 }

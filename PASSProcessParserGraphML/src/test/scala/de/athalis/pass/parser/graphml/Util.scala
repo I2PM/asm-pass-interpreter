@@ -3,10 +3,13 @@ package de.athalis.pass.parser.graphml
 import scala.collection.immutable
 import scala.xml.Elem
 
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
 import de.athalis.pass.parser.graphml.structure.{GraphML, Key}
 
 object Util {
-  val graphMLXML: Elem =
+  private implicit val loc: ParserLocation = ParserLocation("Util", None)
+
+  private val graphMLXML: Elem =
     <graphml>
         <key attr.name="Description" attr.type="string" for="graph" id="d0"/>
         <key for="port" id="d1" yfiles.type="portgraphics"/>
@@ -28,7 +31,7 @@ object Util {
       <graph id="G" />
     </graphml>
 
-  lazy val graphML: GraphML = Helper.parseGraphML(graphMLXML)
+  private lazy val graphML: GraphML = Helper.parseGraphML(graphMLXML)
 
   lazy val keys: immutable.Seq[Key[_]] = graphML.keys
 

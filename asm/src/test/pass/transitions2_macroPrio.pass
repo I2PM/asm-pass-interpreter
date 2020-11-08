@@ -38,18 +38,18 @@ Process Transitions2_MacroPrio {
 
             cancelWait: "Cancel" with priority 2 {
                 "wait" (auto) -> join
-                (timeout (1)) -> END_Fail
+                (timeout (1)) -> TERMINATE_Fail
             }
 
 
-            join: "ModalJoin" -> END
+            join: "ModalJoin" -> TERMINATE
 
-            END_Fail: End ("cancel timeout")
+            TERMINATE_Fail: Terminate ("cancel timeout")
         }
 
         Macro X {
             START: Send {
-                ["good" to B in "b" with content of "tmp"] -> END
+                ["good" to B in "b" with content of "tmp"] -> TERMINATE
             }
         }
     }
@@ -58,11 +58,11 @@ Process Transitions2_MacroPrio {
         Macro Main {
             START: Receive {
                 ["good" from A] (auto) -> START
-                ["bad" from A] (auto with priority 1) -> END_Fail
-                (timeout (2)) -> END
+                ["bad" from A] (auto with priority 1) -> TERMINATE_Fail
+                (timeout (2)) -> TERMINATE
             }
 
-            END_Fail: End ("received bad message")
+            TERMINATE_Fail: Terminate ("received bad message")
         }
     }
 }

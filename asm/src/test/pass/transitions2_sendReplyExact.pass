@@ -22,11 +22,11 @@ Process Transitions2_SendReplyExact {
 
             Empfangen1: Receive ["pong" from B in "b1"] (auto) -> Empfangen2
             Empfangen2: Receive {
-                ["pong" from B in "b1"] (auto) -> END_FAIL
-                (timeout (0)) -> END
+                ["pong" from B in "b1"] (auto) -> TERMINATE_FAIL
+                (timeout (0)) -> TERMINATE
             }
 
-            END_FAIL: End ("received two messages from same channel")
+            TERMINATE_FAIL: Terminate ("received two messages from same channel")
         }
     }
 
@@ -38,7 +38,7 @@ Process Transitions2_SendReplyExact {
 
             Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> Sync
 
-            Sync: Send ["sync" to A in "tmp" with content of "tmp"] -> END
+            Sync: Send ["sync" to A in "tmp" with content of "tmp"] -> TERMINATE
         }
     }
 }

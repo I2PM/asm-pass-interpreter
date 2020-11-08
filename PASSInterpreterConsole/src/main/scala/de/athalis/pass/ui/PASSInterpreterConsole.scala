@@ -33,12 +33,19 @@ object PASSInterpreterConsole {
 
     println("Known Agents: " + possibleAgents.mkString(", "))
 
-    while (more && selectedAgents.size < max) {
-      val possibleAgentsList: Seq[String] = (possibleAgents -- selectedAgents).toSeq // TODO: sorted
+    while (more && (max == 0 || selectedAgents.size < max)) {
+      val possibleAgentsList: Seq[String] = (possibleAgents -- selectedAgents).toSeq.sorted
 
       val info = if (selectedAgents.size >= min) {" (leave empty to use only " + selectedAgents.size + " agents)"} else {""}
 
-      val l = JLineHelper.readLine("Agent name (" + (selectedAgents.size+1) + "/" + max + ") for '" + subjectID + "'" + info + ": ", possibleAgentsList)
+      val promptMessage = if (max > 0) {
+        "Agent name (" + (selectedAgents.size+1) + "/" + max + ") for '" + subjectID + "'" + info + ": "
+      }
+      else {
+        "Agent name (" + (selectedAgents.size+1) + ") for '" + subjectID + "'" + info + ": "
+      }
+
+      val l = JLineHelper.readLine(promptMessage, possibleAgentsList)
 
       val agentName = l.trim
 
@@ -120,7 +127,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
       TreeCompleter.node("process",
         TreeCompleter.node("kill", TreeCompleter.node(runningProcessesC)),
         TreeCompleter.node("start", TreeCompleter.node(startAbleProcessesC)),
-        TreeCompleter.node("load", TreeCompleter.node(new FileNameCompleter()))
+        TreeCompleter.node("load", TreeCompleter.node(new FileNameCompleter())) // TODO: add completion for multiple files
       ),
       TreeCompleter.node(availableActivitiesC)
     )
@@ -365,7 +372,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
       println("")
 
       if (availableActivitiesString.isEmpty) {
-        println("No Activities available! Please wait for the process and reload the available activities again in a moment. The process may have ended or stuck. Maybe there is no process running?")
+        println("No Activities available! Please wait for the process and reload the available activities again in a moment. The process may have terminated or is stuck. Maybe there is no process running?")
       }
       else {
         println(availableActivitiesString.get)
@@ -425,8 +432,6 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
         }
       }
     }
-
-    Boot.shutdown()
   }
 
   def printState(): Unit = {

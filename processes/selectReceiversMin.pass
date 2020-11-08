@@ -1,12 +1,12 @@
-Process Example_SelectReceivers {
+Process Example_SelectReceiversMin {
 
     Subject SurveyInstitute {
         StartSubject := true
 
         Macro Main {
-            START: "SelectAgents" ("clients", "Client", 5, 10) -> SendSurveyA
+            START: "SelectAgents" ("clients", "Client", 5, 0) -> SendSurveyA
 
-            SendSurveyA: Send ["surveyA" to min 2 max 4 of Client in "clients" store receiver in "clientsA"] -> Diff
+            SendSurveyA: Send ["surveyA" to min 4 max * of Client in "clients" store receiver in "clientsA"] -> Diff
             Diff: "VarMan" ("difference", "clients", "clientsA", "clientsB") -> SendSurveyB
             SendSurveyB: Send ["surveyB" to * of Client in "clientsB"] -> ReceiveA
 

@@ -13,7 +13,15 @@ object Types {
   type FunctionName = String
   type FunctionArgument = Any
   type MessageType = String
-  type SubjectCount = (Int, Int) // (min, max)
+
+  /**
+    * (min, max) // TODO: too tightly coupled with the ASM Interpreter Semantics.
+    *
+    * min = 0 => exactly from subjectVariable
+    * max = 0 => at least min, but unlimited
+    * else: exactly this amount
+    */
+  type SubjectCount = (Int, Int)
 
   type AdditionalSemantics = String
 
@@ -315,7 +323,7 @@ case class ModalJoinRich(splitCount: Int) extends AutoFunction
   *
   * @param result enables the [[DoTransitionCondition]] of the [[CallMacro]] that started this macro instance.
   */
-case class End(result: Option[String] = None) extends AutoFunction
+case class Terminate(result: Option[String] = None) extends AutoFunction
 
 /**
   * Variable Manipulation

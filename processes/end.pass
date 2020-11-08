@@ -7,18 +7,18 @@ Process Example_End {
                 "a" -> A
                 "b" -> B
             }
-            A: InternalAction "M ended with: 'a'" -> END
-            B: InternalAction "M ended with: 'b'" -> END
+            A: InternalAction "M terminated with: 'a'" -> TERMINATE
+            B: InternalAction "M terminated with: 'b'" -> TERMINATE
         }
 
 
         Macro M {
             START: InternalAction {
-                "end sub-macro with 'a'" -> END_A
-                "end sub-macro with 'b'" -> END_B
+                "terminate sub-macro with 'a'" -> TERMINATE_A
+                "terminate sub-macro with 'b'" -> TERMINATE_B
             }
-            END_A: End ("a")
-            END_B: End ("b")
+            TERMINATE_A: Terminate ("a")
+            TERMINATE_B: Terminate ("b")
         }
     }
 }

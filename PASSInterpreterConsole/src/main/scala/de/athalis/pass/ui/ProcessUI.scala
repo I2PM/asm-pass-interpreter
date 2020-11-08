@@ -18,8 +18,9 @@ class ProcessUI(binding: Binding)(implicit timeout: Timeout, logger: LoggingAdap
 
   def printHelp(): Unit = {
     val txt =
-"""
+s"""
   process load FILENAME
+  process load FILENAME1${File.pathSeparatorChar}FILENAME2
   process start PROCESSNAME
   process kill PROCESSINSTANCE
 """
@@ -65,14 +66,8 @@ class ProcessUI(binding: Binding)(implicit timeout: Timeout, logger: LoggingAdap
     binding.storeAsync(updates).blockingWait
   }
 
-  def load(path: String): UpdateResult = {
-    val file = new File(path)
-
-    if (!file.isFile) {
-      throw new IllegalArgumentException("not a file: " + file)
-    }
-
-    val processes: Set[Process] = PASSProcessReaderUtil.readProcesses(file)
+  def load(paths: String): UpdateResult = {
+    val processes: Set[Process] = PASSProcessReaderUtil.readProcesses(paths)
 
     logger.debug("parsed Processes: {}", processes)
 

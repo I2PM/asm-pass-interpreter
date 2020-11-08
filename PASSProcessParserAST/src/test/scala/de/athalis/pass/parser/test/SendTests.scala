@@ -1,25 +1,26 @@
 package de.athalis.pass.parser.test
 
-import org.scalatest.{FunSuite, Matchers}
-
 import de.athalis.pass.parser.PASSParser
 import de.athalis.pass.parser.ast.pass._
 
-class SendTests extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class SendTests extends AnyFunSuite with Matchers {
   import Util._
 
   test("simple sending without var") {
     val m: MacroNode = parse(PASSParser.macroParser,
       s"""Macro Foo {
          |  StartState := a
-         |  a: Send ["foo" to X] -> END
+         |  a: Send ["foo" to X] -> TERMINATE
          |}""".stripMargin)
 
     val states = m.getStates
     val stateIDs = states.map(_.id)
     states should have size 2
     stateIDs should contain ("a")
-    stateIDs should contain ("END")
+    stateIDs should contain ("TERMINATE")
 
     val send = states.find(_.id == "a").get
 
@@ -41,8 +42,8 @@ class SendTests extends FunSuite with Matchers {
       s"""Macro Foo {
          |  StartState := a
          |  a: Send {
-         |    "abbrechen" (cancel) -> END
-         |    ["foo" to X] -> END
+         |    "abbrechen" (cancel) -> TERMINATE
+         |    ["foo" to X] -> TERMINATE
          |  }
          |}""".stripMargin)
 
@@ -50,7 +51,7 @@ class SendTests extends FunSuite with Matchers {
     val stateIDs = states.map(_.id)
     states should have size 2
     stateIDs should contain ("a")
-    stateIDs should contain ("END")
+    stateIDs should contain ("TERMINATE")
 
     val send = states.find(_.id == "a").get
 
@@ -72,8 +73,8 @@ class SendTests extends FunSuite with Matchers {
       s"""Macro Foo {
          |  StartState := a
          |  a: Send {
-         |    ["foo" to X] -> END
-         |    "abbrechen" (cancel) -> END
+         |    ["foo" to X] -> TERMINATE
+         |    "abbrechen" (cancel) -> TERMINATE
          |  }
          |}""".stripMargin)
 
@@ -81,7 +82,7 @@ class SendTests extends FunSuite with Matchers {
     val stateIDs = states.map(_.id)
     states should have size 2
     stateIDs should contain ("a")
-    stateIDs should contain ("END")
+    stateIDs should contain ("TERMINATE")
 
     val send = states.find(_.id == "a").get
 
@@ -103,14 +104,14 @@ class SendTests extends FunSuite with Matchers {
     val m: MacroNode = parse(PASSParser.macroParser,
       s"""Macro Foo {
          |  StartState := a
-         |  a: Send ["foo" to X in "bar"] -> END
+         |  a: Send ["foo" to X in "bar"] -> TERMINATE
          |}""".stripMargin)
 
     val states = m.getStates
     val stateIDs = states.map(_.id)
     states should have size 2
     stateIDs should contain ("a")
-    stateIDs should contain ("END")
+    stateIDs should contain ("TERMINATE")
 
     val send = states.find(_.id == "a").get
 

@@ -19,9 +19,11 @@ object PASSProcessReaderAST extends PASSProcessReader {
     file.getName.endsWith(fileExtension)
   }
 
-  override def parseProcesses(file: File): Set[Process] = {
-    val source: String = Files.readString(file.toPath, StandardCharsets.UTF_8)
-    parseProcesses(source, file.getName)
+  override def parseProcesses(files: Set[File]): Set[Process] = {
+    files.par.flatMap(file => {
+      val source: String = Files.readString(file.toPath, StandardCharsets.UTF_8)
+      parseProcesses(source, file.getName)
+    }).seq
   }
 
   override def parseProcesses(source: String, sourceName: String): Set[Process] = {

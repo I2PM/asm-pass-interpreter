@@ -7,7 +7,7 @@ Process Example_Macro {
             START: "VarMan" ("storeData", "SendFooContent", "Hallo Welt") -> LOOP
 
             LOOP: InternalAction {
-                "end" -> END
+                "terminate" -> TERMINATE
                 "simple macro" -> CALL_M1
                 "recursive macro" -> CALL_M2
                 "exit-parameter macro (cancel-able)" -> CALL_M3
@@ -23,8 +23,8 @@ Process Example_Macro {
                 "c1" -> M3_C1
                 "c2" (cancel) -> M3_C2
             }
-            M3_A: InternalAction "M3 ended with: a" -> LOOP
-            M3_B: InternalAction "M3 ended with: b" -> LOOP
+            M3_A: InternalAction "M3 terminated with: a" -> LOOP
+            M3_B: InternalAction "M3 terminated with: b" -> LOOP
             M3_C1: InternalAction "M3 was inner-cancelled" -> LOOP
             M3_C2: InternalAction "M3 was outer-cancelled" -> LOOP
 
@@ -32,14 +32,14 @@ Process Example_Macro {
         }
 
         Macro M1 {
-            START: InternalAction "end simple macro" -> END
+            START: InternalAction "terminate simple macro" -> TERMINATE
         }
 
         Macro M2 {
             LocalVariables := {"bar"}
 
             START: InternalAction {
-                "end recursive macro" -> END
+                "terminate recursive macro" -> TERMINATE
                 "do recursion" -> CALL
                 "set var content" -> SET
                 "send var content" -> SEND
@@ -51,17 +51,17 @@ Process Example_Macro {
 
         Macro M3 {
             START: InternalAction {
-                "angenommen" -> END_A
-                "abgelehnt" -> END_B
-                (cancel) -> END_C1
+                "angenommen" -> TERMINATE_A
+                "abgelehnt" -> TERMINATE_B
+                (cancel) -> TERMINATE_C1
             }
-            END_A: End ("a")
-            END_B: End ("b")
-            END_C1: End ("c1")
+            TERMINATE_A: Terminate ("a")
+            TERMINATE_B: Terminate ("b")
+            TERMINATE_C1: Terminate ("c1")
         }
 
         Macro "Send foo" ("bar") {
-            START: Send ["foo" to B with content of "bar"] -> END
+            START: Send ["foo" to B with content of "bar"] -> TERMINATE
         }
     }
 
@@ -69,7 +69,7 @@ Process Example_Macro {
         Macro Main {
             START: Receive {
                 ["foo" from A] -> START
-                (cancel) -> END
+                (cancel) -> TERMINATE
             }
         }
     }

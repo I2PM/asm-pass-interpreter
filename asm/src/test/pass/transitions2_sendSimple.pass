@@ -12,7 +12,7 @@ Process Transitions2_SendSimple {
         Macro Main {
             START: "VarMan" ("storeData", "pingContent", "Ping!") -> Senden
 
-            Senden: Send ["ping" to B with content of "pingContent"] -> END
+            Senden: Send ["ping" to B with content of "pingContent"] -> TERMINATE
         }
     }
 
@@ -20,7 +20,7 @@ Process Transitions2_SendSimple {
         InputPool := 2
 
         Macro Main {
-            START: Receive ["ping" from A] (auto) -> END
+            START: Receive ["ping" from A] (auto) -> TERMINATE
         }
     }
 }

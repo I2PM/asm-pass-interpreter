@@ -10,7 +10,7 @@ package object base {
     def getFileExtensions: Set[String]
     def canParseFile(file: File): Boolean
 
-    def parseProcesses(file: File): Set[Process]
+    def parseProcesses(files: Set[File]): Set[Process]
     def parseProcesses(source: String, sourceName: String): Set[Process]
   }
 

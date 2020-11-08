@@ -57,9 +57,9 @@ rule TestReservation = seqblock
 
     processStates("TestProcess") := {
         0 -> {
-            "ID" -> "END",
+            "ID" -> "TERMINATE",
             "priority" -> 0,
-            "type" -> "end",
+            "type" -> "terminate",
             "outgoingTransitionNumbers" -> {}
         },
         1 -> {

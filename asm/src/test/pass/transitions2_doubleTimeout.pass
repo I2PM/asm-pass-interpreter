@@ -29,7 +29,7 @@ Process Transitions2_DoubleTimeout {
             }
 
             Send3: Send {
-                ["ping2" to B in "b" with content of "$empty"] -> END
+                ["ping2" to B in "b" with content of "$empty"] -> TERMINATE
             }
         }
     }
@@ -44,11 +44,11 @@ Process Transitions2_DoubleTimeout {
 
             Receive1: Receive {
                 ["ping1" from A] (auto) -> Receive1
-                ["ping2" from A] (auto) -> END
-                (timeout (7)) -> END_FAIL
+                ["ping2" from A] (auto) -> TERMINATE
+                (timeout (7)) -> TERMINATE_FAIL
             }
 
-            END_FAIL: End ("timeout")
+            TERMINATE_FAIL: Terminate ("timeout")
         }
     }
 }

@@ -19,7 +19,7 @@ Process Example_IP {
             Entscheiden: InternalAction {
                 "send X" -> SendenX
                 "send Y" -> SendenY
-                "end" -> END
+                "terminate" -> TERMINATE
             }
 
             SendenX: Send {
@@ -40,7 +40,7 @@ Process Example_IP {
             START: Receive {
                 ["X" from A] -> START
                 ["Y" from A] -> START
-                (cancel) -> END
+                (cancel) -> TERMINATE
             }
         }
     }

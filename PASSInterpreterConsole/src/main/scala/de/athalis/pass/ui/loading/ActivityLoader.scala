@@ -166,15 +166,15 @@ class ActivityLoader()(implicit executionContext: ExecutionContext, binding: Bin
 
   private def loadSelectionDecisionAsync(currentState: ActiveStateF): Future[PASSActivity[PASSActivityInputSelection]] = async {
     val optionsF = Semantic.SelectionOptions(currentState.ch, currentState.MI, currentState.stateNumber).loadAndGetAsync()
-    val minF     = Semantic.SelectionMin(currentState.ch, currentState.MI, currentState.stateNumber).loadAsync()
-    val maxF     = Semantic.SelectionMax(currentState.ch, currentState.MI, currentState.stateNumber).loadAsync()
+    val minF     = Semantic.SelectionMin(currentState.ch, currentState.MI, currentState.stateNumber).loadAsync().map(_.get)
+    val maxF     = Semantic.SelectionMax(currentState.ch, currentState.MI, currentState.stateNumber).loadAsync().map(_.get)
 
     val state   = await(currentState.getActiveStateAsync)
     val options = await(optionsF)
     val min     = await(minF)
     val max     = await(maxF)
 
-    SelectionDecision(state, options, min.get, max)
+    SelectionDecision(state, options, min, max)
   }
 
   private def loadSelectAgentsDecisionAsync(currentState: ActiveStateF): Future[PASSActivity[PASSActivityInputAgents]] = async {

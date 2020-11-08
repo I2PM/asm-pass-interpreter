@@ -23,7 +23,7 @@ Process DreieckKundeVorauswahlLieferant {
             }
 
             produktEmpfangen: Receive {
-                ["Produkt" from Lieferant] -> END
+                ["Produkt" from Lieferant] -> TERMINATE
             }
         }
     }
@@ -59,7 +59,7 @@ Process DreieckHerstellerVorauswahlLieferant {
             }
 
             kundenkanalSenden: Send {
-                ["Lieferziel" to Lieferant in "Lieferantenkanal" with content of "Kundenkanal"] -> END
+                ["Lieferziel" to Lieferant in "Lieferantenkanal" with content of "Kundenkanal"] -> TERMINATE
             }
         }
     }
@@ -87,7 +87,7 @@ Process DreieckLieferantVorauswahlLieferant {
             extrahiereProdukt: "VarMan" ("extractContent", "ProduktNachricht", "Produkt") -> weiterleiten
 
             weiterleiten: Send {
-                ["Produkt" to Kunde in "Lieferziel" with content of "Produkt"] -> END
+                ["Produkt" to Kunde in "Lieferziel" with content of "Produkt"] -> TERMINATE
             }
         }
     }

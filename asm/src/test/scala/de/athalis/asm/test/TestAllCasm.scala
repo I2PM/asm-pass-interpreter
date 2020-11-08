@@ -24,11 +24,15 @@ import java.net.URL
 import java.util.Properties
 import java.util.regex.Pattern
 
-import org.scalatest._
 import org.coreasm.util.Tools
 import org.coreasm.engine.{Engine, EngineProperties}
 import org.coreasm.engine.test.TestEngineDriver
+
 import de.athalis.asm.test.Util._
+
+import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 object TestAllCasm {
   def getFilteredOutput(file: File, filter: String): Seq[String] = {
@@ -111,7 +115,7 @@ object TestAllCasm {
 }
 
 //class TestAllCasm extends FunSuite with Matchers {
-class TestAllCasm extends FunSuite with Matchers with Checkpoints {
+class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
   import TestAllCasm._
 
   def outFilter(in: String): Boolean = false
@@ -185,6 +189,8 @@ class TestAllCasm extends FunSuite with Matchers with Checkpoints {
 
       td.setOutputStream(new PrintStream(outStream))
 
+      val startTime = System.nanoTime()
+
       // TODO: isn't this too much, as minSteps are executed each time?
       for (step <- 0 to maxSteps if (step < minSteps || !requiredOutputList.isEmpty)) {
 
@@ -214,12 +220,13 @@ class TestAllCasm extends FunSuite with Matchers with Checkpoints {
 
         //check for refused output / errors. report all errors
         val cp = new Checkpoint
+        val durationSecondsCP = (System.nanoTime() - startTime) / 1e9
 
         cp {
           //test if no unexpected error has occurred
           var errors: Iterator[String] = outputErr.linesIterator
           errors = errors.filterNot(msg => msg.contains("SLF4J") && msg.contains("binding"))
-          (errors.toSeq shouldBe empty) withMessage ("log:\n" + outputLog + "\n\noutput:\n" + outputOut + "\n\nEngine had an error after " + step + " steps: ")
+          (errors.toSeq shouldBe empty) withMessage ("log:\n" + outputLog + "\n\noutput:\n" + outputOut + f"\n\nEngine had an error after $step steps ($durationSecondsCP%1.2f seconds): ")
         }
 
         if (failOnWarning) cp {
@@ -227,12 +234,12 @@ class TestAllCasm extends FunSuite with Matchers with Checkpoints {
           var warnings = outputLog.linesIterator.filter(_.contains("WARN"))
           warnings = warnings.filterNot(msg => msg.contains("The update was not successful so it might not be added to the universe."))
           warnings = warnings.filterNot(msg => msg.contains("org.coreasm.util.Tools") && msg.toLowerCase.contains("root folder"))
-          (warnings.toSeq shouldBe empty) withMessage ("output:\n" + outputOut + "\n\nEngine had an warning after " + step + " steps: ")
+          (warnings.toSeq shouldBe empty) withMessage ("output:\n" + outputOut + f"\n\nEngine had an warning after $step steps ($durationSecondsCP%1.2f seconds): ")
         }
 
         for (refusedOutput <- refusedOutputList) {
           cp {
-            outputOut.linesIterator.filter(_.contains(refusedOutput)).toSeq shouldBe empty withMessage ("output: \n" + outputOut)
+            outputOut.linesIterator.filter(_.contains(refusedOutput)).toSeq shouldBe empty withMessage (f"output of step $step ($durationSecondsCP%1.2f seconds): \n" + outputOut)
           }
         }
         cp.reportAll()
@@ -245,8 +252,10 @@ class TestAllCasm extends FunSuite with Matchers with Checkpoints {
         errStream.reset()
       }
 
+      val durationSecondsTotal = (System.nanoTime() - startTime) / 1e9
+
       //check if no required output is missing
-      (requiredOutputList shouldBe empty) withMessage (outStream.toString + "\n\nremaining required output after " + maxSteps + " maxSteps: ")
+      (requiredOutputList shouldBe empty) withMessage (outStream.toString + f"\n\nremaining required output after $maxSteps maxSteps ($durationSecondsTotal%1.2f seconds): ")
     }
     finally {
       td.stop()

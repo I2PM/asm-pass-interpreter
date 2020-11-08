@@ -18,11 +18,11 @@ Process Transitions2_OpenClosedIP {
             send: Send ["ping" to B in "b" with content of "$empty"] -> receive
 
             receive: Receive {
-                ["pong" from B] (auto) -> END
-                (timeout(5)) -> END_Fail
+                ["pong" from B] (auto) -> TERMINATE
+                (timeout(5)) -> TERMINATE_Fail
             }
 
-            END_Fail: End ("receive timeout")
+            TERMINATE_Fail: Terminate ("receive timeout")
         }
     }
 
@@ -33,11 +33,11 @@ Process Transitions2_OpenClosedIP {
             }
 
             reply: Send {
-                ["pong" to "A" in "msg" with content of "msg"] -> END
-                (timeout(0)) -> END_Fail
+                ["pong" to "A" in "msg" with content of "msg"] -> TERMINATE
+                (timeout(0)) -> TERMINATE_Fail
             }
 
-            END_Fail: End ("send timeout")
+            TERMINATE_Fail: Terminate ("send timeout")
         }
     }
 }

@@ -1,8 +1,5 @@
 package de.athalis.coreasm.helper
 
-import org.scalatest._
-import prop._
-
 import org.coreasm.engine.absstorage._
 import org.coreasm.engine.plugins.number.NumberElement
 import org.coreasm.engine.plugins.string.StringElement
@@ -10,7 +7,11 @@ import org.coreasm.engine.plugins.set.SetElement
 import org.coreasm.engine.plugins.list.ListElement
 import org.coreasm.engine.plugins.map.MapElement
 
-class ImplicitsTableSpec extends PropSpec with TableDrivenPropertyChecks with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.propspec.AnyPropSpec
+
+class ImplicitsTableSpec extends AnyPropSpec with TableDrivenPropertyChecks with Matchers {
   import Implicits._
 
   val nestedScala: Seq[Any] = Seq[Any](Set("a", 1), Map(5 -> "x"))

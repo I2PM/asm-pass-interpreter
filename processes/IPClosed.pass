@@ -11,7 +11,7 @@ Process Example_IPClosed {
             loop: InternalAction {
                 "sendX" -> sendX
                 "sendY" -> sendY
-                "end"  -> END
+                "terminate"  -> TERMINATE
             }
 
             sendX: Send ["X" to B in "b"] -> loop
@@ -36,7 +36,7 @@ Process Example_IPClosed {
                 "open all IPs" -> openAll
 
                 "receive" -> receive
-                "end" -> END
+                "terminate" -> TERMINATE
                 (cancel) -> loop
             }
 

@@ -20,12 +20,12 @@ Process Transitions2_SendSelf {
 
             Empfangen: Receive {
                 ["ping" from A] (auto) -> Join
-                (timeout (2)) -> END_FAIL
+                (timeout (2)) -> TERMINATE_FAIL
             }
 
-            Join: "ModalJoin" -> END
+            Join: "ModalJoin" -> TERMINATE
 
-            END_FAIL: End ("did not receive message")
+            TERMINATE_FAIL: Terminate ("did not receive message")
         }
     }
 }

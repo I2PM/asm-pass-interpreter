@@ -15,7 +15,7 @@ Process Transitions2_ModalSplitLoop {
 
             Loop: Receive {
                 ["executeLoop" from A] (auto) -> Split
-                (timeout(0)) -> END
+                (timeout(0)) -> TERMINATE
             }
 
             Split: "ModalSplit" {
@@ -28,18 +28,18 @@ Process Transitions2_ModalSplitLoop {
             a2_wait: InternalAction (auto timeout(1)) -> a2 // give receive after Join a chance
             a2: Receive {
                 ["unblockA2" from A] (auto) -> Join
-                (timeout (2)) -> END_Fail1
+                (timeout (2)) -> TERMINATE_Fail1
             }
 
             Join: "ModalJoin" -> RedoLoop
 
             RedoLoop: Receive {
-                ["unblockA2" from A] (auto) -> END_Fail2
+                ["unblockA2" from A] (auto) -> TERMINATE_Fail2
                 (timeout(0)) -> Loop
             }
 
-            END_Fail1: End ("did not receive unblockLoop")
-            END_Fail2: End ("unblockLoop received after Join")
+            TERMINATE_Fail1: Terminate ("did not receive unblockLoop")
+            TERMINATE_Fail2: Terminate ("unblockLoop received after Join")
         }
     }
 }

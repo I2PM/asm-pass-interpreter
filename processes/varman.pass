@@ -18,7 +18,7 @@ Process Example_VarMan {
             SendOrder: Send ["order" to Contractor in "accepted offer" with new correlation "correlation"] -> SendCancel
             SendCancel: Send ["cancel" to Contractor in "copy of rejected offer"] -> ReceiveProduct
 
-            ReceiveProduct: Receive ["product" with correlation of "correlation" from Contractor] -> END
+            ReceiveProduct: Receive ["product" with correlation of "correlation" from Contractor] -> TERMINATE
         }
     }
 
@@ -30,9 +30,9 @@ Process Example_VarMan {
             SendOffer: Send ["offer" to Principal in "inquiry-msg"] -> ReceiveOrder
             ReceiveOrder: Receive {
                 ["order" from Principal store message in "order"] -> SendProduct
-                ["cancel" from Principal] -> END
+                ["cancel" from Principal] -> TERMINATE
             }
-            SendProduct: Send ["product" with correlation of "order" to Principal in "order"] -> END
+            SendProduct: Send ["product" with correlation of "order" to Principal in "order"] -> TERMINATE
         }
     }
 }

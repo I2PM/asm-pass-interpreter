@@ -63,7 +63,7 @@ object Examples {
         "SendNoFurther",
         State(function = Some(AutoSend)),
         Set(
-          Transition("END", Some(
+          Transition("TERMINATE", Some(
             MessageExchangeCondition(
               "No further Travel Application",
               "Supervisor",
@@ -100,12 +100,12 @@ object Examples {
         "Make travel",
         State(),
         Set(
-          Transition("END", None)
+          Transition("TERMINATE", None)
         )
       ),
       Action(
-        "END",
-        State(function = Some(End())),
+        "TERMINATE",
+        State(function = Some(Terminate())),
         Set.empty
       )
     )
@@ -154,7 +154,7 @@ object Examples {
         "SendAdministration",
         State(function = Some(AutoSend)),
         Set(
-          Transition("END", Some(
+          Transition("TERMINATE", Some(
             MessageExchangeCondition(
               "Approved Travel Application",
               "Administration",
@@ -181,7 +181,7 @@ object Examples {
         "ReceiveFurther",
         State(function = Some(AutoReceive)),
         Set(
-          Transition("END", Some(
+          Transition("TERMINATE", Some(
             MessageExchangeCondition(
               "No further Travel Application",
               "Applicant"
@@ -197,8 +197,8 @@ object Examples {
         ),
       ),
       Action(
-        "END",
-        State(function = Some(End())),
+        "TERMINATE",
+        State(function = Some(Terminate())),
         Set.empty
       )
     )
@@ -224,12 +224,12 @@ object Examples {
         "Archive",
         State(Some("Archive Travel Application")),
         Set(
-          Transition("END", Some(DoTransitionCondition("Travel Application filed")))
+          Transition("TERMINATE", Some(DoTransitionCondition("Travel Application filed")))
         )
       ),
       Action(
-        "END",
-        State(function = Some(End())),
+        "TERMINATE",
+        State(function = Some(Terminate())),
         Set.empty
       )
     )
@@ -264,7 +264,8 @@ object Examples {
           Transition("Send Response", Some(
             MessageExchangeCondition(
               "Hotel Booking Request",
-              "Client"
+              "Client",
+              storeVariable = Some("vRequest"),
             ))
           )
         )
@@ -272,17 +273,18 @@ object Examples {
       Action("Send Response",
         State(function = Some(AutoSend)),
         Set(
-          Transition("END", Some(
+          Transition("TERMINATE", Some(
             MessageExchangeCondition(
               "Hotel Booking Response",
-              "Client"
+              "Client",
+              subjectVariable = Some("vRequest"),
             ))
           )
         )
       ),
       Action(
-        "END",
-        State(function = Some(End())),
+        "TERMINATE",
+        State(function = Some(Terminate())),
         Set.empty
       )
     )

@@ -13,7 +13,7 @@ Process Transitions2_SendExternalA {
         Macro Main {
             START: "VarMan" ("storeData", "pingContent", "Ping") -> Senden
 
-            Senden: Send ["ping" to B with content of "pingContent"] -> END
+            Senden: Send ["ping" to B with content of "pingContent"] -> TERMINATE
         }
     }
 }
@@ -31,7 +31,7 @@ Process Transitions2_SendExternalX {
         InputPool := 2
 
         Macro Main {
-            START: Receive ["ping" from Y] (auto) -> END
+            START: Receive ["ping" from Y] (auto) -> TERMINATE
         }
     }
 }

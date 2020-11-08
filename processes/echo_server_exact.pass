@@ -5,7 +5,7 @@ Process Example_EchoServerExact {
 
         Macro Main {
             START: Send ["ping" to B store receiver in "foo"] -> Empfangen
-            Empfangen: Receive ["pong" from B in "foo"] -> END
+            Empfangen: Receive ["pong" from B in "foo"] -> TERMINATE
         }
     }
 
@@ -13,7 +13,7 @@ Process Example_EchoServerExact {
         Macro Main {
             START: Receive ["ping" from A store message in "foo"] (auto) -> Extrahieren
             Extrahieren: "VarMan" ("extractContent", "foo", "foo-content") -> Senden
-            Senden: Send ["pong" to A in "foo" with content of "foo-content"] -> END
+            Senden: Send ["pong" to A in "foo" with content of "foo-content"] -> TERMINATE
         }
     }
 }

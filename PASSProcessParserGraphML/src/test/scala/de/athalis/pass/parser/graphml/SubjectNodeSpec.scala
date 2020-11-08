@@ -1,14 +1,20 @@
 package de.athalis.pass.parser.graphml
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-
+import de.athalis.pass.parser.ast.pass.SubjectNode
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
 import de.athalis.pass.parser.graphml.parser.GraphMLParser
 import de.athalis.pass.parser.graphml.parser.GraphMLParser.MsgTypes
+import de.athalis.pass.parser.graphml.structure.Key
 
-class SubjectNodeSpec extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-  val keys = Util.keys
+import scala.collection.immutable
+
+class SubjectNodeSpec extends AnyFunSuite with Matchers {
+  private implicit val loc: ParserLocation = ParserLocation("SubjectNodeSpec", None)
+
+  private val keys: immutable.Seq[Key[_]] = Util.keys
 
   test("minimal subject") {
     val nodeXML =
@@ -56,7 +62,7 @@ class SubjectNodeSpec extends FunSuite with Matchers {
       </node>
     val node = Helper.parseNode(nodeXML, keys)
 
-    val subject = GraphMLParser.parseInternalSubject(node, MsgTypes.empty, None)
+    val subject: SubjectNode = GraphMLParser.parseInternalSubject(node, MsgTypes.empty, None)(loc)
 
     subject.id shouldBe "Service Desk"
   }

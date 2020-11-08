@@ -10,10 +10,10 @@ Process Transitions2_AutoTransition {
 
         Macro Main {
             START: InternalAction {
-                "TestTimeout1" (timeout (0)) -> END
-                "TestTimeout2"               -> END_Fail
+                "TestTimeout1" (timeout (0)) -> TERMINATE
+                "TestTimeout2"               -> TERMINATE_Fail
             }
-            END_Fail: End ("non timeout transition taken")
+            TERMINATE_Fail: Terminate ("non timeout transition taken")
         }
     }
 }

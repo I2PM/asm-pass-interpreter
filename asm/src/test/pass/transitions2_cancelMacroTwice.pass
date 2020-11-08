@@ -10,7 +10,7 @@ Process Transitions2_CancelMacroTwice {
         StartSubject := true
 
         Macro Main {
-            START: "VarMan" ("storeData", "msgContent", "please end with 'ok'") -> split
+            START: "VarMan" ("storeData", "msgContent", "please terminate with 'ok'") -> split
 
             split: "ModalSplit" {
                 -> call
@@ -19,7 +19,7 @@ Process Transitions2_CancelMacroTwice {
 
             call: "CallMacro" ("Foo") {
                 "ok"  -> join
-                "bad" -> END_Fail1
+                "bad" -> TERMINATE_Fail1
                 (cancel) -> call
             }
 
@@ -29,7 +29,7 @@ Process Transitions2_CancelMacroTwice {
             }
             "cancel1": "Cancel" {
                 "call" (auto) -> wait2
-                (timeout (2)) -> END_Fail2
+                (timeout (2)) -> TERMINATE_Fail2
             }
 
             // give CallMacro a chance to run
@@ -38,33 +38,33 @@ Process Transitions2_CancelMacroTwice {
             }
             "cancel2": "Cancel" {
                 "call" (auto) -> "send"
-                (timeout (2)) -> END_Fail2
+                (timeout (2)) -> TERMINATE_Fail2
             }
 
-            "send": Send ["end" to Proxy with content of "msgContent"] -> join
+            "send": Send ["terminate" to Proxy with content of "msgContent"] -> join
 
-            join: "ModalJoin" -> END
+            join: "ModalJoin" -> TERMINATE
 
-            END_Fail1: End ("something bad happened")
-            END_Fail2: End ("cancel timed out")
+            TERMINATE_Fail1: Terminate ("something bad happened")
+            TERMINATE_Fail2: Terminate ("cancel timed out")
         }
 
         Macro Foo {
             START: Receive {
-                ["end" from Proxy] (auto) -> END_ok
+                ["terminate" from Proxy] (auto) -> TERMINATE_ok
             }
 
-            END_ok:  End ("ok")
-            END_bad: End ("bad")
+            TERMINATE_ok:  Terminate ("ok")
+            TERMINATE_bad: Terminate ("bad")
         }
     }
 
     Subject Proxy {
         Macro Main {
             START: Receive {
-                ["end" from A store message in "tmp"] (auto) -> reply
+                ["terminate" from A store message in "tmp"] (auto) -> reply
             }
-            reply: Send ["end" to A in "tmp" with content of "tmp"] -> END
+            reply: Send ["terminate" to A in "tmp" with content of "tmp"] -> TERMINATE
         }
     }
 }

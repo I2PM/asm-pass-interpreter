@@ -9,15 +9,15 @@ Process Transitions2_MacroMulti {
         StartSubject := true
 
         Macro Main {
-            START: "CallMacro" ("X1") -> END
+            START: "CallMacro" ("X1") -> TERMINATE
         }
 
         Macro X1 {
-            START: "CallMacro" ("X2") -> END
+            START: "CallMacro" ("X2") -> TERMINATE
         }
 
         Macro X2 {
-            START: InternalAction "y" (timeout (0)) -> END
+            START: InternalAction "y" (timeout (0)) -> TERMINATE
         }
     }
 }

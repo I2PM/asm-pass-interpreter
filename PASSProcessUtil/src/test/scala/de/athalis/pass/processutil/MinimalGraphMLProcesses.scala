@@ -4,9 +4,10 @@ import java.io.File
 
 import de.athalis.pass.model.TUDarmstadtModel._
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class MinimalGraphMLProcesses extends FunSuite with Matchers {
+class MinimalGraphMLProcesses extends AnyFunSuite with Matchers {
 
   private def allMacros(p: Process): Set[Macro] = {
     p.subjects.collect {
@@ -19,7 +20,7 @@ class MinimalGraphMLProcesses extends FunSuite with Matchers {
 
     m.actions should have size 2 // one states plus END, that hides the default END state
 
-    m.actions.map(_.state.function) shouldBe Set(Some(End(None)), Some(AutoReceive))
+    m.actions.map(_.state.function) shouldBe Set(Some(Terminate(None)), Some(AutoReceive))
 
     val receiveAction = m.actions.filter(_.state.function.contains(AutoReceive)).head
     receiveAction.outgoingTransitions should have size 1
@@ -34,7 +35,7 @@ class MinimalGraphMLProcesses extends FunSuite with Matchers {
 
     m.actions should have size 2 // one states plus END, that hides the default END state
 
-    m.actions.map(_.state.function) shouldBe Set(Some(End(Some("\"Daten\" from \"Datenmanger_historisch\""))), Some(AutoSend))
+    m.actions.map(_.state.function) shouldBe Set(Some(Terminate(Some("\"Daten\" from \"Datenmanger_historisch\""))), Some(AutoSend))
   }
 
   test("minimal_offen") {
@@ -326,7 +327,7 @@ class MinimalGraphMLProcesses extends FunSuite with Matchers {
 
     m.actions should have size 2 // one states plus END, that hides the default END state
 
-    m.actions.map(_.state.function) shouldBe Set(Some(End(None)), Some(SelectAgents("b1", "B", 1, 2)))
+    m.actions.map(_.state.function) shouldBe Set(Some(Terminate(None)), Some(SelectAgents("b1", "B", 1, 2)))
 
     val selectAction: Action = m.actions.filter(_.state.function.exists(_.isInstanceOf[SelectAgents])).head
     selectAction.outgoingTransitions should have size 1

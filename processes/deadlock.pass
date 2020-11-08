@@ -24,7 +24,7 @@ Process Deadlock {
 
             Foo: Receive {
                 // TODO: receive something.. // FIXME: failed Structural Soundness!
-                (cancel) -> END
+                (cancel) -> TERMINATE
             }
         }
     }
@@ -37,7 +37,7 @@ Process Deadlock {
                 ["request1" from A store message in "req1"] (auto) -> Extract1
                 ["request2" from A store message in "req2"] (auto) -> Extract2
                 // TODO: better termination
-                (cancel) -> END
+                (cancel) -> TERMINATE
             }
 
             Extract1: "VarMan" ("extractContent", "req1", "req1-channel") -> Send1
@@ -58,7 +58,7 @@ Process Deadlock {
             }
 
             Foo: Receive {
-                ["ping" from X] (auto) -> END
+                ["ping" from X] (auto) -> TERMINATE
             }
         }
     }

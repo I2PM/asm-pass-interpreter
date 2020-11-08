@@ -1,12 +1,13 @@
 package de.athalis.pass.parser.test
 
-import org.scalatest.{FunSuite, Matchers}
-import org.scalatest.OptionValues._
-
 import de.athalis.pass.parser.PASSParser
 import de.athalis.pass.parser.ast.pass.StateNode.StateType._
 
-class StateTests extends FunSuite with Matchers {
+import org.scalatest.OptionValues._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class StateTests extends AnyFunSuite with Matchers {
   import Util._
 
   test("stateTestSimpleID") {
@@ -87,10 +88,10 @@ class StateTests extends FunSuite with Matchers {
   }
 
   test("stateTestEndWithArguments") {
-    val s = parse(PASSParser.states, """foo: End ("x")""")
+    val s = parse(PASSParser.states, """foo: Terminate ("x")""")
 
     s.id shouldBe "foo"
-    s.stateType shouldBe End
+    s.stateType shouldBe Terminate
     s.function shouldBe ""
     s.functionArguments shouldBe defined
     val args = s.functionArguments.get

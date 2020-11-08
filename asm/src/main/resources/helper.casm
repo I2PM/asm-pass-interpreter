@@ -50,6 +50,17 @@ derived hasSizeWithin(s, min, max) = return boolres in {
     }
 }
 
+derived hasMinimalSize(s, min) = return boolres in {
+    if (s = undef) then {
+        boolres := false
+    }
+    else {
+        let x = |s| in {
+            boolres := (x >= min)
+        }
+    }
+}
+
 derived undefStr(x) = return stringres in {
     if (x = undef) then {
         stringres := "undef"

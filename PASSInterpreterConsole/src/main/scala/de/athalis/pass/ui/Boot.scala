@@ -15,46 +15,49 @@ import org.jline.terminal.{Terminal, TerminalBuilder}
 import de.athalis.coreasm.binding.akka.AkkaStorageBinding
 
 object Boot {
-  implicit val timeout = Timeout(10.seconds)
-  var system: Option[ActorSystem] = None
-
-  AnsiConsole.systemInstall()
-  implicit val terminal: Terminal = TerminalBuilder.builder()
-    .system(true)
-    .build()
+  private implicit val timeout: Timeout = Timeout(10.seconds)
 
   def main(args: Array[String]): Unit = {
     println("starting [" + info.BuildInfo + "]")
 
-    println("initializing Akka ActorSystem")
+    AnsiConsole.systemInstall()
+    implicit val terminal: Terminal = TerminalBuilder.builder()
+      .system(true)
+      .build()
 
-    val config: Config = ConfigFactory.load(this.getClass.getClassLoader)
+    try {
+      println("initializing Akka ActorSystem")
 
-    val system = ActorSystem("coreasm-cli", config.getConfig("coreasm-cli").withFallback(config), this.getClass.getClassLoader)
-    this.system = Some(system)
-    val logger: LoggingAdapter = Logging(system, getClass.getName)
-    logger.info("initialized Akka ActorSystem")
+      val config: Config = ConfigFactory.load(this.getClass.getClassLoader)
 
-    val storageHost = config.getString("coreasm-storage.hostname")
-    val storagePort = config.getString("coreasm-storage.port").toInt
-    val storageActor: ActorSelection = system.actorSelection("akka.tcp://coreasm-storage@" + storageHost + ":" + storagePort + "/user/AkkaStorageActor")
+      val system = ActorSystem("coreasm-cli", config.getConfig("coreasm-cli").withFallback(config), this.getClass.getClassLoader)
 
-    implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.global
+      try {
+        val logger: LoggingAdapter = Logging(system, getClass.getName)
 
-    val bindingLogger: LoggingAdapter = Logging(system, classOf[AkkaStorageBinding].getName)
-    implicit val binding: AkkaStorageBinding = new AkkaStorageBinding(storageActor, bindingLogger)
+        val storageHost = config.getString("coreasm-storage.hostname")
+        val storagePort = config.getString("coreasm-storage.port").toInt
+        val storageActor: ActorSelection = system.actorSelection("akka.tcp://coreasm-storage@" + storageHost + ":" + storagePort + "/user/AkkaStorageActor")
 
-    implicit val uiLogger: LoggingAdapter = Logging(system, classOf[PASSInterpreterConsole].getName)
-    val console: PASSInterpreterConsole = new PASSInterpreterConsole()
-    console.run()
-  }
+        logger.info("initialized Akka ActorSystem")
 
-  def shutdown(): Unit = {
-    terminal.close()
-    AnsiConsole.systemUninstall()
+        implicit val executionContext: ExecutionContext = scala.concurrent.ExecutionContext.global
 
-    if (system.isDefined) {
-      Await.result(system.get.terminate, 10.seconds)
+        val bindingLogger: LoggingAdapter = Logging(system, classOf[AkkaStorageBinding].getName)
+        implicit val binding: AkkaStorageBinding = new AkkaStorageBinding(storageActor, bindingLogger)
+
+        implicit val uiLogger: LoggingAdapter = Logging(system, classOf[PASSInterpreterConsole].getName)
+        val console: PASSInterpreterConsole = new PASSInterpreterConsole()
+
+        console.run()
+      }
+      finally {
+        Await.result(system.terminate, 10.seconds)
+      }
+    }
+    finally {
+      terminal.close()
+      AnsiConsole.systemUninstall()
     }
   }
 }

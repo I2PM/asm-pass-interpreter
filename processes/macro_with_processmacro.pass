@@ -1,0 +1,34 @@
+/*
+
+WARNING: UNSUPPORTED, but in ASM Interpreter still possible
+
+See https://github.com/Locke/asm-pass-interpreter/issues/9 for discussion regarding OWL Standard.
+
+*/
+
+Process Example_ProcessMacro {
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: InternalAction {
+                "terminate" -> TERMINATE
+                "simple macro" -> CALL_M1
+                "simple process macro" -> CALL_M2
+            }
+
+            CALL_M1: "CallMacro" ("M1") -> START
+            CALL_M2: "CallMacro" ("M2") -> START
+        }
+
+        Macro M1 {
+            START: InternalAction "terminate simple macro" -> TERMINATE
+        }
+    }
+
+    Macro M2 {
+        START: InternalAction "terminate simple process macro" -> TERMINATE
+    }
+
+}

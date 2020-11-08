@@ -16,12 +16,12 @@ Process Transitions2_CancelMacro {
             }
 
             call1: "CallMacro" ("Foo") {
-                -> END_Fail1
+                -> TERMINATE_Fail1
                 (cancel) -> call2
             }
 
             call2: "CallMacro" ("Foo") {
-                -> END_Fail1
+                -> TERMINATE_Fail1
                 (cancel) -> join
             }
 
@@ -31,7 +31,7 @@ Process Transitions2_CancelMacro {
             }
             "cancel1": "Cancel" {
                 "call1" (auto) -> wait2
-                (timeout (2))  -> END_Fail2
+                (timeout (2))  -> TERMINATE_Fail2
             }
 
             // give CallMacro a chance to run
@@ -40,13 +40,13 @@ Process Transitions2_CancelMacro {
             }
             "cancel2": "Cancel" {
                 "call2" (auto) -> join
-                (timeout (2))  -> END_Fail2
+                (timeout (2))  -> TERMINATE_Fail2
             }
 
-            join: "ModalJoin" -> END
+            join: "ModalJoin" -> TERMINATE
 
-            END_Fail1: End ("call was not deactivated")
-            END_Fail2: End ("cancel timed out")
+            TERMINATE_Fail1: Terminate ("call was not deactivated")
+            TERMINATE_Fail2: Terminate ("cancel timed out")
         }
 
         Macro Foo {
@@ -60,7 +60,7 @@ Process Transitions2_CancelMacro {
                 (cancel)      -> Send_Fail
             }
             Send_Fail: Send {
-                ["fail" to B with content of "msgContent"] -> END
+                ["fail" to B with content of "msgContent"] -> TERMINATE
             }
         }
     }
@@ -68,9 +68,9 @@ Process Transitions2_CancelMacro {
     Subject B {
         Macro Main {
             START: Receive {
-                ["fail" from A] (auto) -> END_Fail
+                ["fail" from A] (auto) -> TERMINATE_Fail
             }
-            END_Fail: End ("received failure message")
+            TERMINATE_Fail: Terminate ("received failure message")
         }
     }
 }

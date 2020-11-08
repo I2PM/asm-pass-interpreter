@@ -30,7 +30,7 @@ object Activities {
   trait InputGetter {
     def selectAgents(subjectID: String, min: Int, max: Int): PASSActivityInputAgents
     def setMessageContent(messageType: String, receivers: Set[Channel]): PASSActivityInputMessageContent
-    def performSelection(options: Seq[String], min: Int, max: Option[Int]): PASSActivityInputSelection
+    def performSelection(options: Seq[String], min: Int, max: Int): PASSActivityInputSelection
   }
 
 
@@ -136,7 +136,7 @@ object Activities {
     }
   }
 
-  case class SelectionDecision(state: ActiveState, options: Seq[String], min: Int, max: Option[Int]) extends PASSActivityAgent[PASSActivityInputSelection] {
+  case class SelectionDecision(state: ActiveState, options: Seq[String], min: Int, max: Int) extends PASSActivityAgent[PASSActivityInputSelection] {
     override def toActivityString: String = {
       "Perform Selection"
     }
@@ -161,6 +161,7 @@ object Activities {
       val text = {
         if (max == 1) "Select agent"
         else if (min == max) "Select " + min + " Agents"
+        else if (max == 0) "Select at least " + min + " Agents"
         else "Select " + min + " to " + max + " Agents"
       }
 

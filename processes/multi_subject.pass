@@ -9,7 +9,7 @@ Process Example_MultiSubject {
             Schleife: InternalAction {
                 "senden" -> Senden
                 "empfangen" -> Empfangen
-                "beenden" -> END
+                "terminieren" -> TERMINATE
             }
             Senden: Send {
                 "abbrechen" (cancel) -> Abgebrochen
@@ -26,7 +26,7 @@ Process Example_MultiSubject {
         Macro Main {
             START: InternalAction {
                 "empfangen" -> Empfangen
-                "beenden" -> END
+                "terminieren" -> TERMINATE
             }
             Empfangen: Receive ["a" from A store message in "tmp"] -> Senden
             Senden: Send ["b" to A in "tmp"] -> START

@@ -18,9 +18,11 @@ object PASSProcessReaderGraphML extends PASSProcessReader {
 
   override def getFileExtensions: Set[String] = Set(fileExtension)
 
-  override def parseProcesses(file: File): Set[Process] = {
-    val processesAST: Set[ProcessNode] = GraphMLParser.loadProcesses(file).map(_._1)
-    processesAST.map(PASSModelMapper.toPASSProcess)
+  override def parseProcesses(files: Set[File]): Set[Process] = {
+    files.par.flatMap(file => {
+      val processesAST: Set[ProcessNode] = GraphMLParser.loadProcesses(file).map(_._1)
+      processesAST.map(PASSModelMapper.toPASSProcess)
+    }).seq
   }
 
   override def parseProcesses(source: String, sourceName: String): Set[Process] = {

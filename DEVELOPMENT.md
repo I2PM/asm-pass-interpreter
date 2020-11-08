@@ -7,11 +7,14 @@ As of the time of writing the recommended versions are:
 - maven 3.6
 - sbt 1.3.10
 
-## prepare custom CoreASM Version
+## custom CoreASM fork
 
-First of all you need to have a customized CoreASM version installed.
+For stability, performance improvements and new features a fork of the CoreASM framework is used.
 
-Clone CoreASM from https://github.com/Locke/coreasm.core and checkout the `locke` branch.
+Custom builds are published to Maven Central and should be used in general.
+
+During development sometimes a development version has to be used. In that case clone the CoreASM fork
+from https://github.com/Locke/coreasm.core and checkout the `locke` branch.
 
 Then execute `mvn install`.
 

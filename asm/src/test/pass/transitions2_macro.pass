@@ -10,12 +10,12 @@ Process Transitions2_Macro {
 
         Macro Main {
             StartState := START_Main
-            START_Main: "CallMacro" ("X") -> END
+            START_Main: "CallMacro" ("X") -> TERMINATE
         }
 
         Macro X {
             StartState := START_Inner
-            START_Inner: InternalAction "y" (timeout (0)) -> END
+            START_Inner: InternalAction "y" (timeout (0)) -> TERMINATE
         }
     }
 }

@@ -14,9 +14,9 @@ object PASSModelMapper {
     case StateNode.StateType.InternalAction => {
       None
     }
-    case StateNode.StateType.End => {
+    case StateNode.StateType.Terminate => {
       val result: Option[String] = stn.functionArguments.flatMap(_.headOption.collect{case x: String => x})
-      Some(End(result))
+      Some(Terminate(result))
     }
     case StateNode.StateType.Send => {
       val autoTransitions = stn.getNormalOutgoingTransitions.filter(_.isAuto)
@@ -103,14 +103,14 @@ object PASSModelMapper {
     }
   }
 
-  private def toPASSTransition(t: TransitionNode, service: Option[Function]): Transition = {
+  private def toPASSTransition(t: TransitionNode, function: Option[Function]): Transition = {
     val label: Option[String] = t.label
     val targetIdentifier: StateIdentifier = t.targetStateID // why not internalIdentifier? because then we would need to find a reference to it..
     var attributes = Set.empty[TransitionAttribute]
 
     if (t.isAuto) {
-      service match {
-        case Some(s) if s.isInstanceOf[ManualFunction] => throw new Exception("Manual service with auto transition: " + t)
+      function match {
+        case Some(s) if s.isInstanceOf[ManualFunction] => throw new Exception("Manual function with auto transition: " + t)
         case _ => ()
       }
     }
@@ -200,8 +200,8 @@ object PASSModelMapper {
   private def toPASSAction(stn: StateNode): Action = {
     val identifier: StateIdentifier = stn.id
     val label: Option[String] = stn.label
-    val service: Option[Function] = toNodeType(stn)
-    val transitions: Set[Transition] = stn.getOutgoingTransitions.map(t => toPASSTransition(t, service))
+    val function: Option[Function] = toNodeType(stn)
+    val transitions: Set[Transition] = stn.getOutgoingTransitions.map(t => toPASSTransition(t, function))
     var attributes: Set[StateAttribute] = Set.empty
 
     // TODO: Additional Semantics
@@ -210,7 +210,7 @@ object PASSModelMapper {
       attributes += StateHasPriority(stn.priority)
     }
 
-    val node = State(label, attributes, service)
+    val node = State(label, attributes, function)
     Action(identifier, node, transitions)
   }
 

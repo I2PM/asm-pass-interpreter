@@ -2,9 +2,11 @@ package de.athalis.pass.processutil
 
 import de.athalis.pass.parser.PASSProcessReaderAST
 import de.athalis.pass.processutil.context.InvalidProcessException
-import org.scalatest.{FunSuite, Matchers}
 
-class CompleteProcessTests extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class CompleteProcessTests extends AnyFunSuite with Matchers {
 
   private val process1 =
     """
@@ -23,7 +25,7 @@ class CompleteProcessTests extends FunSuite with Matchers {
       |Process Example_InvalidTransition {
       |    Subject BBBB {
       |        Macro Main {
-      |            START: Send ["foo" to * of B] -> END
+      |            START: Send ["foo" to * of B] -> TERMINATE
       |        }
       |    }
       |}
@@ -48,7 +50,7 @@ class CompleteProcessTests extends FunSuite with Matchers {
       PASSProcessReaderUtil.readProcesses(process2, "process2", PASSProcessReaderAST)
     }
     caught.getMessage should startWith ("MessageSubjectCountAnalysis:")
-    caught.getMessage should include ("subjectVar of transition '' is not defined, although the `*` operator was used")
+    caught.getMessage should include ("subjectVar of transition 'None (foo to/from B)' is not defined, although the `*` operator was used")
     caught.getMessage should include ("state 'START'")
     caught.getMessage should include ("subject 'BBBB'")
     caught.getMessage should include ("process 'Example_InvalidTransition'")

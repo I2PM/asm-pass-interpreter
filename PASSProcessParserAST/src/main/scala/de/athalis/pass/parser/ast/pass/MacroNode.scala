@@ -62,9 +62,9 @@ class MacroNode(val id: String, val isProcessMacro: Boolean) extends CustomNode 
 
 
   def addDefaultEndState(): Unit = if (!hasAddedDefaultEndState) {
-    val end = new StateNode("END")
+    val end = new StateNode("TERMINATE")
     end.setParent(this)
-    end.stateType = End
+    end.stateType = Terminate
 
     this.addState(end)
     hasAddedDefaultEndState = true

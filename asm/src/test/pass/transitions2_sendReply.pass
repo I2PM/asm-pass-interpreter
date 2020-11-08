@@ -14,7 +14,7 @@ Process Transitions2_SendReply {
 
             Senden: Send ["ping" to B with content of "pingContent"] -> Empfangen
 
-            Empfangen: Receive ["pong" from B] (auto) -> END
+            Empfangen: Receive ["pong" from B] (auto) -> TERMINATE
         }
     }
 
@@ -24,7 +24,7 @@ Process Transitions2_SendReply {
         Macro Main {
             START: Receive ["ping" from A store message in "tmp"] (auto) -> Senden
 
-            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> END
+            Senden: Send ["pong" to A in "tmp" with content of "tmp"] -> TERMINATE
         }
     }
 }

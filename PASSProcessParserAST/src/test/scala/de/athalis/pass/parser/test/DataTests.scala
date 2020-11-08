@@ -1,11 +1,13 @@
 package de.athalis.pass.parser.test
 
 import org.jparsec.error.ParserException
-import org.scalatest.{FunSuite, Matchers}
 
 import de.athalis.pass.parser.PASSParser
 
-class DataTests extends FunSuite with Matchers {
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+class DataTests extends AnyFunSuite with Matchers {
   import Util._
 
   test("dataTestFail1") {

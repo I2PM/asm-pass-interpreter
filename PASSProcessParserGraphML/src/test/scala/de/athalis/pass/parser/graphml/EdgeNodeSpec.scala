@@ -2,21 +2,27 @@ package de.athalis.pass.parser.graphml
 
 import scala.xml.{Node => XMLNode}
 import scala.collection.immutable._
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import org.scalatest.OptionValues._
+
+import de.athalis.pass.parser.ast.pass.StateNode
+import de.athalis.pass.parser.graphml.Helper.ParserLocation
 import de.athalis.pass.parser.graphml.parser.GraphMLParser
 import de.athalis.pass.parser.graphml.parser.GraphMLParser.MsgTypes
-import de.athalis.pass.parser.graphml.structure.RGBColor
+import de.athalis.pass.parser.graphml.structure.{Key, Node, RGBColor}
 
-class EdgeNodeSpec extends FunSuite with Matchers {
+import org.scalatest.OptionValues._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-  val keys = Util.keys
+class EdgeNodeSpec extends AnyFunSuite with Matchers {
 
-  val stateNodes = StateNodeSpec.nodes
-  val passStateNodes = StateNodeSpec.nodeStates
+  private implicit val loc: ParserLocation = ParserLocation("EdgeNodeSpec", None)
 
-  def createXMLEdge(id: String, source: String, target: String, labelText: String, lineColor: RGBColor = RGBColor.black, lineType: String = "line"): XMLNode = {
+  private val keys: Seq[Key[_]] = Util.keys
+
+  private val stateNodes: Seq[Node] = StateNodeSpec.nodes
+  private val passStateNodes: Map[String, StateNode] = StateNodeSpec.nodeStates
+
+  private def createXMLEdge(id: String, source: String, target: String, labelText: String, lineColor: RGBColor = RGBColor.black, lineType: String = "line"): XMLNode = {
       <edge id={id} source={source} target={target}>
         <data key="d10"/>
         <data key="d12">
@@ -43,7 +49,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
     val edgeNode = Helper.parseEdge(nodeXML, keys, stateNodes)
 
     val s = "FIXME"
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)(loc)
 
     transition.label shouldBe Some("repeat")
     transition.targetStateID shouldBe "pass-state-01"
@@ -56,7 +62,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
     val edgeNode = Helper.parseEdge(nodeXML, keys, stateNodes)
 
     val s = "FIXME"
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)(loc)
 
     transition.label shouldBe Some("automatisch")
     transition.targetStateID shouldBe "pass-state-01"
@@ -69,7 +75,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
     val edgeNode = Helper.parseEdge(nodeXML, keys, stateNodes)
 
     val s = "FIXME"
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)(loc)
 
     transition.getTimeout shouldBe 21
     //transition.isAuto shouldBe false // is implicit auto
@@ -81,7 +87,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
     val edgeNode = Helper.parseEdge(nodeXML, keys, stateNodes)
 
     val s = "FIXME"
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)(loc)
 
     transition.cancel shouldBe true
     transition.hidden shouldBe false
@@ -93,7 +99,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
     val edgeNode = Helper.parseEdge(nodeXML, keys, stateNodes)
 
     val s = "FIXME"
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)(loc)
 
     transition.cancel shouldBe true
     transition.hidden shouldBe true
@@ -105,7 +111,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
     val edgeNode = Helper.parseEdge(nodeXML, keys, stateNodes)
 
     val s = "FIXME"
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, MsgTypes.empty, passStateNodes)(loc)
 
     transition.getTimeout shouldBe 21
     transition.isAuto shouldBe true
@@ -119,7 +125,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]]((s, "Employee") -> Set("ServiceOrder"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -136,7 +142,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]](("Employee", s) -> Set("ServiceOrder"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -152,7 +158,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]]((s, "Contractor") -> Set("Order"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -169,7 +175,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]]((s, "Contractor") -> Set("Order"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -187,7 +193,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]]((s, "Contractor") -> Set("Order"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -204,7 +210,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]](("Contractor", s) -> Set("Offer"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -223,7 +229,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]](("Test Contractor", s) -> Set("Test Offer"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"
@@ -242,7 +248,7 @@ class EdgeNodeSpec extends FunSuite with Matchers {
 
     val s = "FIXME"
     val msgTypes: MsgTypes = Map[(String, String), Set[String]](("Test Contractor", s) -> Set("Test Offer"))
-    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)
+    val (_, transition) = GraphMLParser.parseTransition(s, edgeNode, msgTypes, passStateNodes)(loc)
 
     transition.label shouldBe Some(labelText)
     transition.targetStateID shouldBe "pass-state-01"

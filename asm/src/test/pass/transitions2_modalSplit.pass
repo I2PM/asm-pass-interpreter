@@ -16,7 +16,7 @@ Process Transitions2_ModalSplit {
             a1: InternalAction { "a1" (timeout (0)) -> Join }
             a2: InternalAction { "a2" (timeout (0)) -> Join }
 
-            Join: "ModalJoin" -> END
+            Join: "ModalJoin" -> TERMINATE
         }
     }
 }

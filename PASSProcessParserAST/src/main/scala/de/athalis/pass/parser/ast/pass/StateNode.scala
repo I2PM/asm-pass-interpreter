@@ -12,7 +12,7 @@ case class StatePropertyPriority(priority: Int) extends StateProperty
 object StateNode {
   object StateType extends Enumeration {
     type StateType = Value
-    val FunctionState, InternalAction, Send, Receive, End = Value
+    val FunctionState, InternalAction, Send, Receive, Terminate = Value
   }
   import StateType._
 
@@ -36,7 +36,7 @@ object StateNode {
           case "InternalAction" => InternalAction
           case "Send" => Send
           case "Receive" => Receive
-          case "End" => End
+          case "Terminate" => Terminate
           case x => throw new IllegalArgumentException("unknown predefined state type: '" + x + "'")
         }
       }
@@ -60,8 +60,8 @@ object StateNode {
       case Some(transitions) => {
         logger.trace("StateNode outgoingTransitions: {}", transitions)
 
-        if (node.stateType == End) {
-          logger.error("End has outgoingTransitions!")
+        if (node.stateType == Terminate) {
+          logger.error("Terminate has outgoingTransitions!")
         }
 
         for (e <- transitions) {
@@ -69,7 +69,7 @@ object StateNode {
           logger.trace("StateNode: added TransitionNode: {}", e)
         }
       }
-      case None if (node.stateType == End) => {
+      case None if (node.stateType == Terminate) => {
         // this is ok, nothing to do
       }
       case None => {
@@ -98,7 +98,7 @@ class StateNode(val id: String, private val parsedFrom: Option[Any] = None) exte
   private var outgoingTransitions: Set[TransitionNode] = Set()
 
   def isCommunicationState: Boolean = ((this.stateType == Send) || (this.stateType == Receive))
-  def referencesDefaultEndState: Boolean = this.outgoingTransitions.exists(_.targetStateID == "END")
+  def referencesDefaultEndState: Boolean = this.outgoingTransitions.exists(_.targetStateID == "TERMINATE")
 
 
   def addOutgoingTransition(e: TransitionNode): Unit = {

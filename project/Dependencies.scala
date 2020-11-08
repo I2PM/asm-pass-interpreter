@@ -21,7 +21,7 @@ object Dependencies {
   val typesafeConfigVersion = "1.3.3"
   val typesafeConfig = "com.typesafe" % "config" % typesafeConfigVersion
 
-  val scalaTestVersion = "3.0.8"
+  val scalaTestVersion = "3.2.2"
   val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
   val jparsecVersion = "3.1"
@@ -30,13 +30,13 @@ object Dependencies {
   val jAnsiVersion = "1.18"
   val jAnsi = "org.fusesource.jansi" % "jansi" % jAnsiVersion
 
-  val jlineVersion = "3.14.1"
+  val jlineVersion = "3.16.0"
   val jline = "org.jline" % "jline" % jlineVersion
 
   val asyncVersion = "0.10.0"
   val async = "org.scala-lang.modules" %% "scala-async" % asyncVersion
 
-  val scalaXmlVersion = "1.2.0"
+  val scalaXmlVersion = "1.3.0"
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
 
   val scalaVersion = Commons.appScalaVersion

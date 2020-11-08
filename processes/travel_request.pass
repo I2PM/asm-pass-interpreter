@@ -17,9 +17,9 @@ Process TravelRequest {
                 "Redo Travel Application" -> "Prepare Travel Application"
                 "Denial accepted" -> SendNoFurther
             }
-            SendNoFurther: Send ["No further Travel Application" to Supervisor in "supervisor"] -> END
+            SendNoFurther: Send ["No further Travel Application" to Supervisor in "supervisor"] -> TERMINATE
 
-            "Make travel": InternalAction -> END
+            "Make travel": InternalAction -> TERMINATE
         }
     }
 
@@ -34,12 +34,12 @@ Process TravelRequest {
             }
 
             SendGranted: Send ["Permission granted" to Applicant in "application"] -> SendAdministration
-            SendAdministration: Send ["Approved Travel Application" to Administration with content of "application"] -> END
+            SendAdministration: Send ["Approved Travel Application" to Administration with content of "application"] -> TERMINATE
 
             SendDenied: Send ["Permission denied" to Applicant in "application"] -> ClearVar
             ClearVar: "VarMan" ("clear", "application") -> ReceiveFurther
             ReceiveFurther: Receive {
-                ["No further Travel Application" from Applicant] -> END
+                ["No further Travel Application" from Applicant] -> TERMINATE
                 ["Travel Application" from Applicant store messages in "application"] -> "Check Travel Application"
             }
 
@@ -51,7 +51,7 @@ Process TravelRequest {
             StartState := ReceiveApprovedApplication
 
             ReceiveApprovedApplication: Receive ["Approved Travel Application" from Supervisor] -> "Archive Travel Application"
-            "Archive Travel Application": InternalAction "Travel Application filed" -> END
+            "Archive Travel Application": InternalAction "Travel Application filed" -> TERMINATE
         }
     }
 }

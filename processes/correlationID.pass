@@ -28,7 +28,7 @@ Process Example_Correlation {
 
         Macro Main {
             START: Send ["ping" to B with new correlation "x"] -> Empfangen
-            Empfangen: Receive ["pong" with correlation of "x" from B] -> END
+            Empfangen: Receive ["pong" with correlation of "x" from B] -> TERMINATE
         }
     }
 
@@ -37,7 +37,7 @@ Process Example_Correlation {
             START: Receive ["ping" from A store message in "foo"] (auto) -> Extrahieren1
             Extrahieren1: "VarMan" ("extractContent", "foo", "foo-content") -> Extrahieren2
             Extrahieren2: "VarMan" ("extractCorrelationID", "foo", "foo-correlation") -> Senden
-            Senden: Send ["pong" with correlation of "foo-correlation" to A in "foo" with content of "foo-content"] -> END
+            Senden: Send ["pong" with correlation of "foo-correlation" to A in "foo" with content of "foo-content"] -> TERMINATE
         }
     }
 }
