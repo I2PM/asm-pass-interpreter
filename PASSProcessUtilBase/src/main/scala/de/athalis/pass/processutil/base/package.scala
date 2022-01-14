@@ -1,21 +1,24 @@
 package de.athalis.pass.processutil
 
-import java.io.File
+import de.athalis.pass.processmodel.PASSProcessModelCollection
+import de.athalis.pass.processmodel.tudarmstadt.Process
 
-import de.athalis.pass.model.TUDarmstadtModel.Process
+import java.io.Reader
+import java.nio.file.Path
+import java.nio.file.PathMatcher
 
 package object base {
 
-  trait PASSProcessReader {
-    def getFileExtensions: Set[String]
-    def canParseFile(file: File): Boolean
+  trait PASSProcessModelReader {
+    def getPathMatcher: PathMatcher
+    def canReadPath(path: Path): Boolean
 
-    def parseProcesses(files: Set[File]): Set[Process]
-    def parseProcesses(source: String, sourceName: String): Set[Process]
+    def readProcessModels(paths: Set[Path]): PASSProcessModelCollection[Process]
+    def readProcessModels(reader: Reader, sourceName: String): PASSProcessModelCollection[Process]
   }
 
-  trait PASSProcessWriter {
-    def write(processes: Set[Process], outDir: File): Set[File]
+  trait PASSProcessModelWriter {
+    def write(processModels: PASSProcessModelCollection[Process], outDir: Path): Set[Path]
   }
 
 }

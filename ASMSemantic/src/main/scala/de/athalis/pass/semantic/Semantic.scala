@@ -2,54 +2,64 @@ package de.athalis.pass.semantic
 
 import de.athalis.coreasm.binding._
 
+import de.athalis.pass.processmodel.tudarmstadt.Types.AgentIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.FunctionName
+import de.athalis.pass.processmodel.tudarmstadt.Types.MacroIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.MessageType
+import de.athalis.pass.processmodel.tudarmstadt.Types.ProcessIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.SubjectIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.VariableIdentifier
+import de.athalis.pass.semantic.Helper.TaskMap
+
 // scalastyle:off number.of.methods
 object Semantic {
   import Typedefs._
 
   // general, independent
-  case object aALL extends DerivedSetFunction[String]{ def id = "aALL"; }
-  case object taskSetOut extends DerivedSetFunction[Map[String, Any]]{ def id = "taskSetOut"; }
-  case object runningSubjects extends DerivedFunctionMapped[Set[Seq[Any]], Set[Channel]] with DerivedSetFunction[Channel]{ def id = "runningSubjects"; def mapper = _.map(Channel.create); }
+  val aALL = ASMFunction.gettableSet[AgentIdentifier]("aALL")
+  val taskSetIn  = ASMFunction.gettableSet[TaskMap]("taskSetIn")
+  val taskSetOut = ASMFunction.gettableSet[TaskMap]("taskSetOut")
+  val runningSubjects = ASMFunction.gettableSet[Seq[Any], Channel]("runningSubjects", Nil, _.map(Channel.create))
 
-  case object startAbleProcesses extends DerivedSetFunction[String]{ def id = "startAbleProcesses"; }
+  val startAbleProcessModels = ASMFunction.gettableSet[ProcessIdentifier]("startAbleProcessModels")
 
   // defined in ui.casm
-  case class AllAllowedStates(ch: Channel) extends DerivedMapFunction[Double, Seq[Double]]{ def id = "UI_AllAllowedStates"; override def arguments = List(ch.toSeq); }
-  case class AllActiveStates(ch: Channel) extends DerivedMapFunction[Double, Seq[Double]]{ def id = "UI_AllActiveStates"; override def arguments = List(ch.toSeq); }
+  def AllAllowedStates(ch: Channel) = ASMFunction.gettableMap[Double, Seq[Double], RuntimeMacroInstanceNumber, Set[RuntimeStateNumber]](id = "UI_AllAllowedStates", arguments = List(ch.toSeq), mapper = (m => { m.map(t => (t._1.toInt, t._2.map(_.toInt).toSet)) }) )
+  def AllActiveStates (ch: Channel) = ASMFunction.gettableMap[Double, Seq[Double], RuntimeMacroInstanceNumber, Set[RuntimeStateNumber]](id = "UI_AllActiveStates",  arguments = List(ch.toSeq), mapper = (m => { m.map(t => (t._1.toInt, t._2.map(_.toInt).toSet)) }) )
 
-  case class WantInput(ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedSetFunction[String]{ def id = "UI_WantInput"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); }
-  case class CancelTransitionNumber(processID: String, stateNumber: Int) extends DerivedFunctionMapped[Double, Int]{ def id = "UI_CancelTransitionNumber"; override def arguments = List(processID, stateNumber); def mapper = _.toInt; }
+  def WantInput(ch: Channel, macroInstanceNumber: RuntimeMacroNumber, stateNumber: RuntimeStateNumber)  = ASMFunction.gettableSet[String](id = "UI_WantInput", arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
+  def CancelTransitionNumber(processModelID: ProcessIdentifier, stateNumber: RuntimeStateNumber) = ASMFunction.loadableInt[RuntimeTransitionNumber](id = "UI_CancelTransitionNumber", arguments = List(processModelID, stateNumber))
 
-  case class MacroID(processID: String, macroNumber: Int) extends DerivedFunction[String]{ def id = "UI_MacroID"; override def arguments = List(processID, macroNumber); }
+  def MacroID(processModelID: ProcessIdentifier, macroNumber: RuntimeMacroNumber) = ASMFunction.loadable[MacroIdentifier](id = "UI_MacroID", arguments = List(processModelID, macroNumber))
 
-  case class StateLabel   (processID: String, stateNumber: Int) extends DerivedFunction[String]{ def id = "UI_StateLabel"; override def arguments = List(processID, stateNumber); }
-  case class StateType    (processID: String, stateNumber: Int) extends DerivedFunction[String]{ def id = "UI_StateType"; override def arguments = List(processID, stateNumber); }
-  case class StateFunction(processID: String, stateNumber: Int) extends DerivedFunction[String]{ def id = "UI_StateFunction"; override def arguments = List(processID, stateNumber); }
+  def StateLabel   (processModelID: ProcessIdentifier, stateNumber: RuntimeStateNumber) = ASMFunction.loadable[String]      (id = "UI_StateLabel",    arguments = List(processModelID, stateNumber))
+  def StateType    (processModelID: ProcessIdentifier, stateNumber: RuntimeStateNumber) = ASMFunction.loadable[String]      (id = "UI_StateType",     arguments = List(processModelID, stateNumber))
+  def StateFunction(processModelID: ProcessIdentifier, stateNumber: RuntimeStateNumber) = ASMFunction.loadable[FunctionName](id = "UI_StateFunction", arguments = List(processModelID, stateNumber))
 
-  case class TransitionName    (processID: String, transitionNumber: Int) extends DerivedFunction[String]{ def id = "UI_TransitionName"; override def arguments = List(processID, transitionNumber); }
-  case class TransitionIsHidden(processID: String, transitionNumber: Int) extends DerivedFunction[Boolean]{ def id = "UI_TransitionIsHidden"; override def arguments = List(processID, transitionNumber); }
-  case class targetStateLabel  (processID: String, transitionNumber: Int) extends DerivedFunction[String]{ def id = "UI_targetStateLabel"; override def arguments = List(processID, transitionNumber); }
+  def TransitionLabel   (processModelID: ProcessIdentifier, transitionNumber: RuntimeTransitionNumber) = ASMFunction.loadable[String] (id = "UI_TransitionLabel",    arguments = List(processModelID, transitionNumber))
+  def TransitionIsHidden(processModelID: ProcessIdentifier, transitionNumber: RuntimeTransitionNumber) = ASMFunction.loadable[Boolean](id = "UI_TransitionIsHidden", arguments = List(processModelID, transitionNumber))
+  def targetStateLabel  (processModelID: ProcessIdentifier, transitionNumber: RuntimeTransitionNumber) = ASMFunction.loadable[String] (id = "UI_targetStateLabel",   arguments = List(processModelID, transitionNumber))
 
-  case class messageTypeForFirstTransition(processID: String, stateNumber: Int) extends DerivedFunction[String]{ def id = "UI_messageTypeForFirstTransition"; override def arguments = List(processID, stateNumber); }
+  def messageTypeForFirstTransition(processModelID: ProcessIdentifier, stateNumber: RuntimeStateNumber) = ASMFunction.loadable[MessageType](id = "UI_messageTypeForFirstTransition", arguments = List(processModelID, stateNumber))
 
-  case class EnabledOutgoingTransitions(ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunctionMapped[Set[Double], Set[Int]] with DerivedSetFunction[Int]{ def id = "UI_EnabledOutgoingTransitions"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); def mapper = _.map(_.toInt); }
-  case class GetIPMessages(ch: Channel, macroInstanceNumber: Int, stateNumber: Int, transitionNumber: Int) extends DerivedSeqFunction[String]{ def id = "UI_GetIPMessages"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber, transitionNumber); }
+  def EnabledOutgoingTransitions(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.gettableSet[Double, RuntimeTransitionNumber](id = "UI_EnabledOutgoingTransitions", arguments = List(ch.toSeq, macroInstanceNumber, stateNumber), mapper = _.map(_.toInt))
+  def GetIPMessages(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber, transitionNumber: RuntimeTransitionNumber) = ASMFunction.gettableSeq[String](id = "UI_GetIPMessages", arguments = List(ch.toSeq, macroInstanceNumber, stateNumber, transitionNumber))
 
-  case class SelectAgentsProcessID(ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunction[String]{ def id = "UI_SelectAgentsProcessID"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); }
-  case class SelectAgentsSubjectID(ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunction[String]{ def id = "UI_SelectAgentsSubjectID"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); }
-  case class SelectAgentsCountMin (ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunctionMapped[Double, Int]{ def id = "UI_SelectAgentsCountMin"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); def mapper = _.toInt; }
-  case class SelectAgentsCountMax (ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunctionMapped[Double, Int]{ def id = "UI_SelectAgentsCountMax"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); def mapper = _.toInt; }
+  def SelectAgentsProcessModelID(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.loadable[ProcessIdentifier](id = "UI_SelectAgentsProcessModelID", arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
+  def SelectAgentsSubjectID     (ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.loadable[SubjectIdentifier](id = "UI_SelectAgentsSubjectID",      arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
+  def SelectAgentsCountMin      (ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.loadableInt                (id = "UI_SelectAgentsCountMin",       arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
+  def SelectAgentsCountMax      (ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.loadableInt                (id = "UI_SelectAgentsCountMax",       arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
 
-  case class SelectionOptions(ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedSeqFunction[String]{ def id = "UI_SelectionOptions"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); }
-  case class SelectionMin    (ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunctionMapped[Double, Int]{ def id = "UI_SelectionMin"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); def mapper = _.toInt; }
-  case class SelectionMax    (ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunctionMapped[Double, Int]{ def id = "UI_SelectionMax"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); def mapper = _.toInt; }
+  def SelectionOptions(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.gettableSeq[String](id = "UI_SelectionOptions", arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
+  def SelectionMin    (ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.loadableInt[Int]   (id = "UI_SelectionMin",     arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
+  def SelectionMax    (ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.loadableInt[Int]   (id = "UI_SelectionMax",     arguments = List(ch.toSeq, macroInstanceNumber, stateNumber))
 
-  case class Receivers(ch: Channel, macroInstanceNumber: Int, stateNumber: Int) extends DerivedFunctionMapped[Set[Seq[Any]], Set[Channel]] with DerivedSetFunction[Channel]{ def id = "UI_Receivers"; override def arguments = List(ch.toSeq, macroInstanceNumber, stateNumber); def mapper = _.map(Channel.create); }
+  def Receivers(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber) = ASMFunction.gettableSet[Seq[Any], Channel](id = "UI_Receivers", arguments = List(ch.toSeq, macroInstanceNumber, stateNumber), mapper = _.map(Channel.create))
 
-  case class getDebugIP(ch: Channel) extends DerivedFunction[String]{ def id = "UI_getDebugIP"; override def arguments = List(ch.toSeq); }
-  case class getDebugVariables(ch: Channel) extends DerivedFunction[String]{ def id = "UI_getDebugVariables"; override def arguments = List(ch.toSeq); }
-  case class getMacroNumberOfMI(ch: Channel, macroInstanceNumber: Int) extends DerivedFunctionMapped[Double, Int]{ def id = "UI_getMacroNumberOfMI"; override def arguments = List(ch.toSeq, macroInstanceNumber); def mapper = _.toInt; }
+  def getDebugIP       (ch: Channel) = ASMFunction.loadable[String](id = "UI_getDebugIP",        arguments = List(ch.toSeq))
+  def getDebugVariables(ch: Channel) = ASMFunction.loadable[String](id = "UI_getDebugVariables", arguments = List(ch.toSeq))
+  def getMacroNumberOfMI(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber) = ASMFunction.loadableInt[RuntimeMacroNumber](id = "UI_getMacroNumberOfMI", arguments = List(ch.toSeq, macroInstanceNumber))
 
-  case class LoadVarForChannel(ch: Channel, macroInstanceNumber: Int, varname: String) extends DerivedSeqFunction[Any]{ def id = "UI_LoadVarForChannel"; override def arguments = List(ch.toSeq, macroInstanceNumber, varname); }
+  def LoadVarForChannel(ch: Channel, macroInstanceNumber: RuntimeMacroInstanceNumber, varname: VariableIdentifier) = ASMFunction.gettableSeq[Any](id = "UI_LoadVarForChannel", arguments = List(ch.toSeq, macroInstanceNumber, varname))
 }
 // scalastyle:on number.of.methods

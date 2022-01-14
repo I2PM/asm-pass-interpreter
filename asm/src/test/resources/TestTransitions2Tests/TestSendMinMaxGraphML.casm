@@ -1,4 +1,4 @@
-// @maxsteps 500
+// @maxsteps 700
 // @minsteps 10
 
 // @refuse "unhandled Task"
@@ -35,7 +35,7 @@ include "../Transitions2_SendMinMax.graphml.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_SendMinMax.graphml"}
+    processModelIDs := {"Transitions2_SendMinMax.graphml"}
 
     LoadTransitions2_SendMinMax_graphml
 }

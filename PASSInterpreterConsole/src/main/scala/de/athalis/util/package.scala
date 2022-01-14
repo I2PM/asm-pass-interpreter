@@ -2,8 +2,11 @@ package de.athalis
 
 import akka.util.Timeout
 
-import scala.async.Async.{async, await}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.async.Async.async
+import scala.async.Async.await
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 package object util {
   implicit class NiceThrowable(private val ex: Throwable) extends AnyVal {

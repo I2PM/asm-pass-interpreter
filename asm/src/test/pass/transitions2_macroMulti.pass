@@ -13,11 +13,11 @@ Process Transitions2_MacroMulti {
         }
 
         Macro X1 {
-            START: "CallMacro" ("X2") -> TERMINATE
+            START: "CallMacro" ("X2") -> RETURN
         }
 
         Macro X2 {
-            START: InternalAction "y" (timeout (0)) -> TERMINATE
+            START: InternalAction "y" (timeout (0)) -> RETURN
         }
     }
 }

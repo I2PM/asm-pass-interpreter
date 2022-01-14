@@ -14,9 +14,9 @@ object ParsePASSPlugin extends AutoPlugin {
     lazy val ParsePASSTest = config("parse-pass-test") extend (ParsePASS)
 
     // executed in project of sources
-    lazy val parsePASS = taskKey[Seq[File]]("parses PASS Process files of the sourceDirectory and stores the generated files in resourceManaged")
-    lazy val parsePASSFileType = settingKey[String]("type of the generated files. either asm or owl")
-    lazy val parsePASSProject = settingKey[Project]("project that has the PASSProcessParserPlugin enabled")
+    lazy val parsePASS = taskKey[Seq[File]]("parses PASS Process Model files of the sourceDirectory and stores the generated files in resourceManaged")
+    lazy val parsePASSFileType = settingKey[String]("type of the generated files, either asm or owl")
+    lazy val parsePASSProject = settingKey[Project]("project that has the PASSProcessModelParserPlugin enabled")
   }
 
   import autoImport._
@@ -35,7 +35,7 @@ object ParsePASSPlugin extends AutoPlugin {
     parsePASS := (Def.taskDyn[Seq[File]] {
       val logger = streams.value.log
 
-      lazy val runTask = (PASSProcessParserPlugin.autoImport.runParsePASSClassToFiles in parsePASSProject.value)
+      lazy val runTask = (parsePASSProject.value / PASSProcessModelParserPlugin.autoImport.runParsePASSClassToFiles)
 
       val typ: String = parsePASSFileType.value
 
@@ -46,7 +46,7 @@ object ParsePASSPlugin extends AutoPlugin {
       // unfortunately, we do not easily know which source file created which casm file(s)
       // therefore to be safe, re-parse everything
       if (changes.hasChanges) {
-        logger.info("ParsePASS: changes detected, re-parsing all process files")
+        logger.info("ParsePASS: changes detected, re-parsing all process model files")
 
         if (outDir.exists()) {
           FileUtils.cleanDirectory(outDir)
@@ -54,7 +54,7 @@ object ParsePASSPlugin extends AutoPlugin {
 
         val sourcesValue: Seq[Path] = changes.created ++ changes.modified ++ changes.unmodified
 
-        val args: Seq[String] = PASSProcessParserPlugin.prepareArguments(typ, outDir, sourcesValue)
+        val args: Seq[String] = PASSProcessModelParserPlugin.prepareArguments(typ, outDir, sourcesValue)
 
         // return task, that generates the files and returns them
         runTask.toTask(" " + args.mkString(" "))
@@ -82,15 +82,15 @@ object ParsePASSPlugin extends AutoPlugin {
   override lazy val projectSettings: Seq[Setting[_]] =
     inConfig(ParsePASS)(basePASSSettings) ++
     inConfig(ParsePASSTest)(testPASSSettings) ++ Def.settings(
-      // FIXME: it looks like there is a bug in sbt regarding test:clean and test:copyResources. This works around that, as now test:clean depends on parse-pass:clean, which somehow magically cleans everything (altough it should just clean for itself)
+      // FIXME: it looks like there is a bug in sbt regarding test:clean and test:copyResources. This works around that, as now test:clean depends on parse-pass:clean, which somehow magically cleans everything (although it should just clean for itself)
 
       (Compile / resourceGenerators) += (ParsePASS / parsePASS).taskValue,
       (Compile / managedResourceDirectories) += (ParsePASS / resourceManaged).value,
-      (Compile / clean) := (Compile / clean).dependsOn(clean in ParsePASS).value,
+      (Compile / clean) := (Compile / clean).dependsOn(ParsePASS / clean).value,
 
-      (resourceGenerators in Test) += (ParsePASSTest / parsePASS).taskValue,
-      (managedResourceDirectories in Test) += (ParsePASSTest / resourceManaged).value,
-      (clean in Test) := (clean in Test).dependsOn(clean in ParsePASSTest).value,
+      (Test / resourceGenerators) += (ParsePASSTest / parsePASS).taskValue,
+      (Test / managedResourceDirectories) += (ParsePASSTest / resourceManaged).value,
+      (Test / clean) := (Test / clean).dependsOn(ParsePASSTest / clean).value,
     )
   
 }

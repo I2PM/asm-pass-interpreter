@@ -1,40 +1,52 @@
 package de.athalis.pass.ui
 
-import java.io.File
+import de.athalis.coreasm.base.Typedefs._
+import de.athalis.coreasm.binding.akka.AkkaStorageBinding
 
-import scala.async.Async.{async, await}
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import de.athalis.pass.processmodel.tudarmstadt.Types.AgentIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.FunctionName
+import de.athalis.pass.processmodel.tudarmstadt.Types.MacroIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.ProcessIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.SubjectIdentifier
+import de.athalis.pass.semantic.Activities._
+import de.athalis.pass.semantic.Semantic
+import de.athalis.pass.semantic.Typedefs._
+import de.athalis.pass.ui.loading._
+import de.athalis.pass.ui.util.UIInputGetter
+
+import de.athalis.util._
+import de.athalis.util.jline._
 
 import akka.event.LoggingAdapter
 import akka.util.Timeout
 
-import org.jline.reader.{LineReader, LineReaderBuilder}
+import org.jline.builtins.Completers.FileNameCompleter
+import org.jline.builtins.Completers.TreeCompleter
+import org.jline.reader.LineReader
+import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.Terminal
-import org.jline.builtins.Completers.{FileNameCompleter, TreeCompleter}
-import org.jline.utils.{AttributedString, AttributedStyle}
+import org.jline.utils.AttributedString
+import org.jline.utils.AttributedStyle
 
-import de.athalis.coreasm.base.Typedefs._
-import de.athalis.coreasm.binding.akka.AkkaStorageBinding
+import java.nio.file.Path
 
-import de.athalis.pass.semantic.Semantic
-import de.athalis.pass.semantic.Activities._
-import de.athalis.pass.semantic.Typedefs._
-
-import de.athalis.util._
-import de.athalis.util.jline._
-import de.athalis.pass.ui.loading._
-import de.athalis.pass.ui.util.UIInputGetter
+import scala.async.Async.async
+import scala.async.Async.await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 
 object PASSInterpreterConsole {
-  def selectAgents(subjectID: String, possibleAgents: Set[String], min: Int, max: Int)(implicit terminal: Terminal): Set[String] = {
-    var selectedAgents: Set[String] = Set()
+  def selectAgents(subjectID: SubjectIdentifier, possibleAgents: Set[AgentIdentifier], min: Int, max: Int)(implicit terminal: Terminal): Set[String] = {
+    var selectedAgents: Set[AgentIdentifier] = Set()
     var more = true
 
     println("Known Agents: " + possibleAgents.mkString(", "))
 
     while (more && (max == 0 || selectedAgents.size < max)) {
-      val possibleAgentsList: Seq[String] = (possibleAgents -- selectedAgents).toSeq.sorted
+      val possibleAgentsList: Seq[AgentIdentifier] = (possibleAgents -- selectedAgents).toSeq.sorted
 
       val info = if (selectedAgents.size >= min) {" (leave empty to use only " + selectedAgents.size + " agents)"} else {""}
 
@@ -47,7 +59,7 @@ object PASSInterpreterConsole {
 
       val l = JLineHelper.readLine(promptMessage, possibleAgentsList)
 
-      val agentName = l.trim
+      val agentName: AgentIdentifier = l.trim
 
       if (agentName == "") {
         if (selectedAgents.size >= min) {
@@ -59,7 +71,7 @@ object PASSInterpreterConsole {
       }
       else if (selectedAgents.contains(agentName)) {
         // TODO: this should be possible
-        println("You've already choosen that Agent!")
+        println("You've already chosen that Agent!")
       }
       else {
         selectedAgents += agentName
@@ -77,11 +89,12 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
   val activityReader: LineReader = initActivityReader()
 
-  var availableActivities:       Seq[PASSActivity[_ <: PASSActivityInput]] = Seq()
-  var availableActivitiesString: Option[String] = None
-  var runningProcessInstances:   Seq[Int]       = Seq()
-  var runningSubjects:           Set[Channel]   = Set()
-  var startAbleProcesses:        Seq[String]    = Seq()
+  var availableActivities:          Seq[PASSActivity[_ <: PASSActivityInput]] = Seq()
+  var availableActivitiesString:    Option[String] = None
+
+  var runningProcessModelInstances: Seq[RuntimeProcessInstanceNumber] = Seq()
+  var runningSubjects:              Set[Channel]                      = Set()
+  var startAbleProcessModels:       Seq[ProcessIdentifier]            = Seq()
 
   var awaitASMStep: Option[Future[Any]] = None
 
@@ -106,12 +119,12 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
       .builder()
       .terminal(terminal)
 
-    val runningProcessesC = new DynamicStringsCompleter(
-        () => runningProcessInstances.map(_.toString)
+    val runningProcessModelInstancesC = new DynamicStringsCompleter(
+        () => runningProcessModelInstances.map(_.toString)
       )
 
-    val startAbleProcessesC = new DynamicStringsCompleter(
-        () => startAbleProcesses
+    val startAbleProcessModelsC = new DynamicStringsCompleter(
+        () => startAbleProcessModels
       )
 
     val availableActivitiesC = new DynamicStringsCompleter(
@@ -125,8 +138,8 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
       TreeCompleter.node("exit"),
       TreeCompleter.node("quit"),
       TreeCompleter.node("process",
-        TreeCompleter.node("kill", TreeCompleter.node(runningProcessesC)),
-        TreeCompleter.node("start", TreeCompleter.node(startAbleProcessesC)),
+        TreeCompleter.node("kill", TreeCompleter.node(runningProcessModelInstancesC)),
+        TreeCompleter.node("start", TreeCompleter.node(startAbleProcessModelsC)),
         TreeCompleter.node("load", TreeCompleter.node(new FileNameCompleter())) // TODO: add completion for multiple files
       ),
       TreeCompleter.node(availableActivitiesC)
@@ -136,7 +149,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
 
     val reader = readerBuilder.build()
-    reader.setVariable(LineReader.HISTORY_FILE, new File(".console-history").getCanonicalFile)
+    reader.setVariable(LineReader.HISTORY_FILE, Path.of(".console-history").toAbsolutePath)
     reader
   }
 
@@ -148,19 +161,19 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
     (a, UIPath(a.state), a.toActivityString)
   }
 
-  private def isJustMainMacro(states: Seq[ActiveState]): Boolean = (states.map(_.MI).toSet != Set(1))
+  private def isJustMainMacro(states: Seq[ActiveState]): Boolean = (states.map(_.MI).toSet == Set(1))
 
-  case class UIPath(processID: String, processInstance: Int, subjectID: String, agent: String, macroNumber: Int, macroID: String, macroInstanceNumber: Int, stateNumber: Int, stateLabel: String, stateType: String, stateFunction: String)
+  case class UIPath(processModelID: ProcessIdentifier, processInstance: RuntimeProcessInstanceNumber, subjectID: SubjectIdentifier, agent: AgentIdentifier, macroNumber: RuntimeMacroNumber, macroID: MacroIdentifier, macroInstanceNumber: RuntimeMacroInstanceNumber, stateNumber: RuntimeStateNumber, stateLabel: String, stateType: String, stateFunction: FunctionName)
   object UIPath {
-    private val tupledOrdering: Ordering[(String, Int, String, String, Int, Int, Int)] = Ordering.Tuple7(Ordering.String, Ordering.Int, Ordering.String, Ordering.String, Ordering.Int, Ordering.Int, Ordering.Int).reverse
+    private val tupledOrdering: Ordering[(ProcessIdentifier, RuntimeProcessInstanceNumber, SubjectIdentifier, AgentIdentifier, RuntimeMacroNumber, RuntimeMacroInstanceNumber, RuntimeStateNumber)] = Ordering.Tuple7(Ordering.String, Ordering.Int, Ordering.String, Ordering.String, Ordering.Int, Ordering.Int, Ordering.Int).reverse
 
     val ordering: Ordering[UIPath] = tupledOrdering.on { uiPath => {
-      (uiPath.processID, uiPath.processInstance, uiPath.subjectID, uiPath.agent, uiPath.macroNumber, uiPath.macroInstanceNumber, uiPath.stateNumber)
+      (uiPath.processModelID, uiPath.processInstance, uiPath.subjectID, uiPath.agent, uiPath.macroNumber, uiPath.macroInstanceNumber, uiPath.stateNumber)
     }}
 
     def apply(state: ActiveState): UIPath = {
       UIPath(
-        state.ch.processID,
+        state.ch.processModelID,
         state.ch.processInstanceNumber,
         state.ch.subjectID,
         state.ch.agent,
@@ -227,7 +240,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
           val uiPath = x._2
           val text = x._3
 
-          val showMacroIDs: Boolean = isJustMainMacro(agentActivitiesSorted.map(_._1).filter(_.state.ch == activity.state.ch).map(_.state))
+          val showMacroIDs: Boolean = !isJustMainMacro(agentActivitiesSorted.map(_._1).filter(_.state.ch == activity.state.ch).map(_.state))
 
           var printNextSegment = lastUIPath.isEmpty
 
@@ -235,7 +248,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
             if (hadProcessSegment) {
               out.append("\n\n")
             }
-            out.append(s"Process '${uiPath.processID}' (Instance ${uiPath.processInstance})\n")
+            out.append(s"Process '${uiPath.processModelID}' (Instance ${uiPath.processInstance})\n")
             printNextSegment = true
             hadProcessSegment = true
             hadSubjectSegment = false
@@ -301,21 +314,21 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
     val runningSubjectsF         = Semantic.runningSubjects.loadAndGetAsync()
     val runningProcessInstancesF = runningSubjectsF.map(x => x.map(_.processInstanceNumber).toSeq.sorted)
-    val startAbleProcessesF      = Semantic.startAbleProcesses.loadAndGetAsync().map(_.toSeq.sortBy(x => x))
+    val startAbleProcessModelsF  = Semantic.startAbleProcessModels.loadAndGetAsync().map(_.toSeq.sortBy(x => x))
 
     val availableActivitiesSetF  = loader.loadAllAvailableActivitiesAsync(runningSubjectsF)
     val activitiesF              = transformActivities(availableActivitiesSetF)
 
-    val f = Future.sequence(Seq(runningSubjectsF, runningProcessInstancesF, startAbleProcessesF, activitiesF))
+    val f = Future.sequence(Seq(runningSubjectsF, runningProcessInstancesF, startAbleProcessModelsF, activitiesF))
 
     // TODO: non-blocking? no global state?..
-    Try(f.blockingWait) match {
+    Try(f.blockingWait()) match {
       case Success(_)  => {
-        runningSubjects         = runningSubjectsF.blockingWait
-        runningProcessInstances = runningProcessInstancesF.blockingWait
-        startAbleProcesses      = startAbleProcessesF.blockingWait
+        runningSubjects              = runningSubjectsF.blockingWait()
+        runningProcessModelInstances = runningProcessInstancesF.blockingWait()
+        startAbleProcessModels       = startAbleProcessModelsF.blockingWait()
 
-        val activities = activitiesF.blockingWait
+        val activities = activitiesF.blockingWait()
         availableActivities       = activities._1
         availableActivitiesString = activities._2
 
@@ -325,11 +338,11 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
         logger.debug("failed to update available Activities: {}", ex.getNiceStackTraceString)
         logger.error("failed to update available Activities: {}", ex.getMessage)
 
-        runningSubjects           = Set()
-        runningProcessInstances   = Seq()
-        startAbleProcesses        = Seq()
-        availableActivities       = Seq()
-        availableActivitiesString = None
+        runningSubjects              = Set()
+        runningProcessModelInstances = Seq()
+        startAbleProcessModels       = Seq()
+        availableActivities          = Seq()
+        availableActivitiesString    = None
 
         awaitASMStep = None
       }
@@ -352,16 +365,16 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
       if (runningSubjects.isEmpty) {
         println("")
-        println("There are no processes being executed! You can start one with `process start PROCESSNAME`")
+        println("There are no process models being executed! You can start one with `process start PROCESSNAME`")
       }
 
-      if (startAbleProcesses.isEmpty) {
+      if (startAbleProcessModels.isEmpty) {
         println("")
-        println("There are no processes which could be started! You can load one with `process load FILENAME`")
+        println("There are no process models which could be started! You can load one with `process load FILENAME`")
       }
       else {
         println("")
-        println("Start-able processes: " + startAbleProcesses.mkString(", "))
+        println("Start-able process models: " + startAbleProcessModels.mkString(", "))
       }
 
 
@@ -414,7 +427,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
           Try {
             val i = l.toInt - 1 // remove added 1
             val updates = availableActivities(i).getASMUpdates(uiInputGetter)
-            binding.storeAsync(updates).blockingWait
+            binding.storeAsync(updates).blockingWait()
           } match {
             case Success(UpdateStored) => {
               awaitASMStep = Some(binding.waitForASMStep())
@@ -435,7 +448,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
   }
 
   def printState(): Unit = {
-    val out: String = Try(Debug.getGlobalState.blockingWait).getOrElse("Error loading state")
+    val out: String = Try(Debug.getGlobalState().blockingWait()).getOrElse("Error loading state")
 
     println(out)
   }

@@ -1,16 +1,19 @@
 package de.athalis.pass.ui.loading
 
-import akka.util.Timeout
-
-import scala.async.Async.{async, await}
-import scala.concurrent.{ExecutionContext, Future}
-
-import de.athalis.pass.semantic.Semantic
-import de.athalis.pass.semantic.Typedefs._
 import de.athalis.coreasm.binding.Binding
 
+import de.athalis.pass.processmodel.tudarmstadt.Types.MacroIdentifier
+import de.athalis.pass.semantic.Semantic
+import de.athalis.pass.semantic.Typedefs._
 import de.athalis.pass.ui.definitions._
 import de.athalis.pass.ui.loading.ActivityLoader.mapToActiveStates
+
+import akka.util.Timeout
+
+import scala.async.Async.async
+import scala.async.Async.await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 object Debug {
   def getGlobalState()(implicit executionContext: ExecutionContext, timeout: Timeout, binding: Binding): Future[String] = async {
@@ -22,7 +25,7 @@ object Debug {
   }
 
   private def getChannelState(ch: Channel)(implicit executionContext: ExecutionContext, timeout: Timeout, binding: Binding): Future[String] = async {
-    val allActiveStatesF: Future[Set[ActiveStateF]] = Semantic.AllActiveStates(ch).loadAndGetAsyc().map(m => mapToActiveStates(ch, m))
+    val allActiveStatesF: Future[Set[ActiveStateF]] = Semantic.AllActiveStates(ch).loadAndGetAsync().map(m => mapToActiveStates(ch, m))
     val ipF = Semantic.getDebugIP(ch).loadAndGetOrElseAsync("")
     val variablesF = Semantic.getDebugVariables(ch).loadAndGetOrElseAsync("")
 
@@ -32,7 +35,7 @@ object Debug {
 
     val allMIs: Set[MacroInstance] = allActiveStates.map(_.mi)
 
-    val miStatesMap: Map[Int, String] = allMIs.map(mi => {(mi.macroInstanceNumber, getMIState(mi, allActiveStates.filter(_.mi == mi)))}).toMap
+    val miStatesMap: Map[RuntimeMacroInstanceNumber, String] = allMIs.map(mi => {(mi.macroInstanceNumber, getMIState(mi, allActiveStates.filter(_.mi == mi)))}).toMap
 
     val miStates: String = miStatesMap.toSeq.sortBy(_._1).map(_._2).mkString("\n")
 
@@ -51,7 +54,7 @@ object Debug {
   private def getMIState(mi: MacroInstance, states: Set[ActiveState]): String = {
     val statesPrettyS: Set[String] = states.map(getStateState)
 
-    val macroID: String = mi.macroID
+    val macroID: MacroIdentifier = mi.macroID
 
     // TODO: sorted?
     val statesPretty = statesPrettyS.mkString("\n")

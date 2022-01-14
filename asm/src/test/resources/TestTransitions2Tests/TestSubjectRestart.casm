@@ -1,4 +1,4 @@
-// @maxsteps 300
+// @maxsteps 500
 // @minsteps 10
 
 // @refuse "unhandled Task"
@@ -35,7 +35,7 @@ include "../Transitions2_SubjectRestart.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_SubjectRestart"}
+    processModelIDs := {"Transitions2_SubjectRestart"}
 
     LoadTransitions2_SubjectRestart
 }

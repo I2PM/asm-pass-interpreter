@@ -1,4 +1,4 @@
-// @maxsteps 500
+// @maxsteps 700
 // @minsteps 10
 
 // @refuse "unhandled Task"
@@ -35,7 +35,7 @@ include "../Transitions2_ModalSplitLoop.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_ModalSplitLoop"}
+    processModelIDs := {"Transitions2_ModalSplitLoop"}
 
     LoadTransitions2_ModalSplitLoop
 }

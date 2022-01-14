@@ -23,8 +23,8 @@ Process Example_Macro {
                 "c1" -> M3_C1
                 "c2" (cancel) -> M3_C2
             }
-            M3_A: InternalAction "M3 terminated with: a" -> LOOP
-            M3_B: InternalAction "M3 terminated with: b" -> LOOP
+            M3_A: InternalAction "M3 returned with: a" -> LOOP
+            M3_B: InternalAction "M3 returned with: b" -> LOOP
             M3_C1: InternalAction "M3 was inner-cancelled" -> LOOP
             M3_C2: InternalAction "M3 was outer-cancelled" -> LOOP
 
@@ -32,14 +32,14 @@ Process Example_Macro {
         }
 
         Macro M1 {
-            START: InternalAction "terminate simple macro" -> TERMINATE
+            START: InternalAction "return from simple macro" -> RETURN
         }
 
         Macro M2 {
             LocalVariables := {"bar"}
 
             START: InternalAction {
-                "terminate recursive macro" -> TERMINATE
+                "return from recursive macro" -> RETURN
                 "do recursion" -> CALL
                 "set var content" -> SET
                 "send var content" -> SEND
@@ -51,17 +51,17 @@ Process Example_Macro {
 
         Macro M3 {
             START: InternalAction {
-                "angenommen" -> TERMINATE_A
-                "abgelehnt" -> TERMINATE_B
-                (cancel) -> TERMINATE_C1
+                "angenommen" -> RETURN_A
+                "abgelehnt" -> RETURN_B
+                (cancel) -> RETURN_C1
             }
-            TERMINATE_A: Terminate ("a")
-            TERMINATE_B: Terminate ("b")
-            TERMINATE_C1: Terminate ("c1")
+            RETURN_A: Return ("a")
+            RETURN_B: Return ("b")
+            RETURN_C1: Return ("c1")
         }
 
         Macro "Send foo" ("bar") {
-            START: Send ["foo" to B with content of "bar"] -> TERMINATE
+            START: Send ["foo" to B with content of "bar"] -> RETURN
         }
     }
 

@@ -23,12 +23,12 @@ Process Example_ProcessMacro {
         }
 
         Macro M1 {
-            START: InternalAction "terminate simple macro" -> TERMINATE
+            START: InternalAction "return from simple macro" -> RETURN
         }
     }
 
     Macro M2 {
-        START: InternalAction "terminate simple process macro" -> TERMINATE
+        START: InternalAction "return from simple process macro" -> RETURN
     }
 
 }

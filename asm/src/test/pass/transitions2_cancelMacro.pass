@@ -60,7 +60,7 @@ Process Transitions2_CancelMacro {
                 (cancel)      -> Send_Fail
             }
             Send_Fail: Send {
-                ["fail" to B with content of "msgContent"] -> TERMINATE
+                ["fail" to B with content of "msgContent"] -> RETURN
             }
         }
     }

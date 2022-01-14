@@ -1,29 +1,32 @@
 package de.athalis.coreasm.plugins.storage
 
-import java.util.{Set => JSet}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
-import de.athalis.coreasm.helper.Implicits._
 import de.athalis.coreasm.base.Typedefs._
-
+import de.athalis.coreasm.helper.Implicits._
 import de.athalis.coreasm.plugins.storage.lib._
+
+import akka.actor._
+import akka.util.Timeout
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+
+import org.coreasm.engine.VersionInfo
+import org.coreasm.engine.absstorage._
+import org.coreasm.engine.interpreter._
+import org.coreasm.engine.plugin._
+import org.coreasm.engine.plugins.io.IOPlugin
+import org.coreasm.engine.plugins.string.StringElement
+
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import java.util.{Set => JSet}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{Map => MutableMap}
-import com.typesafe.config.{Config, ConfigFactory}
-import akka.actor._
-import akka.util.Timeout
-
 import scala.concurrent._
 import scala.concurrent.duration._
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-import org.coreasm.engine.VersionInfo
-import org.coreasm.engine.plugin._
-import org.coreasm.engine.interpreter._
-import org.coreasm.engine.absstorage._
-import org.coreasm.engine.plugins.io.IOPlugin
-import org.coreasm.engine.plugins.string.StringElement
 
 
 object AkkaStoragePlugin {
@@ -48,11 +51,13 @@ class AkkaStoragePlugin() extends Plugin with InterpreterPlugin with VocabularyE
   logger.info("initializing Akka ActorSystem")
 
   val config: Config = ConfigFactory.load(getClass.getClassLoader)
+  private val actorSystemName = config.getString("coreasm-storage.actor-system-name")
+  private val actorName = config.getString("coreasm-storage.actor-name")
 
-  implicit val timeout = Timeout(5.seconds)
+  implicit val timeout: Timeout = Timeout(5.seconds)
   // TODO: move to initialize
-  private val system: ActorSystem = ActorSystem("coreasm-storage", config.getConfig("coreasm-storage").withFallback(config), getClass.getClassLoader)
-  private val actor: ActorRef = system.actorOf(Props(new AkkaStorageActor(queue)), "AkkaStorageActor")
+  private val system: ActorSystem = ActorSystem(actorSystemName, config.getConfig("coreasm-storage").withFallback(config), getClass.getClassLoader)
+  private val actor: ActorRef = system.actorOf(Props(new AkkaStorageActor(queue)), actorName)
 
   logger.info("initialized Akka ActorSystem")
 
@@ -119,8 +124,8 @@ class AkkaStoragePlugin() extends Plugin with InterpreterPlugin with VocabularyE
 
 
     var updateList: Seq[Update] = Nil
-    var notificateStored: Seq[ActorRef] = Nil
-    var notificateASMStep: Seq[ActorRef] = Nil
+    var notifyStored: Seq[ActorRef] = Nil
+    var notifyASMStep: Seq[ActorRef] = Nil
 
     // only for logging
     var readJobCount: Int = 0
@@ -151,12 +156,12 @@ class AkkaStoragePlugin() extends Plugin with InterpreterPlugin with VocabularyE
           logger.info("{}: converting write update job #" + writeJobCount + " {}", i.getSelf, updates.asInstanceOf[Any])
           val startMap = System.nanoTime
           updateList ++= updates.map(U)
-          notificateStored +:= sender
+          notifyStored +:= sender
           writeJobCount += 1
           durationWriteMapping += System.nanoTime - startMap
         }
         case AwaitASMStep => {
-          notificateASMStep +:= sender
+          notifyASMStep +:= sender
         }
       }
 
@@ -166,8 +171,8 @@ class AkkaStoragePlugin() extends Plugin with InterpreterPlugin with VocabularyE
     }
 
 
-    notificateStored.foreach(_ ! UpdateStored)
-    notificateASMStep.foreach(_ ! ASMStep)
+    notifyStored.foreach(_ ! UpdateStored)
+    notifyASMStep.foreach(_ ! ASMStep)
 
     updateList +:= new Update(
       IOPlugin.PRINT_OUTPUT_FUNC_LOC,

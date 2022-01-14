@@ -49,7 +49,7 @@ Process Transitions2_MacroPrio {
 
         Macro X {
             START: Send {
-                ["good" to B in "b" with content of "tmp"] -> TERMINATE
+                ["good" to B in "b" with content of "tmp"] -> RETURN
             }
         }
     }

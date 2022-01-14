@@ -35,7 +35,7 @@ include "../Transitions2_VarManUndef.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_VarManUndef"}
+    processModelIDs := {"Transitions2_VarManUndef"}
 
     LoadTransitions2_VarManUndef
 }

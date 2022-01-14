@@ -1,12 +1,13 @@
 package de.athalis.coreasm.plugins.storage
 
-import java.util.concurrent.BlockingQueue
+import de.athalis.coreasm.plugins.storage.lib._
 
 import akka.actor._
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import de.athalis.coreasm.plugins.storage.lib._
+import java.util.concurrent.BlockingQueue
 
 object AkkaStorageActor {
   private val logger: Logger = LoggerFactory.getLogger(AkkaStorageActor.getClass)

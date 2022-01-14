@@ -20,7 +20,7 @@ include "../Transitions.casm"
 
 init TestTransitions
 
-function processID : -> STRING
+function processModelID  : -> STRING
 function processInstance : -> NUMBER
 
 function subjectIDA : -> STRING
@@ -45,7 +45,7 @@ function RemainingTestStateIDs : -> LIST
 rule TestTransitions = seqblock
     initSemantic
 
-    processID := "Transitions"
+    processModelID  := "Transitions"
     processInstance := 1
 
     subjectIDA := "A"
@@ -61,12 +61,12 @@ rule TestTransitions = seqblock
 
     LoadTransitions
 
-    RemainingTestStateIDs := processData(processID)("TestStateIDs")
+    RemainingTestStateIDs := processData(processModelID)("TestStateIDs")
 
     extend Agents with a do {
         program(a) := @TestStates
 
-        initAgent(a, processID, processInstance, subjectIDA, agentNameA)
+        initAgent(a, processModelID, processInstance, subjectIDA, agentNameA)
 
         agentA := a
     }
@@ -75,7 +75,7 @@ rule TestTransitions = seqblock
         //program(b) := @checkIP
         program(b) := undef // currently there is no need to have B actually running
 
-        initAgent(b, processID, processInstance, subjectIDB, agentNameB)
+        initAgent(b, processModelID, processInstance, subjectIDB, agentNameB)
 
         agentB := b
     }
@@ -85,7 +85,7 @@ rule TestTransitions = seqblock
         //program(b) := @checkIP
         program(b) := undef // currently there is no need to have B actually running
 
-        initAgent(b, processID, processInstance, subjectIDB1, agentNameB1)
+        initAgent(b, processModelID, processInstance, subjectIDB1, agentNameB1)
 
         agentB1 := b
     }
@@ -94,7 +94,7 @@ rule TestTransitions = seqblock
         //program(b) := @checkIP
         program(b) := undef // currently there is no need to have B actually running
 
-        initAgent(b, processID, processInstance, subjectIDB2, agentNameB2)
+        initAgent(b, processModelID, processInstance, subjectIDB2, agentNameB2)
 
         agentB2 := b
     }
@@ -146,9 +146,9 @@ rule TestStates = {
 // @refuse "TestState_WrongActiveCount"
 rule TestState(stID, activeCountMin, activeCountMax) = {
     let MI = 1 in
-    let stateNumber        = stateNumberFromID(processID, stID) in
-    let stateNumberSuccess = stateNumberFromID(processID, stID+"Success") in
-    let stateNumberFail    = stateNumberFromID(processID, stID+"Fail") in {
+    let stateNumber        = stateNumberFromID(processModelID, stID) in
+    let stateNumberSuccess = stateNumberFromID(processModelID, stID+"Success") in
+    let stateNumberFail    = stateNumberFromID(processModelID, stID+"Fail") in {
         if (TestStateInitialized != true) then {
             seqblock
                 ClearIPs
@@ -222,10 +222,10 @@ derived replaceChannel(x) = return listres in {
 
 rule LoadData(MI, stateNumber, phase) = {
     debuginfo TestState "LoadData(" + phase + ")"
-    let stID = stateID(processID, stateNumber) in
+    let stID = stateID(processModelID, stateNumber) in
     let k = subjectIDA + " " + stID + " " + phase in // TODO: use actual subjectID when executing this for B too!
-    let jobs = processData(processID)(k) in {
-        debuginfo TestState "processData(processID)("+k+"): " + undefStr(jobs)
+    let jobs = processData(processModelID)(k) in {
+        debuginfo TestState "processData(processModelID)("+k+"): " + undefStr(jobs)
         if (jobs != undef) then {
             local listres in seqblock
             listres := jobs
@@ -251,7 +251,7 @@ rule LoadData(MI, stateNumber, phase) = {
                         }
                     }
                     else if (matches(jobName, "TransitionDecision")) then {
-                        choose transitionNumber in outgoingEnabledTransitions(channelFor(self), MI, stateNumber) with transitionHasLabel(processID, transitionNumber, nth(job, 2)) do {
+                        choose transitionNumber in outgoingEnabledTransitions(channelFor(self), MI, stateNumber) with transitionHasLabel(processModelID, transitionNumber, nth(job, 2)) do {
                             debuginfo TestState "making TransitionDecision for transition '" + nth(job, 2) + "' (" + transitionNumber + ")"
                             selectedTransition(channelFor(self), MI, stateNumber) := transitionNumber
                             wantInput(channelFor(self), MI, stateNumber) := {}

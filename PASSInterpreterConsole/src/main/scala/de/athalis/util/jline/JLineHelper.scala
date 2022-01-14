@@ -1,10 +1,11 @@
 package de.athalis.util.jline
 
-import java.util.{List => JList}
-
 import org.jline.reader._
-import org.jline.reader.impl.completer.{NullCompleter, StringsCompleter}
+import org.jline.reader.impl.completer.NullCompleter
+import org.jline.reader.impl.completer.StringsCompleter
 import org.jline.terminal.Terminal
+
+import java.util.{List => JList}
 
 import scala.collection.JavaConverters._
 

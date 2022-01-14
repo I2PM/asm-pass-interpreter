@@ -1,9 +1,9 @@
 package de.athalis.coreasm.plugins.storage
 
+import org.coreasm.engine.interpreter._
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
-import org.coreasm.engine.interpreter._
 
 object AkkaStorageRuleNode {
   val RULE_NAME: String = "AggregateAkkaStorage"

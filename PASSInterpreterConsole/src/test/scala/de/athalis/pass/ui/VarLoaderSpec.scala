@@ -1,15 +1,17 @@
 package de.athalis.pass.ui
 
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.async.Async.async
-import akka.util.Timeout
 import de.athalis.pass.ui.loading.VarLoader
+
+import akka.util.Timeout
 
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
+
+import scala.async.Async.async
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 
 class VarLoaderSpec extends AnyFunSuite with Matchers with ScalaFutures {

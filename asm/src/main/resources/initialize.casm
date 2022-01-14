@@ -51,11 +51,11 @@ rule WatchTaskSetIn = {
 
     if (|taskSetIn| > 0) then {
         choose task in taskSetIn do
-        let taskType       = (task())("task"),
-            taskCh         = (task())("ch"),
-            taskProcessID  = (task())("processID"),
-            taskProcessMap = (task())("processMap"),
-            taskPI         = (task())("PI") in
+        let taskType            = (task())("task"),
+            taskCh              = (task())("ch"),
+            taskProcessModelID  = (task())("processModelID"),
+            taskProcessModelMap = (task())("processModelMap"),
+            taskPI              = (task())("PI") in
         {
             remove task from taskSetIn
             debuginfo WatchTaskSetIn self + ": taskType: " + taskType
@@ -65,11 +65,11 @@ rule WatchTaskSetIn = {
                     InitializeSubject(taskCh)
                     StartSubject(taskCh)
                 endseqblock
-                "AddProcess"   : AddProcess(taskProcessID, taskProcessMap)
-                "StartProcess" : local numres1 in {
-                    numres1 <- StartProcess(taskProcessID, undef, undef)
+                "AddProcessModel"   : AddProcessModel(taskProcessModelID, taskProcessModelMap)
+                "StartProcessModel" : local numres1 in {
+                    numres1 <- StartProcessModel(taskProcessModelID, undef, undef)
                 }
-                "StopProcess"  : StopProcess(taskPI)
+                "StopProcess"       : StopProcess(taskPI)
             endcase
         }
     }

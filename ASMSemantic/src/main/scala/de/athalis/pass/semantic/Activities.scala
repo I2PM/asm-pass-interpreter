@@ -2,6 +2,11 @@ package de.athalis.pass.semantic
 
 import de.athalis.coreasm.base.Typedefs._
 
+import de.athalis.pass.processmodel.tudarmstadt.Types.AgentIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.MessageType
+import de.athalis.pass.processmodel.tudarmstadt.Types.ProcessIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.SubjectIdentifier
+
 object Activities {
   import Helper._
   import Typedefs._
@@ -19,24 +24,25 @@ object Activities {
   }
 
   sealed trait PASSActivityAgent[T <: PASSActivityInput] extends PASSActivity[T] { def state: ActiveState }
-  sealed trait PASSActivityTask[T <: PASSActivityInput]  extends PASSActivity[T] { def task: Map[String, Any] }
+  sealed trait PASSActivityTask[T <: PASSActivityInput]  extends PASSActivity[T] { def task: TaskMap }
 
   sealed trait PASSActivityInput
   case object PASSActivityInputUnit extends PASSActivityInput
-  case class PASSActivityInputAgents(names: Set[String]) extends PASSActivityInput
+  case class PASSActivityInputAgents(names: Set[AgentIdentifier]) extends PASSActivityInput
   case class PASSActivityInputMessageContent(messageContent: String) extends PASSActivityInput
   case class PASSActivityInputSelection(selection: Option[Set[Int]]) extends PASSActivityInput
 
   trait InputGetter {
-    def selectAgents(subjectID: String, min: Int, max: Int): PASSActivityInputAgents
-    def setMessageContent(messageType: String, receivers: Set[Channel]): PASSActivityInputMessageContent
+    def selectAgents(subjectID: SubjectIdentifier, min: Int, max: Int): PASSActivityInputAgents
+    def setMessageContent(messageType: MessageType, receivers: Set[Channel]): PASSActivityInputMessageContent
     def performSelection(options: Seq[String], min: Int, max: Int): PASSActivityInputSelection
   }
 
 
-  case class StartSubject(task: Map[String, Any], processID: String, processInstanceNumber: Int, subjectID: String) extends PASSActivityTask[PASSActivityInputAgents] {
+  case class StartSubject(task: TaskMap, processModelID: ProcessIdentifier, processInstanceNumber: RuntimeProcessInstanceNumber, subjectID: SubjectIdentifier) extends PASSActivityTask[PASSActivityInputAgents] {
+
     override def toActivityString: String = {
-      "Select Agent for Subject '" + subjectID + "' in Process '" + processID + "' (Instance " + processInstanceNumber + ") and start execution"
+      "Select Agent for Subject '" + subjectID + "' in Process Model '" + processModelID + "' (Instance " + processInstanceNumber + ") and start execution"
     }
 
     override def getInput(inputGetter: InputGetter): PASSActivityInputAgents = {
@@ -45,11 +51,9 @@ object Activities {
 
     override def getASMUpdates(input: PASSActivityInputAgents): Seq[ASMUpdate] = {
       if (input.names.size != 1)
-        throw new IllegalArgumentException("There must be exaclty one agent name")
+        throw new IllegalArgumentException("There must be exactly one agent name")
 
-      val startTask: Map[String, Any] = Map(
-        "task" -> "InitializeAndStartSubject",
-        "ch" -> Seq(processID, processInstanceNumber, subjectID, input.names.head))
+      val startTask: TaskMap = initializeAndStartSubjectTask(processModelID, processInstanceNumber, subjectID, input.names.head)
 
       var updates: Seq[ASMUpdate] = Nil
       updates +:= addTask(startTask)
@@ -62,7 +66,7 @@ object Activities {
     def state: ActiveState = transition.sourceState
 
     override def toActivityString: String = {
-      "Select Transition '" + transition.transitionID + "' to State '" + transition.targetStateLabel + "'"
+      "Select Transition '" + transition.transitionLabel + "' to State '" + transition.targetStateLabel + "'"
     }
 
     override def getInput(inputGetter: InputGetter): PASSActivityInputUnit.type = PASSActivityInputUnit
@@ -102,7 +106,7 @@ object Activities {
     def state: ActiveState = transition.sourceState
 
     override def toActivityString: String = {
-      val transitionLabel = transition.transitionID match {
+      val transitionLabel = transition.transitionLabel match {
         case "undefined" => ""
         case x => " '"+x+"'"
       }
@@ -119,7 +123,7 @@ object Activities {
     }
   }
 
-  case class MessageContentDecision(state: ActiveState, messageType: String, receivers: Set[Channel]) extends PASSActivityAgent[PASSActivityInputMessageContent] {
+  case class MessageContentDecision(state: ActiveState, messageType: MessageType, receivers: Set[Channel]) extends PASSActivityAgent[PASSActivityInputMessageContent] {
     override def toActivityString: String = {
       "Set Message Content (\"" + messageType + "\") for Message to " + receivers.mkString("{", ", ", "}")
     }
@@ -156,7 +160,7 @@ object Activities {
     }
   }
 
-  case class SelectAgents(state: ActiveState, processID: String, subjectID: String, min: Int, max: Int) extends PASSActivityAgent[PASSActivityInputAgents] {
+  case class SelectAgents(state: ActiveState, processModelID: ProcessIdentifier, subjectID: SubjectIdentifier, min: Int, max: Int) extends PASSActivityAgent[PASSActivityInputAgents] {
     override def toActivityString: String = {
       val text = {
         if (max == 1) "Select agent"
@@ -165,8 +169,8 @@ object Activities {
         else "Select " + min + " to " + max + " Agents"
       }
 
-      val suffix = if (processID != state.ch.processID) {
-        " in Process '" + processID + "'"
+      val suffix = if (processModelID != state.ch.processModelID) {
+        " in Process Model '" + processModelID + "'"
       } else ""
 
       text + " for Subject '" + subjectID + "'" + suffix

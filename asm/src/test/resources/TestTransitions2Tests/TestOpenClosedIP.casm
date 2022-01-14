@@ -1,4 +1,4 @@
-// @maxsteps 100
+// @maxsteps 300
 // @minsteps 1
 
 // @refuse "unhandled Task"
@@ -35,7 +35,7 @@ include "../Transitions2_OpenClosedIP.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_OpenClosedIP"}
+    processModelIDs := {"Transitions2_OpenClosedIP"}
 
     LoadTransitions2_OpenClosedIP
 }

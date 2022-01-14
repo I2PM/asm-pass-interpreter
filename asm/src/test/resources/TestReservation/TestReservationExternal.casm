@@ -20,8 +20,8 @@ include "../ExternalSubjectsB.casm"
 
 init TestReservation
 
-function processIDA  : -> STRING
-function processIDB  : -> STRING
+function processModelIDA : -> STRING
+function processModelIDB : -> STRING
 
 function senderIDA   : -> STRING
 function receiverIDA : -> STRING
@@ -42,8 +42,8 @@ function receiveTransition : -> NUMBER
 rule TestReservation = seqblock
     initSemantic
 
-    processIDA  := "ExternalSubjectsA"
-    processIDB  := "ExternalSubjectsB"
+    processModelIDA := "ExternalSubjectsA"
+    processModelIDB := "ExternalSubjectsB"
 
     senderIDA   := "A"
     receiverIDA := "B"
@@ -55,20 +55,20 @@ rule TestReservation = seqblock
     LoadExternalSubjectsB
 
 
-    sendStateNumber    := stateNumberFromID(processIDA, "START")
+    sendStateNumber    := stateNumberFromID(processModelIDA, "START")
     debuginfo TestReservation "sendStateNumber: " + sendStateNumber
-    sendTransition    := first_outgoingNormalTransition(processIDA, sendStateNumber)
+    sendTransition     := first_outgoingNormalTransition(processModelIDA, sendStateNumber)
     debuginfo TestReservation "sendTransition: " + sendTransition
 
-    receiveStateNumber := stateNumberFromID(processIDB, "START")
+    receiveStateNumber := stateNumberFromID(processModelIDB, "START")
     debuginfo TestReservation "receiveStateNumber: " + receiveStateNumber
-    receiveTransition := first_outgoingNormalTransition(processIDB, receiveStateNumber)
+    receiveTransition  := first_outgoingNormalTransition(processModelIDB, receiveStateNumber)
     debuginfo TestReservation "receiveTransition: " + receiveTransition
 
     extend Agents with a do {
         program(a) := @TestSend
 
-        initAgent(a, processIDA, 1, senderIDA, "foo")
+        initAgent(a, processModelIDA, 1, senderIDA, "foo")
 
         sender := a
     }
@@ -77,7 +77,7 @@ rule TestReservation = seqblock
         program(b) := @TestCheckIP
 
         seqblock
-        initAgent(b, processIDB, 2, receiverIDB, "bar")
+        initAgent(b, processModelIDB, 2, receiverIDB, "bar")
         wantInput(channelFor(b), 1, receiveStateNumber) := {}
         endseqblock
 
@@ -103,13 +103,13 @@ endseqblock
 rule TestSend = {
     local boolres := false in
     seqblock
-        debuginfo TestSend "subjectInterface(ExternalSubjectsA, A): " + subjectInterface(processIDA, senderIDA)
-        debuginfo TestSend "subjectInterface(ExternalSubjectsA, B): " + subjectInterface(processIDA, receiverIDA)
-        debuginfo TestSend "subjectInterface(ExternalSubjectsB, X): " + subjectInterface(processIDB, senderIDB)
-        debuginfo TestSend "subjectInterface(ExternalSubjectsB, Y): " + subjectInterface(processIDB, receiverIDB)
+        debuginfo TestSend "subjectInterface(ExternalSubjectsA, A): " + subjectInterface(processModelIDA, senderIDA)
+        debuginfo TestSend "subjectInterface(ExternalSubjectsA, B): " + subjectInterface(processModelIDA, receiverIDA)
+        debuginfo TestSend "subjectInterface(ExternalSubjectsB, X): " + subjectInterface(processModelIDB, senderIDB)
+        debuginfo TestSend "subjectInterface(ExternalSubjectsB, Y): " + subjectInterface(processModelIDB, receiverIDB)
 
-        debuginfo TestSend "SubjectID of A in ExternalSubjectsB: " + searchInterfaceSubject(processIDA, senderIDA, processIDB)
-        debuginfo TestSend "searchSenderSubjectID of A for ExternalSubjectsAnonymousB: "  + searchSenderSubjectID(processIDA, senderIDA, processIDB)
+        debuginfo TestSend "SubjectID of A in ExternalSubjectsB: " + searchInterfaceSubject(processModelIDA, senderIDA, processModelIDB)
+        debuginfo TestSend "searchSenderSubjectID of A for ExternalSubjectsAnonymousB: "  + searchSenderSubjectID(processModelIDA, senderIDA, processModelIDB)
 
         executionState(channelFor(self), 1, sendStateNumber) := undef
         StartSend(1, sendStateNumber)

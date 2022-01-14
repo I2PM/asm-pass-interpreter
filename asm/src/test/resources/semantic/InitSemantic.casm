@@ -6,12 +6,12 @@ include "../../classes/helper.casm"
 //include "../../../main/resources/semantic.casm"
 //include "../../../main/resources/helper.casm"
 
-rule initAgent(a, processID, processInstanceNumber, subjectID, agent) = {
+rule initAgent(a, processModelID, processInstanceNumber, subjectID, agent) = {
     add a to asmAgents
     add agent to aALL
 
-    let ch = [processID, processInstanceNumber, subjectID, agent] in
-    let mID = subjectMainMacro(processID, subjectID) in
+    let ch  = [processModelID, processInstanceNumber, subjectID, agent] in
+    let mID = subjectMainMacro(processModelID, subjectID) in
     let MI  = 1 in // 0 reserved for top-level variable manipulation; 1 mainmacro
     {
         channelFor(a) := ch

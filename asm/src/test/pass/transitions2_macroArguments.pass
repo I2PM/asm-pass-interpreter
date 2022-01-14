@@ -36,12 +36,12 @@ Process Transitions2_MacroArguments {
 
         Macro Ping ("receivers") {
             START: Send {
-                ["ping" to B in "receivers" with content of "$empty"] -> TERMINATE_Success
-                (timeout (0)) -> TERMINATE_Fail
+                ["ping" to B in "receivers" with content of "$empty"] -> RETURN_Success
+                (timeout (0)) -> RETURN_Fail
             }
 
-            TERMINATE_Success: Terminate ("success")
-            TERMINATE_Fail:    Terminate ("fail")
+            RETURN_Success: Return ("success")
+            RETURN_Fail:    Return ("fail")
         }
     }
 

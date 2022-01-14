@@ -35,7 +35,7 @@ include "../Transitions2_AutoTransition.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_AutoTransition"}
+    processModelIDs := {"Transitions2_AutoTransition"}
 
     LoadTransitions2_AutoTransition
 }

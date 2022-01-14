@@ -1,11 +1,11 @@
 package de.athalis.coreasm.helper
 
 import org.coreasm.engine.absstorage._
-import org.coreasm.engine.plugins.number.NumberElement
-import org.coreasm.engine.plugins.string.StringElement
-import org.coreasm.engine.plugins.set.SetElement
 import org.coreasm.engine.plugins.list.ListElement
 import org.coreasm.engine.plugins.map.MapElement
+import org.coreasm.engine.plugins.number.NumberElement
+import org.coreasm.engine.plugins.set.SetElement
+import org.coreasm.engine.plugins.string.StringElement
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -71,7 +71,7 @@ class ImplicitsTableSpec extends AnyPropSpec with TableDrivenPropertyChecks with
   }
 
   property("L should convert to Location") {
-    val location = Seq("A", "a", 2)
+    val location: Seq[Any] = Seq("A", "a", 2)
 
     val args = new java.util.LinkedList[Element]()
     args.add(E("a"))

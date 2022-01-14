@@ -1,7 +1,7 @@
 // TODO: support external Subjects
-function processIDs : -> SET
+function processModelIDs : -> SET
 
-// processID * subjectID -> SET[agent]
+// processModelID * subjectID -> SET[agent]
 function availableAgents : STRING * STRING -> SET
 
 function taskSetInAgent : -> Agents
@@ -18,13 +18,13 @@ rule TestTransitions2 = seqblock
 
     InitializeTest()
 
-    foreach processID in processIDs do {
+    foreach processModelID in processModelIDs do {
         local numres1 in {
-            numres1 <- StartProcess(processID, undef, undef)
+            numres1 <- StartProcessModel(processModelID, undef, undef)
         }
 
-        foreach subjectID in keySet((processData(processID))("agents")) do {
-            availableAgents(processID, subjectID) := ((processData(processID))("agents"))(subjectID)
+        foreach subjectID in keySet((processData(processModelID))("agents")) do {
+            availableAgents(processModelID, subjectID) := ((processData(processModelID))("agents"))(subjectID)
         }
     }
 endseqblock
@@ -94,26 +94,26 @@ rule WatchTaskSetOut = {
 }
 
 rule WatchTaskSetOut_StartSubject(task) = {
-    let taskProcessID = (task())("processID"),
+    let taskProcessModelID = (task())("processModelID"),
         taskPI = (task())("PI"),
         taskSubjectID = (task())("subjectID") in {
-        if (contains(processIDs, taskProcessID)) then {
-            if (availableAgents(taskProcessID, taskSubjectID) != undef) then {
+        if (contains(processModelIDs, taskProcessModelID)) then {
+            if (availableAgents(taskProcessModelID, taskSubjectID) != undef) then {
                 debuginfo WatchTaskSet_StartSubject "I thought this couldn't happen anymore as StartProcess uses predefinedAgents to automatically start StartSubjects. Looks like I was wrong and it was a good idea not to remove this functionality completely, so that it can be restored now."
                 Crash()
 
-                choose selectedAgent in availableAgents(taskProcessID, taskSubjectID) do {
-                    remove selectedAgent from availableAgents(taskProcessID, taskSubjectID)
+                choose selectedAgent in availableAgents(taskProcessModelID, taskSubjectID) do {
+                    remove selectedAgent from availableAgents(taskProcessModelID, taskSubjectID)
 
                     add {
                         "task" -> "InitializeAndStartSubject",
-                        "ch" -> [taskProcessID, taskPI, taskSubjectID, selectedAgent]
+                        "ch" -> [taskProcessModelID, taskPI, taskSubjectID, selectedAgent]
                        } to taskSetIn
 
                     handledTask := true
                 }
                 ifnone {
-                   debuginfo WatchTaskSet_StartSubject "no agent available for subjectID '" + taskSubjectID + "' in processID '" + taskProcessID + "'"
+                   debuginfo WatchTaskSet_StartSubject "no agent available for subjectID '" + taskSubjectID + "' in processModelID '" + taskProcessModelID + "'"
                 }
             }
             else {
@@ -121,7 +121,7 @@ rule WatchTaskSetOut_StartSubject(task) = {
             }
         }
         else {
-            debuginfo WatchTaskSet_StartSubject "unknown processID: '" + taskProcessID + "'"
+            debuginfo WatchTaskSet_StartSubject "unknown processModelID: '" + taskProcessModelID + "'"
         }
     }
 }
@@ -129,15 +129,15 @@ rule WatchTaskSetOut_StartSubject(task) = {
 function i : -> NUMBER
 
 rule WatchTaskSetOut_SelectAgentsDecision(ch, MI, stateNumber) = {
-    let taskProcessID = selectAgentsProcessID(ch, MI, stateNumber),
-        taskSubjectID = selectAgentsSubjectID(ch, MI, stateNumber),
-        taskCountMin  = selectAgentsCountMin(ch, MI, stateNumber),
-        taskCountMax  = selectAgentsCountMax(ch, MI, stateNumber) in {
+    let taskProcessModelID = selectAgentsProcessModelID(ch, MI, stateNumber),
+        taskSubjectID      = selectAgentsSubjectID     (ch, MI, stateNumber),
+        taskCountMin       = selectAgentsCountMin      (ch, MI, stateNumber),
+        taskCountMax       = selectAgentsCountMax      (ch, MI, stateNumber) in {
 
-        debuginfo WatchTaskSetOut_SelectAgentsDecision ": selecting agents for subjectID '" + taskSubjectID + "' in processID '" + taskProcessID + "'"
+        debuginfo WatchTaskSetOut_SelectAgentsDecision ": selecting agents for subjectID '" + taskSubjectID + "' in processModelID '" + taskProcessModelID + "'"
 
-        if (contains(processIDs, taskProcessID)) then {
-            if (availableAgents(taskProcessID, taskSubjectID) != undef) then seqblock
+        if (contains(processModelIDs, taskProcessModelID)) then {
+            if (availableAgents(taskProcessModelID, taskSubjectID) != undef) then seqblock
                 // NOTE: SelectAgents automatically uses predefinedAgents if it hasSizeWithin min/max
 
                 if (taskCountMin != taskCountMax) then {
@@ -153,14 +153,14 @@ rule WatchTaskSetOut_SelectAgentsDecision(ch, MI, stateNumber) = {
                 local i := 0 in
                 while (i < taskCount) do {
                     i := i + 1
-                    choose selectedAgent in availableAgents(taskProcessID, taskSubjectID) do {
-                        remove selectedAgent from availableAgents(taskProcessID, taskSubjectID)
+                    choose selectedAgent in availableAgents(taskProcessModelID, taskSubjectID) do {
+                        remove selectedAgent from availableAgents(taskProcessModelID, taskSubjectID)
 
                         add selectedAgent to selectAgentsDecision(ch, MI, stateNumber)
                     }
                     ifnone {
                         handledWantInput := false
-                        debuginfo WatchTaskSet_StartSubject "no agent available for subjectID '" + taskSubjectID + "' in processID '" + taskProcessID + "'"
+                        debuginfo WatchTaskSet_StartSubject "no agent available for subjectID '" + taskSubjectID + "' in processModelID '" + taskProcessModelID + "'"
                     }
                 }
 
@@ -172,7 +172,7 @@ rule WatchTaskSetOut_SelectAgentsDecision(ch, MI, stateNumber) = {
             }
         }
         else {
-            debuginfo WatchTaskSet_StartSubject "unknown processID: '" + taskProcessID + "'"
+            debuginfo WatchTaskSet_StartSubject "unknown processModelID: '" + taskProcessModelID + "'"
         }
     }
 }

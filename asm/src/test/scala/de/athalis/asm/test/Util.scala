@@ -1,8 +1,8 @@
 package de.athalis.asm.test
 
-import scala.language.implicitConversions
-
 import org.scalatest.matchers.should.Matchers._
+
+import scala.language.implicitConversions
 
 object Util {
   class AssertionHolder(f: => Any) {

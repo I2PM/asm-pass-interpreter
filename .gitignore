@@ -21,6 +21,8 @@ test-rev-dir/
 
 .idea
 
+.bsp
+
 ## https://github.com/github/gitignore
 
 # sbt specific

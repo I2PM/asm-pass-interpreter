@@ -1,18 +1,21 @@
 package de.athalis.pass.ui
 
-import com.typesafe.config.{Config, ConfigFactory}
+import de.athalis.coreasm.binding.akka.AkkaStorageBinding
 
 import akka.actor._
-import akka.event.{Logging, LoggingAdapter}
+import akka.event.Logging
+import akka.event.LoggingAdapter
 import akka.util.Timeout
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+
+import org.jline.terminal.Terminal
+import org.jline.terminal.TerminalBuilder
+
+import org.fusesource.jansi.AnsiConsole
 
 import scala.concurrent._
 import scala.concurrent.duration._
-
-import org.fusesource.jansi.AnsiConsole
-import org.jline.terminal.{Terminal, TerminalBuilder}
-
-import de.athalis.coreasm.binding.akka.AkkaStorageBinding
 
 object Boot {
   private implicit val timeout: Timeout = Timeout(10.seconds)
@@ -35,9 +38,8 @@ object Boot {
       try {
         val logger: LoggingAdapter = Logging(system, getClass.getName)
 
-        val storageHost = config.getString("coreasm-storage.hostname")
-        val storagePort = config.getString("coreasm-storage.port").toInt
-        val storageActor: ActorSelection = system.actorSelection("akka.tcp://coreasm-storage@" + storageHost + ":" + storagePort + "/user/AkkaStorageActor")
+        val storagePath = config.getString("coreasm-storage.remote-actor-selection-path")
+        val storageActor: ActorSelection = system.actorSelection(storagePath)
 
         logger.info("initialized Akka ActorSystem")
 
@@ -52,7 +54,7 @@ object Boot {
         console.run()
       }
       finally {
-        Await.result(system.terminate, 10.seconds)
+        Await.result(system.terminate(), 10.seconds)
       }
     }
     finally {

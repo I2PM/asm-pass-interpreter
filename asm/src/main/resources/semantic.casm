@@ -1,5 +1,5 @@
 function aALL : -> SET // all known pass agents // read by UI
-function pALL : -> SET // all loaded processes
+function pALL : -> SET // all known process model IDs
 
 
 // all known rules that can be called from Function States
@@ -33,7 +33,7 @@ rule DefineFunctions = {
 
 // ====
 
-// ProcessID -> MAP / SET
+// ProcessModelID -> MAP / SET
 function processData            : STRING -> MAP
 function processSubjects        : STRING -> MAP
 function processStartSubjectIDs : STRING -> SET
@@ -41,35 +41,35 @@ function processMacros          : STRING -> MAP
 function processStates          : STRING -> MAP
 function processTransitions     : STRING -> MAP
 
-// ProcessID * SubjectID -> SET[AgentName]
+// ProcessModelID * SubjectID -> SET[AgentName]
 function predefinedAgents : STRING * STRING -> SET
 
 
-derived isStartAbleProcess(processID) = (|processStartSubjectIDs(processID)| > 0)
+derived isStartAbleProcess(processModelID) = (|processStartSubjectIDs(processModelID)| > 0)
 
 // all loaded processes that are start-able
 // called from UI
-derived startAbleProcesses = filter(pALL, @isStartAbleProcess)
+derived startAbleProcessModels = filter(pALL, @isStartAbleProcess)
 
 
-rule AddProcess(processID, processMap) = {
-    debuginfo AddProcess self + ": store processMap for '" + processID + "': " + processMap
+rule AddProcessModel(processModelID, processModelMap) = {
+    debuginfo AddProcessModel self + ": store processModelMap for '" + processModelID + "': " + processModelMap
 
-    add processID to pALL
+    add processModelID to pALL
 
-    processData(processID)               := processMap()("data")
-    processSubjects(processID)           := processMap()("subjects")
-    processStartSubjectIDs(processID)    := processMap()("startSubjectIDs")
-    processMacros(processID)             := processMap()("macros")
-    processScopedMacroNumbers(processID) := processMap()("processMacroNumbers")
-    processStates(processID)             := processMap()("states")
-    processTransitions(processID)        := processMap()("transitions")
+    processData(processModelID)               := processModelMap()("data")
+    processSubjects(processModelID)           := processModelMap()("subjects")
+    processStartSubjectIDs(processModelID)    := processModelMap()("startSubjectIDs")
+    processMacros(processModelID)             := processModelMap()("macros")
+    processScopedMacroNumbers(processModelID) := processModelMap()("processMacroNumbers")
+    processStates(processModelID)             := processModelMap()("states")
+    processTransitions(processModelID)        := processModelMap()("transitions")
 
     // each subject MIGHT have data with predefined agents, that will automatically be assigned
-    let agents = tryGet(processMap()("data"), "agents") in {
+    let agents = tryGet(processModelMap()("data"), "agents") in {
         if (agents != undef) then {
             forall sID in keySet(agents) do {
-                predefinedAgents(processID, sID) := agents(sID)
+                predefinedAgents(processModelID, sID) := agents(sID)
 
                 // remember their names for suggestion list in UI
                 forall a in agents(sID) do {
@@ -82,21 +82,21 @@ rule AddProcess(processID, processMap) = {
 
 
 derived stateFilter_ID(stateNumber, stateID) = (last(stateNumber)("ID") = stateID)
-derived stateFromID(processID, stateID) = firstFromSet(filterSet1(mapToPairs(processStates(processID)), @stateFilter_ID, stateID))
-derived stateNumberFromID(processID, stateID) = head(stateFromID(processID, stateID))
+derived stateFromID(processModelID, stateID) = firstFromSet(filterSet1(mapToPairs(processStates(processModelID)), @stateFilter_ID, stateID))
+derived stateNumberFromID(processModelID, stateID) = head(stateFromID(processModelID, stateID))
 
 
-derived stateID(processID, stateNumber)                        = (processStates(processID)(stateNumber))("ID")
-derived stateType(processID, stateNumber)                      = (processStates(processID)(stateNumber))("type")
-derived stateFunction(processID, stateNumber)                  = (processStates(processID)(stateNumber))("function")
-derived stateFunctionArguments(processID, stateNumber)         = (processStates(processID)(stateNumber))("functionArguments")
-derived statePriority(processID, stateNumber)                  = (processStates(processID)(stateNumber))("priority")
-derived stateOutgoingTransitionNumbers(processID, stateNumber) = (processStates(processID)(stateNumber))("outgoingTransitionNumbers")
+derived stateID(processModelID, stateNumber)                        = (processStates(processModelID)(stateNumber))("ID")
+derived stateType(processModelID, stateNumber)                      = (processStates(processModelID)(stateNumber))("type")
+derived stateFunction(processModelID, stateNumber)                  = (processStates(processModelID)(stateNumber))("function")
+derived stateFunctionArguments(processModelID, stateNumber)         = (processStates(processModelID)(stateNumber))("functionArguments")
+derived statePriority(processModelID, stateNumber)                  = (processStates(processModelID)(stateNumber))("priority")
+derived stateOutgoingTransitionNumbers(processModelID, stateNumber) = (processStates(processModelID)(stateNumber))("outgoingTransitionNumbers")
 
 
-derived stateLabel(processID, stateNumber) = return stringres in {
-    let ID    = (processStates(processID)(stateNumber))("ID") in
-    let label = (processStates(processID)(stateNumber))("label") in {
+derived stateLabel(processModelID, stateNumber) = return stringres in {
+    let ID    = (processStates(processModelID)(stateNumber))("ID") in
+    let label = (processStates(processModelID)(stateNumber))("label") in {
         if (label != undef and label != "") then {
             stringres := label
         }
@@ -107,25 +107,25 @@ derived stateLabel(processID, stateNumber) = return stringres in {
 }
 
 
-derived transitionFilter_isNormal(transitionNumber, processID)  = ((processTransitions(processID)(transitionNumber))("type") = "normal")
-derived transitionFilter_isCancel(transitionNumber, processID)  = ((processTransitions(processID)(transitionNumber))("type") = "cancel")
-derived transitionFilter_isTimeout(transitionNumber, processID) = ((processTransitions(processID)(transitionNumber))("type") = "timeout")
+derived transitionFilter_isNormal(transitionNumber, processModelID)  = ((processTransitions(processModelID)(transitionNumber))("type") = "normal")
+derived transitionFilter_isCancel(transitionNumber, processModelID)  = ((processTransitions(processModelID)(transitionNumber))("type") = "cancel")
+derived transitionFilter_isTimeout(transitionNumber, processModelID) = ((processTransitions(processModelID)(transitionNumber))("type") = "timeout")
 
 // -> Set[TransitionNumber]
-derived outgoingNormalTransitions(processID, stateNumber)  = filterSet1(stateOutgoingTransitionNumbers(processID, stateNumber), @transitionFilter_isNormal, processID) // all Transitions starting at State `n` and having `normal` type
-derived outgoingTimeoutTransitions(processID, stateNumber) = filterSet1(stateOutgoingTransitionNumbers(processID, stateNumber), @transitionFilter_isTimeout, processID) // all Transitions starting at State `n` and having `timeout` type. Size should be either one or zero
-derived outgoingCancelTransitions(processID, stateNumber)  = filterSet1(stateOutgoingTransitionNumbers(processID, stateNumber), @transitionFilter_isCancel, processID) // all Transitions starting at State `n` and having `cancel` type. Size should be either one or zero
+derived outgoingNormalTransitions(processModelID, stateNumber)  = filterSet1(stateOutgoingTransitionNumbers(processModelID, stateNumber), @transitionFilter_isNormal, processModelID) // all Transitions starting at State `n` and having `normal` type
+derived outgoingTimeoutTransitions(processModelID, stateNumber) = filterSet1(stateOutgoingTransitionNumbers(processModelID, stateNumber), @transitionFilter_isTimeout, processModelID) // all Transitions starting at State `n` and having `timeout` type. Size should be either one or zero
+derived outgoingCancelTransitions(processModelID, stateNumber)  = filterSet1(stateOutgoingTransitionNumbers(processModelID, stateNumber), @transitionFilter_isCancel, processModelID) // all Transitions starting at State `n` and having `cancel` type. Size should be either one or zero
 
-derived hasTimeoutTransition(processID, stateNumber) = nonEmpty(outgoingTimeoutTransitions(processID, stateNumber))
-derived hasCancelTransition(processID, stateNumber) = nonEmpty(outgoingCancelTransitions(processID, stateNumber))
+derived hasTimeoutTransition(processModelID, stateNumber) = nonEmpty(outgoingTimeoutTransitions(processModelID, stateNumber))
+derived hasCancelTransition(processModelID, stateNumber)  = nonEmpty(outgoingCancelTransitions(processModelID, stateNumber))
 
 // -> TransitionNumber
-derived first_outgoingTimeoutTransition(processID, stateNumber) = firstFromSet(outgoingTimeoutTransitions(processID, stateNumber))
-derived first_outgoingCancelTransition(processID, stateNumber)  = firstFromSet(outgoingCancelTransitions(processID, stateNumber))
-derived first_outgoingNormalTransition(processID, stateNumber)  = firstFromSet(outgoingNormalTransitions(processID, stateNumber))
+derived first_outgoingTimeoutTransition(processModelID, stateNumber) = firstFromSet(outgoingTimeoutTransitions(processModelID, stateNumber))
+derived first_outgoingCancelTransition(processModelID, stateNumber)  = firstFromSet(outgoingCancelTransitions(processModelID, stateNumber))
+derived first_outgoingNormalTransition(processModelID, stateNumber)  = firstFromSet(outgoingNormalTransitions(processModelID, stateNumber))
 
 derived transitionFilter_Enabled            (transitionNumber, ch, MI)           = (transitionEnabled(ch, MI, transitionNumber) = true)
-derived transitionFilter_EnabledWithPriority(transitionNumber, ch, MI, priority) = (transitionFilter_Enabled(transitionNumber, ch, MI) and transitionPriority(processIDOf(ch), transitionNumber) = priority)
+derived transitionFilter_EnabledWithPriority(transitionNumber, ch, MI, priority) = (transitionFilter_Enabled(transitionNumber, ch, MI) and transitionPriority(processModelIDOf(ch), transitionNumber) = priority)
 
 
 // -> Set[TransitionNumber]
@@ -133,9 +133,9 @@ derived transitionFilter_EnabledWithPriority(transitionNumber, ch, MI, priority)
 derived outgoingEnabledTransitions_All(ch, MI, stateNumber) = return setres in {
     debuginfo outgoingEnabledTransitions_All "("+ch+", "+MI+", "+stateNumber+")"
 
-    let processID = processIDOf(ch) in {
+    let processModelID = processModelIDOf(ch) in {
         seqblock
-        setres := filterSet2(outgoingNormalTransitions(processID, stateNumber), @transitionFilter_Enabled, ch, MI)
+        setres := filterSet2(outgoingNormalTransitions(processModelID, stateNumber), @transitionFilter_Enabled, ch, MI)
         debuginfo outgoingEnabledTransitions_All self + ": ("+ch+", "+MI+", "+stateNumber+"): " + setres
         endseqblock
     }
@@ -148,13 +148,13 @@ prio = 0 => default
 derived highestPrio_outgoingEnabledTransitions(ch, MI, stateNumber) = return numres in {
     debuginfo highestPrio_outgoingEnabledTransitions self + ": ("+ch+", "+MI+", "+stateNumber+")"
 
-    let processID = processIDOf(ch),
+    let processModelID = processModelIDOf(ch),
         allEnabledTransitions = outgoingEnabledTransitions_All(ch, MI, stateNumber) in
     seqblock
         numres := 0
 
-        foreach transitionNumber in allEnabledTransitions with (transitionPriority(processID, transitionNumber) != undef) do {
-            let priority = transitionPriority(processID, transitionNumber) in {
+        foreach transitionNumber in allEnabledTransitions with (transitionPriority(processModelID, transitionNumber) != undef) do {
+            let priority = transitionPriority(processModelID, transitionNumber) in {
                 debuginfo highestPrio_outgoingEnabledTransitions self + ": transition: " + transitionPrettyForChannel(ch, MI, transitionNumber)
 
                 if (priority > numres) then {
@@ -174,31 +174,31 @@ derived outgoingEnabledTransitions(ch, MI, stateNumber) = return setres in {
     debuginfo outgoingEnabledTransitions self + ": ("+ch+", "+MI+", "+stateNumber+")"
 
     let priority  = highestPrio_outgoingEnabledTransitions(ch, MI, stateNumber),
-        processID = processIDOf(ch) in
+        processModelID = processModelIDOf(ch) in
     seqblock
         debuginfo outgoingEnabledTransitions self + ": filter enabled transitions with priority = " + priority
 
-        setres := filterSet3(outgoingNormalTransitions(processID, stateNumber), @transitionFilter_EnabledWithPriority, ch, MI, priority)
+        setres := filterSet3(outgoingNormalTransitions(processModelID, stateNumber), @transitionFilter_EnabledWithPriority, ch, MI, priority)
 
         debuginfo outgoingEnabledTransitions self + ": ("+ch+", "+MI+", "+stateNumber+"): " + setres
     endseqblock
 }
 
 
-derived transitionIsAuto(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("auto")
-derived transitionIsHidden(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("hidden")
-derived transitionTimeout(processID, transitionNumber)  = (processTransitions(processID)(transitionNumber))("timeout")
-derived transitionPriority(processID, transitionNumber) = return numres in {
-    let prio = (processTransitions(processID)(transitionNumber))("priority") in {
+derived transitionIsAuto(processModelID, transitionNumber)   = (processTransitions(processModelID)(transitionNumber))("auto")
+derived transitionIsHidden(processModelID, transitionNumber) = (processTransitions(processModelID)(transitionNumber))("hidden")
+derived transitionTimeout(processModelID, transitionNumber)  = (processTransitions(processModelID)(transitionNumber))("timeout")
+derived transitionPriority(processModelID, transitionNumber) = return numres in {
+    let prio = (processTransitions(processModelID)(transitionNumber))("priority") in {
         if (prio = undef) then numres := 0
         else numres := prio
     }
 }
 
-derived transitionHasLabel(processID, transitionNumber, label) = ((processTransitions(processID)(transitionNumber))("label") = label)
+derived transitionHasLabel(processModelID, transitionNumber, label) = ((processTransitions(processModelID)(transitionNumber))("label") = label)
 
-derived getTransitionByLabel(processID, stateNumber, label) = return numres in {
-    choose transitionNumber in outgoingNormalTransitions(processID, stateNumber) with transitionHasLabel(processID, transitionNumber, label) do {
+derived getTransitionByLabel(processModelID, stateNumber, label) = return numres in {
+    choose transitionNumber in outgoingNormalTransitions(processModelID, stateNumber) with transitionHasLabel(processModelID, transitionNumber, label) do {
         numres := transitionNumber
     }
     ifnone {
@@ -206,29 +206,29 @@ derived getTransitionByLabel(processID, stateNumber, label) = return numres in {
     }
 }
 
-derived messageType(processID, transitionNumber)               = (processTransitions(processID)(transitionNumber))("msgType")
-derived messageContentVar(processID, transitionNumber)         = (processTransitions(processID)(transitionNumber))("contentVar")
-derived messageWithCorrelationVar(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("withCorrelationVar")
-derived messageNewCorrelationVar(processID, transitionNumber)  = (processTransitions(processID)(transitionNumber))("newCorrelationVar")
-derived messageStoreMessagesVar(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("storeMessagesVar")
-derived messageStoreReceiverVar(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("storeReceiverVar")
-derived messageSubjectId(processID, transitionNumber)          = (processTransitions(processID)(transitionNumber))("subject")
-derived messageSubjectCountMin(processID, transitionNumber)    = (processTransitions(processID)(transitionNumber))("subjectCountMin")
-derived messageSubjectCountMax(processID, transitionNumber)    = (processTransitions(processID)(transitionNumber))("subjectCountMax") // 0 means unlimited
-derived messageSubjectVar(processID, transitionNumber)         = (processTransitions(processID)(transitionNumber))("subjectVar")
+derived messageType(processModelID, transitionNumber)               = (processTransitions(processModelID)(transitionNumber))("msgType")
+derived messageContentVar(processModelID, transitionNumber)         = (processTransitions(processModelID)(transitionNumber))("contentVar")
+derived messageWithCorrelationVar(processModelID, transitionNumber) = (processTransitions(processModelID)(transitionNumber))("withCorrelationVar")
+derived messageNewCorrelationVar(processModelID, transitionNumber)  = (processTransitions(processModelID)(transitionNumber))("newCorrelationVar")
+derived messageStoreMessagesVar(processModelID, transitionNumber)   = (processTransitions(processModelID)(transitionNumber))("storeMessagesVar")
+derived messageStoreReceiverVar(processModelID, transitionNumber)   = (processTransitions(processModelID)(transitionNumber))("storeReceiverVar")
+derived messageSubjectId(processModelID, transitionNumber)          = (processTransitions(processModelID)(transitionNumber))("subject")
+derived messageSubjectCountMin(processModelID, transitionNumber)    = (processTransitions(processModelID)(transitionNumber))("subjectCountMin")
+derived messageSubjectCountMax(processModelID, transitionNumber)    = (processTransitions(processModelID)(transitionNumber))("subjectCountMax") // 0 means unlimited
+derived messageSubjectVar(processModelID, transitionNumber)         = (processTransitions(processModelID)(transitionNumber))("subjectVar")
 
 
-derived messageTypeForFirstTransition(processID, stateNumber) = messageType(processID, first_outgoingNormalTransition(processID, stateNumber)) //called from UI
+derived messageTypeForFirstTransition(processModelID, stateNumber)  = messageType(processModelID, first_outgoingNormalTransition(processModelID, stateNumber)) //called from UI
 
 
 
-derived transitionLabel(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("label")
-derived transitionType(processID, transitionNumber) = (processTransitions(processID)(transitionNumber))("type")
-derived transitionIsNormal(processID, transitionNumber) = (transitionType(processID, transitionNumber) = "normal")
-derived targetStateNumber(processID, transitionNumber)   = (processTransitions(processID)(transitionNumber))("targetStateNumber")
+derived transitionLabel(processModelID, transitionNumber)    = (processTransitions(processModelID)(transitionNumber))("label")
+derived transitionType(processModelID, transitionNumber)     = (processTransitions(processModelID)(transitionNumber))("type")
+derived transitionIsNormal(processModelID, transitionNumber) = (transitionType(processModelID, transitionNumber) = "normal")
+derived targetStateNumber(processModelID, transitionNumber)  = (processTransitions(processModelID)(transitionNumber))("targetStateNumber")
 
-derived targetStateLabel(processID, transitionNumber) = stateLabel(processID, targetStateNumber(processID, transitionNumber))
-derived targetStateType(processID, transitionNumber)  = stateType(processID, targetStateNumber(processID, transitionNumber))
+derived targetStateLabel(processModelID, transitionNumber) = stateLabel(processModelID, targetStateNumber(processModelID, transitionNumber))
+derived targetStateType(processModelID, transitionNumber)  = stateType(processModelID, targetStateNumber(processModelID, transitionNumber))
 
 
 // ====
@@ -237,9 +237,9 @@ derived targetStateType(processID, transitionNumber)  = stateType(processID, tar
 derived transitionPretty(MI, transitionNumber) = transitionPrettyForChannel(channelFor(self), MI, transitionNumber)
 
 derived transitionPrettyForChannel(ch, MI, transitionNumber) = return stringres in {
-    let processID = processIDOf(ch) in
+    let processModelID = processModelIDOf(ch) in
     {
-        stringres := "'" + transitionLabel(processID, transitionNumber) + "' (" + transitionNumber + ", type: " + transitionType(processID, transitionNumber) + ", priority: " + transitionPriority(processID, transitionNumber) + ", targetState: " + statePrettyForChannel(ch, MI, targetStateNumber(processID, transitionNumber)) + ")"
+        stringres := "'" + transitionLabel(processModelID, transitionNumber) + "' (" + transitionNumber + ", type: " + transitionType(processModelID, transitionNumber) + ", priority: " + transitionPriority(processModelID, transitionNumber) + ", targetState: " + statePrettyForChannel(ch, MI, targetStateNumber(processModelID, transitionNumber)) + ")"
     }
 }
 
@@ -247,9 +247,9 @@ derived transitionPrettyForChannel(ch, MI, transitionNumber) = return stringres 
 derived statePretty(MI, stateNumber) = statePrettyForChannel(channelFor(self), MI, stateNumber)
 
 derived statePrettyForChannel(ch, MI, stateNumber) = return stringres in {
-    let processID = processIDOf(ch) in
+    let processModelID = processModelIDOf(ch) in
     {
-        stringres := "'" + stateLabel(processID, stateNumber) + "' (" + stateType(processID, stateNumber) + ", " + stateNumber + ") in Macro '" + macroID(processID, macroNumberOfMI(ch, MI)) + "'#" + MI + " with priority " + statePriority(processID, stateNumber)
+        stringres := "'" + stateLabel(processModelID, stateNumber) + "' (" + stateType(processModelID, stateNumber) + ", " + stateNumber + ") in Macro '" + macroID(processModelID, macroNumberOfMI(ch, MI)) + "'#" + MI + " with priority " + statePriority(processModelID, stateNumber)
     }
 }
 
@@ -262,35 +262,35 @@ derived activeStatesPretty(MI, states) = join(mapList1(states, @activeStatePrett
 
 // ====
 
-derived subjectMacros(processID, sID)    = (processSubjects(processID)(sID))("macroNumbers")
-derived inputPoolSize(processID, sID)    = (processSubjects(processID)(sID))("inputpoolSize")
-derived subjectMainMacro(processID, sID) = (processSubjects(processID)(sID))("mainMacroNumber")
-derived subjectInterface(processID, sID) = (processSubjects(processID)(sID))("interface")
+derived subjectMacros(processModelID, sID)    = (processSubjects(processModelID)(sID))("macroNumbers")
+derived inputPoolSize(processModelID, sID)    = (processSubjects(processModelID)(sID))("inputpoolSize")
+derived subjectMainMacro(processModelID, sID) = (processSubjects(processModelID)(sID))("mainMacroNumber")
+derived subjectInterface(processModelID, sID) = (processSubjects(processModelID)(sID))("interface")
 
-derived macroID(processID, m)        = (processMacros(processID)(m))("ID")
-derived macroStartState(processID, m) = (processMacros(processID)(m))("startStateNumber")
-derived macroArguments(processID, m) = (processMacros(processID)(m))("macroArguments")
-derived macroVariables(processID, m) = (processMacros(processID)(m))("macroVariables")
+derived macroID(processModelID, m)         = (processMacros(processModelID)(m))("ID")
+derived macroStartState(processModelID, m) = (processMacros(processModelID)(m))("startStateNumber")
+derived macroArguments(processModelID, m)  = (processMacros(processModelID)(m))("macroArguments")
+derived macroVariables(processModelID, m)  = (processMacros(processModelID)(m))("macroVariables")
 
 
 
 
 // ====
 
-// Agent -> List[processID, processInstance, subjectID, agent]
+// Agent -> List[processModelID, processInstance, subjectID, agent]
 function channelFor : Agents -> LIST
 
-derived processIDFor(a)       = processIDOf(channelFor(a))
+derived processModelIDFor(a)  = processModelIDOf(channelFor(a))
 derived processInstanceFor(a) = processInstanceOf(channelFor(a))
 derived subjectIDFor(a)       = subjectIDOf(channelFor(a))
 derived agentFor(a)           = agentOf(channelFor(a))
 
-derived processIDOf(ch)       = nth(ch, 1)
+derived processModelIDOf(ch)  = nth(ch, 1)
 derived processInstanceOf(ch) = nth(ch, 2)
 derived subjectIDOf(ch)       = nth(ch, 3)
 derived agentOf(ch)           = nth(ch, 4)
 
-// ProcessID, ProcessInstance, SubjectID, AgentID
+// ProcessModelID, ProcessInstance, SubjectID, AgentID
 derived chToString(ch)   = nth(ch, 4) + "@" + nth(ch, 3) + "@" + nth(ch, 2) + "@" + nth(ch, 1) // TODO: nth(ch, 5)
 
 
@@ -389,12 +389,12 @@ next
     debuginfo allAllowedStatesWithinMI self + ": mapres: " + mapres
 }
 
-derived hasEqPrio(stateNumber, processID, prio) = (statePriority(processID, stateNumber) = prio)
+derived hasEqPrio(stateNumber, processModelID, prio) = (statePriority(processModelID, stateNumber) = prio)
 
-derived filterStatesWithSamePrio(processID, l, prio) = filterList2(l, @hasEqPrio, processID, prio)
+derived filterStatesWithSamePrio(processModelID, l, prio) = filterList2(l, @hasEqPrio, processModelID, prio)
 
 derived allowedStates(ch, MI) = return listres in
-let processID = processIDOf(ch) in
+let processModelID = processModelIDOf(ch) in
 seqblock
     debuginfo allowedStates self + ": MI: " + MI
 
@@ -403,8 +403,8 @@ seqblock
     listres2 := activeStates(ch, MI)
 
     while (|listres2| > 0) do {
-        let lN = getAnyStateWithHighestPrio(processID, listres2) in
-        let lPrio = statePriority(processID, lN) in
+        let lN = getAnyStateWithHighestPrio(processModelID, listres2) in
+        let lPrio = statePriority(processModelID, lN) in
         let state = executionState(ch, MI, lN) in seqblock
             debuginfo allowedStates self + ": state: " + statePrettyForChannel(ch, MI, lN)
             debuginfo allowedStates self + ": state: " + undefStr(state)
@@ -413,7 +413,7 @@ seqblock
             add lN to listres
 
             if (state != 3) then {
-                listres2 := filterStatesWithSamePrio(processID, listres2, lPrio) // reduce to states with same priority
+                listres2 := filterStatesWithSamePrio(processModelID, listres2, lPrio) // reduce to states with same priority
             }
         endseqblock
     }
@@ -480,10 +480,10 @@ function transitionCompleted : LIST * NUMBER * NUMBER -> BOOLEAN
 derived shouldTimeout(ch, MI, stateNumber) = return boolres in {
     debuginfo shouldTimeout self + ": state " + statePrettyForChannel(ch, MI, stateNumber)
 
-    let processID = processIDOf(ch) in {
-        if (hasTimeoutTransition(processID, stateNumber) = true and startTime(ch, MI, stateNumber) != undef) then {
-            let transitionNumber = first_outgoingTimeoutTransition(processID, stateNumber) in
-            let timeout = transitionTimeout(processID, transitionNumber) * 1000 * 1000 * 1000 in {
+    let processModelID = processModelIDOf(ch) in {
+        if (hasTimeoutTransition(processModelID, stateNumber) = true and startTime(ch, MI, stateNumber) != undef) then {
+            let transitionNumber = first_outgoingTimeoutTransition(processModelID, stateNumber) in
+            let timeout = transitionTimeout(processModelID, transitionNumber) * 1000 * 1000 * 1000 in {
                 debuginfo shouldTimeout self + ": startTime: " + startTime(ch, MI, stateNumber)
                 debuginfo shouldTimeout self + ": timeout: " + timeout
                 debuginfo shouldTimeout self + ": nanoTime: " + nanoTime()
@@ -531,8 +531,8 @@ derived isMacroLocalVariableForChannel(ch, MI, varname) = return boolres in {
     }
     else {
         let mID = macroNumberOfMI(ch, MI) in
-        let processID = processIDOf(ch) in {
-            boolres := (contains(macroArguments(processID, mID), varname) or contains(macroVariables(processID, mID), varname))
+        let processModelID = processModelIDOf(ch) in {
+            boolres := (contains(macroArguments(processModelID, mID), varname) or contains(macroVariables(processModelID, mID), varname))
         }
     }
 }
@@ -644,28 +644,28 @@ rule AddChannelsForChannel(ch, MI, varname, newChannels) = {
 
 derived extractChannelsFromMessages(msgs) = map(msgs, @head) // reduces messages to their senders
 
-derived filterChannel(ch, processID, subjectID) = ((processID = "?" or processIDOf(ch) = processID) and (subjectID = "?" or subjectIDOf(ch) = subjectID))
+derived filterChannel(ch, processModelID, subjectID) = ((processModelID = "?" or processModelIDOf(ch) = processModelID) and (subjectID = "?" or subjectIDOf(ch) = subjectID))
 
-derived filterChannelNot(ch, processID, subjectID) = not(filterChannel(ch, processID, subjectID))
+derived filterChannelNot(ch, processModelID, subjectID) = not(filterChannel(ch, processModelID, subjectID))
 
 
-derived loadChannelsFromSet(set, processID, subjectID) = return setres in {
-    setres := filterSet2(set, @filterChannel, processID, subjectID)
+derived loadChannelsFromSet(set, processModelID, subjectID) = return setres in {
+    setres := filterSet2(set, @filterChannel, processModelID, subjectID)
 }
 
-derived removeChannelsFromSet(set, processID, subjectID) = return setres in {
-    setres := filterSet2(set, @filterChannelNot, processID, subjectID)
+derived removeChannelsFromSet(set, processModelID, subjectID) = return setres in {
+    setres := filterSet2(set, @filterChannelNot, processModelID, subjectID)
 }
 
 derived loadChannelsFromVariable(MI, varname, subjectIDLocal) = return setres in {
     debuginfo loadChannelsFromVariable self + ": (" + MI + ", " + varname + ", " + subjectIDLocal + ")"
 
-    let v        = loadVar(MI, varname),
-        resolvedInterface = resolveInterfaceSubject(subjectIDLocal) in
-    let resolvedProcessID = nth(resolvedInterface, 1),
-        resolvedSubjectID = nth(resolvedInterface, 2) in
+    let v = loadVar(MI, varname),
+        resolvedInterface      = resolveInterfaceSubject(subjectIDLocal) in
+    let resolvedProcessModelID = nth(resolvedInterface, 1),
+        resolvedSubjectID      = nth(resolvedInterface, 2) in
     {
-        debuginfo loadChannelsFromVariable self + ": [" + resolvedProcessID + ", " + resolvedSubjectID + "] in " + v
+        debuginfo loadChannelsFromVariable self + ": [" + resolvedProcessModelID + ", " + resolvedSubjectID + "] in " + v
 
         if (v = undef) then {
             debuginfo loadChannelsFromVariable self + ": variable is undef"
@@ -673,11 +673,11 @@ derived loadChannelsFromVariable(MI, varname, subjectIDLocal) = return setres in
         }
         else if (head(v) = "ChannelInformation") then {
             // "?" is wildcard
-            setres := loadChannelsFromSet(last(v), resolvedProcessID, resolvedSubjectID)
+            setres := loadChannelsFromSet(last(v), resolvedProcessModelID, resolvedSubjectID)
         }
         else if (head(v) = "MessageSet") then {
             // "?" is wildcard
-            setres := loadChannelsFromSet(extractChannelsFromMessages(last(v)), resolvedProcessID, resolvedSubjectID)
+            setres := loadChannelsFromSet(extractChannelsFromMessages(last(v)), resolvedProcessModelID, resolvedSubjectID)
         }
         else {
             debuginfo loadChannelsFromVariable self + ": UNEXPECTED VARTYPE: " + head(v)
@@ -686,7 +686,7 @@ derived loadChannelsFromVariable(MI, varname, subjectIDLocal) = return setres in
     }
 }
 
-// [resolvedProcessID, resolvedSubjectID]
+// [resolvedProcessModelID, resolvedSubjectID]
 derived resolveInterfaceSubject(localSubjectID) = return listres in
 {
     if (localSubjectID = "*") then {
@@ -698,14 +698,14 @@ derived resolveInterfaceSubject(localSubjectID) = return listres in
         listres := ["?", "?"]
     }
     else {
-        let processID = processIDFor(self) in
-        let interface = subjectInterface(processID, localSubjectID) in
+        let processModelID = processModelIDFor(self) in
+        let interface      = subjectInterface(processModelID, localSubjectID) in
         {
             if (interface != undef and interface != false) then {
                 listres := [nth(interface, 1), nth(interface, 2)]
             }
             else {
-                listres := [processID, localSubjectID]
+                listres := [processModelID, localSubjectID]
             }
         }
     }
@@ -715,14 +715,14 @@ derived resolveInterfaceSubject(localSubjectID) = return listres in
 
 
 
-derived searchInterfaceSubject(processID, subjectID, externalProcessID) = return stringres in
+derived searchInterfaceSubject(processModelID, subjectID, externalProcessModelID) = return stringres in
 local booles in seqblock
     stringres := undef
     boolres := true
 
-    foreach s in keySet(processSubjects(externalProcessID)) with (boolres and subjectInterface(externalProcessID, s) != false) do {
-        let interface = subjectInterface(externalProcessID, s) in {
-            if ((nth(interface, 1) = "?" or nth(interface, 1) = processID) and (nth(interface, 2) = "?" or nth(interface, 2) = subjectID) ) then {
+    foreach s in keySet(processSubjects(externalProcessModelID)) with (boolres and subjectInterface(externalProcessModelID, s) != false) do {
+        let interface = subjectInterface(externalProcessModelID, s) in {
+            if ((nth(interface, 1) = "?" or nth(interface, 1) = processModelID) and (nth(interface, 2) = "?" or nth(interface, 2) = subjectID) ) then {
                 stringres := s
                 boolres := false
             }
@@ -730,16 +730,16 @@ local booles in seqblock
     }
 endseqblock
 
-derived searchSenderSubjectID(processID, subjectID, receiverProcessID) = return stringres in {
-    debuginfo searchSenderSubjectID self + ": ("+processID+", "+subjectID+", "+receiverProcessID+")"
+derived searchSenderSubjectID(processModelID, subjectID, receiverProcessModelID) = return stringres in {
+    debuginfo searchSenderSubjectID self + ": ("+processModelID+", "+subjectID+", "+receiverProcessModelID+")"
 
-    if (processID = receiverProcessID) then {
+    if (processModelID = receiverProcessModelID) then {
         debuginfo searchSenderSubjectID self + ": local receiver"
         stringres := subjectID
     }
     else {
-        debuginfo searchSenderSubjectID self + ": external receiver in process: " + receiverProcessID
-        stringres := searchInterfaceSubject(processID, subjectID, receiverProcessID)
+        debuginfo searchSenderSubjectID self + ": external receiver in process: " + receiverProcessModelID
+        stringres := searchInterfaceSubject(processModelID, subjectID, receiverProcessModelID)
     }
 }
 
@@ -756,7 +756,7 @@ derived searchSenderSubjectID(processID, subjectID, receiverProcessID) = return 
 
 
 
-// senderChannel, messageType(processID, transitionNumber), messageContent(n), correlationId(processID, transitionNumber)
+// senderChannel, messageType(processModelID, transitionNumber), messageContent(n), correlationId(processModelID, transitionNumber)
 derived msgToString(msg) = "'" + nth(msg, 3) + "' from '" + nth(msg, 1) + "' with messageType '" + nth(msg, 2) + "' and correlationId of '" + nth(msg, 4) + "'"
 
 derived msgChannel(msg)     = nth(msg, 1)
@@ -821,7 +821,7 @@ derived inputPoolIsEmpty(receiverChannel, senderSubjID, messageType, correlation
 
 // NOTE: the CorrelationID is no longer considered as that would lead to an possibly unlimited state space
 derived inputPoolGetFreeSpace(ch, s, mt) = return numres in {
-    let size = inputPoolSize(processIDOf(ch), subjectIDOf(ch)) in {
+    let size = inputPoolSize(processModelIDOf(ch), subjectIDOf(ch)) in {
         debuginfo inputPoolGetFreeSpace self + ": size: " + size
         if (size = -1) then {
             numres := 1 // a infinite large IP has always space for a message
@@ -962,12 +962,12 @@ derived inputPoolMessagesNested(receiverChannel, senderSubjID, senderChannels, m
 
 // called from ui
 derived getIPMessages(receiverChannel, MI, stateNumber, transitionNumber) = return listres in {
-    let processID = processIDOf(receiverChannel) in
-    let countMax  = messageSubjectCountMax(processID, transitionNumber) in
-    local   stringres1 := messageSubjectId(processID, transitionNumber),
-            stringres2 := messageType(processID, transitionNumber),
-            stringres3 := messageWithCorrelationVar(processID, transitionNumber),
-            numres1    := loadCorrelationIDForChannel(receiverChannel, MI, messageWithCorrelationVar(processID, transitionNumber)) in
+    let processModelID  = processModelIDOf(receiverChannel) in
+    let countMax        = messageSubjectCountMax(processModelID, transitionNumber) in
+    local   stringres1 := messageSubjectId(processModelID, transitionNumber),
+            stringres2 := messageType(processModelID, transitionNumber),
+            stringres3 := messageWithCorrelationVar(processModelID, transitionNumber),
+            numres1    := loadCorrelationIDForChannel(receiverChannel, MI, messageWithCorrelationVar(processModelID, transitionNumber)) in
     seqblock
 
         if (stringres1 = "?") then {
@@ -1076,18 +1076,18 @@ function macroNumberOfMI : LIST * NUMBER -> NUMBER
 // Channel * macroInstanceNumber * StateNumber -> MacroInstance
 function callMacroChildInstance : LIST * NUMBER * NUMBER -> NUMBER
 
-// ProcessID -> Set[MacroNumber]
+// ProcessModelID -> Set[MacroNumber]
 function processScopedMacroNumbers : STRING -> SET
 
 derived searchMacro(name) = return numres in {
-    let processID = processIDFor(self),
-        subjectID = subjectIDFor(self) in
-    let macros    = subjectMacros(processID, subjectID) in {
-        choose mID in macros with macroID(processID, mID) = name do {
+    let processModelID = processModelIDFor(self),
+        subjectID      = subjectIDFor(self) in
+    let macros         = subjectMacros(processModelID, subjectID) in {
+        choose mID in macros with macroID(processModelID, mID) = name do {
             numres := mID
         }
         ifnone {
-            choose mID in processScopedMacroNumbers(processID) with macroID(processID, mID) = name do {
+            choose mID in processScopedMacroNumbers(processModelID) with macroID(processModelID, mID) = name do {
                 numres := mID
             }
             ifnone {
@@ -1123,7 +1123,7 @@ rule AbortMacroInstance(MIAbort, ignoreState) = {
 // ====
 
 
-derived isStartSubject(processID, subjectID) = contains(processStartSubjectIDs(processID), subjectID)
+derived isStartSubject(processModelID, subjectID) = contains(processStartSubjectIDs(processModelID), subjectID)
 
 rule GenerateUniqueProcessInstanceID = {
     nextPIUsedBy(nextPI) := self // ensure no other agent increments nextPI
@@ -1133,55 +1133,55 @@ rule GenerateUniqueProcessInstanceID = {
 
 function PI : -> NUMBER
 
-rule SelectAgentAndStartSubject(processID, PI, sID) = {
+rule SelectAgentAndStartSubject(processModelID, PI, sID) = {
     add {"task" -> "StartSubject",
-         "processID" -> processID,
+         "processModelID" -> processModelID,
          "PI" -> PI,
          "subjectID" -> sID} to taskSetOut
 }
 
-rule StartProcess(processID, additionalInitializationSubject, additionalInitializationAgent) = {
+rule StartProcessModel(processModelID, additionalInitializationSubject, additionalInitializationAgent) = {
     local PI in
       seq
         PI <- GenerateUniqueProcessInstanceID()
       next {
-        debuginfo StartProcess self + ": processID: " + processID
-        debuginfo StartProcess self + ": PI: " + PI
-        debuginfo StartProcess self + ": additionalInitializationSubject: " + undefStr(additionalInitializationSubject)
-        debuginfo StartProcess self + ": additionalInitializationAgent: " + undefStr(additionalInitializationAgent)
+        debuginfo StartProcessModel self + ": processModelID: " + processModelID
+        debuginfo StartProcessModel self + ": PI: " + PI
+        debuginfo StartProcessModel self + ": additionalInitializationSubject: " + undefStr(additionalInitializationSubject)
+        debuginfo StartProcessModel self + ": additionalInitializationAgent: " + undefStr(additionalInitializationAgent)
 
-        if (contains(pALL, processID)) then seqblock
+        if (contains(pALL, processModelID)) then seqblock
             result := PI
 
-            foreach sID in keySet(processSubjects(processID)) do {
+            foreach sID in keySet(processSubjects(processModelID)) do {
                 if (sID = additionalInitializationSubject) then {
-                    let ch = [processID, PI, sID, additionalInitializationAgent] in {
+                    let ch = [processModelID, PI, sID, additionalInitializationAgent] in {
                         InitializeSubject(ch)
                     }
                 }
                 else {
-                    if (isStartSubject(processID, sID) = true) then {
-                        let agentSet = safeSet(predefinedAgents(processID, sID)) in
+                    if (isStartSubject(processModelID, sID) = true) then {
+                        let agentSet = safeSet(predefinedAgents(processModelID, sID)) in
                         if (|agentSet| = 1) then {
                             let agentName = firstFromSet(agentSet) in
-                            let ch = [processID, PI, sID, agentName] in seqblock
+                            let ch = [processModelID, PI, sID, agentName] in seqblock
                                 InitializeSubject(ch)
                                 StartSubject(ch)
                             endseqblock
                         }
                         else {
                             // TODO: wenn additionalInitializationSubject vorhanden erst aufrufen wenn das entsprechende Subjekt gestartet wird (also erst nach Austausch der Nachricht, nicht beim Platzieren der Reservierung)
-                            SelectAgentAndStartSubject(processID, PI, sID)
+                            SelectAgentAndStartSubject(processModelID, PI, sID)
                         }
                     }
                     else {
-                        debuginfo StartProcess self + ": nothing to do for Subject '" + sID + "'"
+                        debuginfo StartProcessModel self + ": nothing to do for Subject '" + sID + "'"
                     }
                 }
             }
         endseqblock
         else {
-            debuginfo StartProcess self + ": WARN: Process '" + processID + "' is unknown!"
+            debuginfo StartProcessModel self + ": WARN: Process Model ID '" + processModelID + "' is unknown!"
         }
     }
 }
@@ -1319,8 +1319,8 @@ rule StartMainMacro = {
         variable(ch, 0, "$empty") := ["Text", ""]
     }
 
-    let mID  = subjectMainMacro(processIDFor(self), subjectIDFor(self)) in
-    let startState = macroStartState(processIDFor(self), mID) in
+    let mID  = subjectMainMacro(processModelIDFor(self), subjectIDFor(self)) in
+    let startState = macroStartState(processModelIDFor(self), mID) in
     let MI   = 1 in // 0 reserved for top-level variable manipulation; 1 mainmacro
     {
         macroNumberOfMI(channelFor(self), MI) := mID
@@ -1336,8 +1336,8 @@ rule StartMainMacro = {
 rule StartMacro(MI, currentStateNumber, mIDNew, MINew) = {
     debuginfo StartMacro self + ": ("+MI+", " + mIDNew + ", " + MINew + ")"
 
-    let processID = processIDFor(self) in
-    let startState = macroStartState(processID, mIDNew) in
+    let processModelID = processModelIDFor(self) in
+    let startState     = macroStartState(processModelID, mIDNew) in
     {
         if (activeStates(channelFor(self), MINew) != undef) then {
             debuginfo StartMacro self + ": MI already initialized: " + MINew
@@ -1422,8 +1422,8 @@ rule RemoveState(MI, currentStateNumber, MIOld, sOld) = {
     add [MIOld, sOld] to removeStates(channelFor(self), MI, currentStateNumber)
 }
 
-derived getAnyStateWithHighestPrio(processID, states) = return numres in {
-    choose x in states with not(exists y in states with statePriority(processID, y) > statePriority(processID, x)) do {
+derived getAnyStateWithHighestPrio(processModelID, states) = return numres in {
+    choose x in states with not(exists y in states with statePriority(processModelID, y) > statePriority(processModelID, x)) do {
         numres := x
     }
 }
@@ -1516,7 +1516,7 @@ rule MacroBehavior(MI) = {
     debuginfo MacroBehavior self + ": channelFor(self): " + channelFor(self)
     debuginfo MacroBehavior self + ": activeStates: " + activeStatesPretty(MI, activeStates(channelFor(self), MI))
 
-    let processID = processIDFor(self) in
+    let processModelID = processModelIDFor(self) in
     local listres := activeStates(channelFor(self), MI) in seqblock // remaining states
 
         if (|listres| = 0) then {
@@ -1528,7 +1528,7 @@ rule MacroBehavior(MI) = {
 
         // can not be done with foreach as listres is modified depending on the executionState and the priorities of the other states
         while (|listres| > 0) do
-        let stateNumber = getAnyStateWithHighestPrio(processID, listres) in {
+        let stateNumber = getAnyStateWithHighestPrio(processModelID, listres) in {
             seqblock
                 executionState(channelFor(self), MI, stateNumber) := undef
                 addStates(channelFor(self), MI, stateNumber)      := []
@@ -1636,7 +1636,7 @@ rule UpdateRemainingStates(MI, stateNumber, exState, remainingStates) = {
 
             debuginfo MacroBehavior self + ": remainingStates_post_remove_self: " + remainingStates
 
-            remainingStates := filterStatesWithSamePrio(processIDFor(self), remainingStates, statePriority(processIDFor(self), stateNumber)) // reduce to states with same priority
+            remainingStates := filterStatesWithSamePrio(processModelIDFor(self), remainingStates, statePriority(processModelIDFor(self), stateNumber)) // reduce to states with same priority
 
             debuginfo MacroBehavior self + ": remainingStates_post_filterListOfListEqN: " + remainingStates
 
@@ -1709,7 +1709,7 @@ derived abortState(MI, stateNumber) = return boolres in {
 
 
 rule Behavior(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in {
+    let processModelID = processModelIDFor(self) in {
         debuginfo Behavior self + ": Behavior for " + channelFor(self) + " with state " + statePretty(MI, currentStateNumber)
         debuginfo Behavior self + ": initializedState: " + undefStr(initializedState(channelFor(self), MI, currentStateNumber))
         debuginfo Behavior self + ": timeoutActive: " + undefStr(timeoutActive(channelFor(self), MI, currentStateNumber))
@@ -1734,7 +1734,7 @@ rule Behavior(MI, currentStateNumber) = {
         }
         else {
             let transitionNumber = selectedTransition(channelFor(self), MI, currentStateNumber) in
-            let t = targetStateNumber(processID, transitionNumber) in {
+            let t = targetStateNumber(processModelID, transitionNumber) in {
                 if (transitionCompleted(channelFor(self), MI, transitionNumber) != true) then {
                     PerformTransition(MI, currentStateNumber, transitionNumber)
                 }
@@ -1756,15 +1756,15 @@ rule AbortState(MI, currentStateNumber) = {
     }
     else {
         if (cancelDecision(channelFor(self), MI, currentStateNumber) = true) then {
-            let transitionNumber = first_outgoingCancelTransition(processIDFor(self), currentStateNumber) in
-            let t = targetStateNumber(processIDFor(self), transitionNumber) in {
+            let transitionNumber = first_outgoingCancelTransition(processModelIDFor(self), currentStateNumber) in
+            let t = targetStateNumber(processModelIDFor(self), transitionNumber) in {
                 debuginfo AbortState self + ": proceed with outgoingCancelTransition: " + transitionPretty(MI, transitionNumber)
                 Proceed(MI, currentStateNumber, t)
             }
         }
         else if (timeoutActive(channelFor(self), MI, currentStateNumber) = true) then {
-            let transitionNumber = first_outgoingTimeoutTransition(processIDFor(self), currentStateNumber) in
-            let t = targetStateNumber(processIDFor(self), transitionNumber) in {
+            let transitionNumber = first_outgoingTimeoutTransition(processModelIDFor(self), currentStateNumber) in
+            let t = targetStateNumber(processModelIDFor(self), transitionNumber) in {
                 debuginfo AbortState self + ": proceed with outgoingTimeoutTransition: " + transitionPretty(MI, transitionNumber)
                 Proceed(MI, currentStateNumber, t)
             }
@@ -1780,8 +1780,8 @@ rule AbortState(MI, currentStateNumber) = {
 
 
 rule StartState(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in
-    let sType     = stateType(processID, currentStateNumber) in
+    let processModelID = processModelIDFor(self) in
+    let sType = stateType(processModelID, currentStateNumber) in
     seqblock
         debuginfo StartState self + ": StartState " + statePretty(MI, currentStateNumber)
 
@@ -1827,7 +1827,7 @@ rule ResetState(MI, stateNumber) = {
 
     selectedTransition(channelFor(self), MI, stateNumber) := undef
 
-    forall transitionNumber in outgoingNormalTransitions(processIDFor(self), stateNumber) do {
+    forall transitionNumber in outgoingNormalTransitions(processModelIDFor(self), stateNumber) do {
         transitionEnabled(channelFor(self), MI, transitionNumber) := undef
         transitionCompleted(channelFor(self), MI, transitionNumber) := undef
     }
@@ -1845,8 +1845,8 @@ rule ResetState(MI, stateNumber) = {
 }
 
 rule Perform(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in
-    let sType     = stateType(processID, currentStateNumber) in {
+    let processModelID = processModelIDFor(self) in
+    let sType = stateType(processModelID, currentStateNumber) in {
         debuginfo Perform self + ": Perform '" + sType + "' in state " + statePretty(MI, currentStateNumber)
 
         case sType of
@@ -1861,7 +1861,7 @@ rule Perform(MI, currentStateNumber) = {
 
 
 rule SelectTransition(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in {
+    let processModelID = processModelIDFor(self) in {
         debuginfo SelectTransition self + ": SelectTransition in state " + statePretty(MI, currentStateNumber)
 
         if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
@@ -1911,8 +1911,8 @@ rule StartSelectedTransition(MI, currentStateNumber) = {
 
 
 rule Abort(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in
-    let sType     = stateType(processID, currentStateNumber) in {
+    let processModelID = processModelIDFor(self) in
+    let sType = stateType(processModelID, currentStateNumber) in {
         debuginfo Abort self + ": Abort(" + sType + ") state " + statePretty(MI, currentStateNumber)
 
         case sType of
@@ -1925,8 +1925,8 @@ rule Abort(MI, currentStateNumber) = {
 }
 
 rule PerformTransition(MI, currentStateNumber, transitionNumber) = {
-    let processID = processIDFor(self) in
-    let sType     = stateType(processID, currentStateNumber) in {
+    let processModelID = processModelIDFor(self) in
+    let sType = stateType(processModelID, currentStateNumber) in {
         debuginfo PerformTransition self + ": PerformTransition(" + sType + ") in state " + statePretty(MI, currentStateNumber) + " with transition " + transitionPretty(MI, transitionNumber)
         case sType of
             "function"       : PerformTransitionFunction(MI, currentStateNumber, transitionNumber)
@@ -2012,7 +2012,7 @@ rule EnableTransition(MI, transitionNumber) = {
 }
 
 rule EnableAllTransitions(MI, currentStateNumber) = {
-    forall transitionNumber in outgoingNormalTransitions(processIDFor(self), currentStateNumber) do {
+    forall transitionNumber in outgoingNormalTransitions(processModelIDFor(self), currentStateNumber) do {
         EnableTransition(MI, transitionNumber)
     }
 }
@@ -2035,7 +2035,7 @@ rule DisableTransition(MI, currentStateNumber, transitionNumber) = {
 rule DisableAllTransitions(MI, currentStateNumber) = {
     selectedTransition(channelFor(self), MI, currentStateNumber) := undef
 
-    forall transitionNumber in outgoingNormalTransitions(processIDFor(self), currentStateNumber) do {
+    forall transitionNumber in outgoingNormalTransitions(processModelIDFor(self), currentStateNumber) do {
         DisableTransition(MI, currentStateNumber, transitionNumber)
     }
 }
@@ -2087,7 +2087,7 @@ rule SetCompletedTransition(MI, currentStateNumber, transitionNumber) = {
 rule StartInternalAction(MI, currentStateNumber) = {
     debuginfo StartInternalAction self + ": stateNumber: " + currentStateNumber
 
-    let processID = processIDFor(self) in {
+    let processModelID = processModelIDFor(self) in {
         StartTimeout(MI, currentStateNumber)
 
         EnableAllTransitions(MI, currentStateNumber)
@@ -2143,8 +2143,8 @@ rule StartFunction(MI, currentStateNumber) = {
 // FIXME !!!!!!!!!
 
 
-    let processID = processIDFor(self) in
-    let functionName = stateFunction(processID, currentStateNumber) in {
+    let processModelID = processModelIDFor(self) in
+    let functionName   = stateFunction(processModelID, currentStateNumber) in {
         if (startFunction(functionName) = undef) then {
             debuginfo StartFunction self + ": INFO: startFunction("+functionName+") is undefined, nothing to do"
         }
@@ -2167,9 +2167,9 @@ rule PerformFunction(MI, currentStateNumber) = {
         ActivateTimeout(MI, currentStateNumber)
     }
     else {
-        let processID = processIDFor(self) in
-        let functionName = stateFunction(processID, currentStateNumber),
-            args         = stateFunctionArguments(processID, currentStateNumber) in {
+        let processModelID = processModelIDFor(self) in
+        let functionName   = stateFunction(processModelID, currentStateNumber),
+            args           = stateFunctionArguments(processModelID, currentStateNumber) in {
             if (performFunction(functionName) = undef) then {
                 debuginfo PerformFunction self + ": WARN: performFunction("+functionName+") is undefined!"
                 Crash()
@@ -2186,8 +2186,8 @@ rule PerformFunction(MI, currentStateNumber) = {
 
 
 rule AbortFunction(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in
-    let functionName = stateFunction(processID, currentStateNumber) in {
+    let processModelID = processModelIDFor(self) in
+    let functionName   = stateFunction(processModelID, currentStateNumber) in {
         if (abortFunction(functionName) = undef) then {
             debuginfo AbortFunction self + ": INFO: abortFunction("+functionName+") is undefined, nothing to do"
 
@@ -2202,8 +2202,8 @@ rule AbortFunction(MI, currentStateNumber) = {
 }
 
 rule PerformTransitionFunction(MI, currentStateNumber, transitionNumber) = {
-    let processID = processIDFor(self) in
-    let functionName = stateFunction(processID, currentStateNumber) in {
+    let processModelID = processModelIDFor(self) in
+    let functionName   = stateFunction(processModelID, currentStateNumber) in {
         if (performTransitionFunction(functionName) = undef) then {
             debuginfo PerformTransitionFunction self + ": INFO: performTransitionFunction("+functionName+") is undefined!"
             SetCompletedTransition(MI, currentStateNumber, transitionNumber) // sets executionState to REPEAT
@@ -2218,10 +2218,10 @@ rule PerformTransitionFunction(MI, currentStateNumber, transitionNumber) = {
 
 
 rule SetCompletedFunction(MI, currentStateNumber, res) = {
-    let processID = processIDFor(self) in {
+    let processModelID = processModelIDFor(self) in {
         if (res = undef) then {
             debuginfo SetCompletedFunction self + ": undef => using random normal transition"
-            choose transitionNumber in outgoingNormalTransitions(processID, currentStateNumber) do {
+            choose transitionNumber in outgoingNormalTransitions(processModelID, currentStateNumber) do {
                 debuginfo SetCompletedFunction self + ": chosen transition: " + transitionPretty(MI, transitionNumber)
                 selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
             }
@@ -2233,14 +2233,14 @@ rule SetCompletedFunction(MI, currentStateNumber, res) = {
         else {
             debuginfo SetCompletedFunction self + ": using result: ''" + res + "'"
 
-            let transitionNumber = getTransitionByLabel(processID, currentStateNumber, res) in {
+            let transitionNumber = getTransitionByLabel(processModelID, currentStateNumber, res) in {
                 if (transitionNumber = undef) then {
                     debuginfo SetCompletedFunction self + ": WARN: unable to get transition! (no transition with that name?)"
                     Crash()
                 }
                 else {
                     debuginfo SetCompletedFunction self + ": transition: " + transitionPretty(MI, transitionNumber)
-                    debuginfo SetCompletedFunction self + ": processTransitions(processID)(transitionNumber): " + processTransitions(processID)(transitionNumber)
+                    debuginfo SetCompletedFunction self + ": processTransitions(processModelID)(transitionNumber): " + processTransitions(processModelID)(transitionNumber)
                     selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
                 }
             }
@@ -2269,16 +2269,16 @@ rule SetCompletedFunction(MI, currentStateNumber, res) = {
 rule StartSend(MI, currentStateNumber) = {
     debuginfo StartSend self + ": stateNumber: " + currentStateNumber
 
-    let processID = processIDFor(self) in
+    let processModelID = processModelIDFor(self) in
     // there must be exactly one transition
-    let transitionNumber = first_outgoingNormalTransition(processID, currentStateNumber) in {
+    let transitionNumber = first_outgoingNormalTransition(processModelID, currentStateNumber) in {
         receivers       (channelFor(self), MI, currentStateNumber) := undef
         reservationsDone(channelFor(self), MI, currentStateNumber) := {}
-        messageContent  (channelFor(self), MI, currentStateNumber) := loadVar(MI, messageContentVar(processID, transitionNumber))
+        messageContent  (channelFor(self), MI, currentStateNumber) := loadVar(MI, messageContentVar(processModelID, transitionNumber))
         // TODO: Cancel (subject, state) := {e in {true, false} | cancelDecision(subject, state) }
 
         // generate new CorrelationID now, store in Variable once the message(s) are send
-        let cIDVarname = messageNewCorrelationVar(processID, transitionNumber) in
+        let cIDVarname = messageNewCorrelationVar(processModelID, transitionNumber) in
             if (cIDVarname != undef and cIDVarname != "") then {
                 messageCorrelationID(channelFor(self), MI, currentStateNumber) := nextCorrelationID
                 nextCorrelationID := nextCorrelationID + 1
@@ -2289,7 +2289,7 @@ rule StartSend(MI, currentStateNumber) = {
             }
 
         // load receiver IP CorrelationID now, to avoid influences of any changes of that variable
-        messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) := loadCorrelationID(MI, messageWithCorrelationVar(processID, transitionNumber))
+        messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) := loadCorrelationID(MI, messageWithCorrelationVar(processModelID, transitionNumber))
     }
 
     SetExecutionState(MI, currentStateNumber, 3) // handle all other startStates, LTS step afterwards
@@ -2344,7 +2344,7 @@ rule TryCompletePerformSend(MI, currentStateNumber) = {
     }
     else {
         // there must be exactly one transition
-        let transitionNumber = first_outgoingNormalTransition(processIDFor(self), currentStateNumber) in {
+        let transitionNumber = first_outgoingNormalTransition(processModelIDFor(self), currentStateNumber) in {
             selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
         }
 
@@ -2354,21 +2354,21 @@ rule TryCompletePerformSend(MI, currentStateNumber) = {
 }
 
 rule SelectReceivers(MI, currentStateNumber) = {
-    let processID = processIDFor(self) in
+    let processModelID = processModelIDFor(self) in
     // there must be exactly one transition
-    let transitionNumber = first_outgoingNormalTransition(processID, currentStateNumber) in
-    let countMin = messageSubjectCountMin(processID, transitionNumber),
-        countMax = messageSubjectCountMax(processID, transitionNumber) in {
+    let transitionNumber = first_outgoingNormalTransition(processModelID, currentStateNumber) in
+    let countMin = messageSubjectCountMin(processModelID, transitionNumber),
+        countMax = messageSubjectCountMax(processModelID, transitionNumber) in {
         debuginfo SelectReceivers self + ": countMin: " + countMin
         debuginfo SelectReceivers self + ": countMax: " + countMax
 
-        if (messageSubjectVar(processID, transitionNumber) != undef and messageSubjectVar(processID, transitionNumber) != "") then {
-            let rChs = loadChannelsFromVariable(MI, messageSubjectVar(processID, transitionNumber), messageSubjectId(processID, transitionNumber)) in {
+        if (messageSubjectVar(processModelID, transitionNumber) != undef and messageSubjectVar(processModelID, transitionNumber) != "") then {
+            let rChs = loadChannelsFromVariable(MI, messageSubjectVar(processModelID, transitionNumber), messageSubjectId(processModelID, transitionNumber)) in {
                 debuginfo SelectReceivers self + ": rChs: " + rChs
 
                 // countMin = 0 => ALL
                 if (| rChs | = 0 or (countMin != 0 and | rChs | < countMin)) then {
-                    debuginfo SelectReceivers self + ": WARN: not enough receivers given in '" + messageSubjectVar(processID, transitionNumber) + "'"
+                    debuginfo SelectReceivers self + ": WARN: not enough receivers given in '" + messageSubjectVar(processModelID, transitionNumber) + "'"
 
                     SetExecutionState(MI, currentStateNumber, 2) // NEXT
                 }
@@ -2412,7 +2412,7 @@ rule SelectReceivers(MI, currentStateNumber) = {
                 }
             }
             else {
-                let sIDLocal = messageSubjectId(processID, transitionNumber) in
+                let sIDLocal = messageSubjectId(processModelID, transitionNumber) in
                 {
                     //debuginfo SelectReceivers self + ": SelectReceivers is not implemented if no variable / channel is given!"
                     debuginfo SelectReceivers self + ": state: " + statePretty(MI, currentStateNumber)
@@ -2461,7 +2461,7 @@ rule AbortSend(MI, currentStateNumber) = {
 
 
 rule PerformTransitionSend(MI, currentStateNumber, transitionNumber) = {
-    let processID = processIDFor(self) in {
+    let processModelID = processModelIDFor(self) in {
         debuginfo PerformTransitionSend self + ": completing send..."
 
         foreach r in reservationsDone(channelFor(self), MI, currentStateNumber) do {
@@ -2475,7 +2475,7 @@ rule PerformTransitionSend(MI, currentStateNumber, transitionNumber) = {
         }
         endforeach
 
-        let storeReceiverVarname = messageStoreReceiverVar(processID, transitionNumber) in
+        let storeReceiverVarname = messageStoreReceiverVar(processModelID, transitionNumber) in
             if (storeReceiverVarname != undef and storeReceiverVarname != "") then {
                 SetVar(MI, storeReceiverVarname, "ChannelInformation", reservationsDone(channelFor(self), MI, currentStateNumber))
                 debuginfo PerformTransitionSend self + ": messageStoreReceiverVar: SetVar("+MI+", "+storeReceiverVarname+", ChannelInformation, "+reservationsDone(channelFor(self), MI, currentStateNumber)+")"
@@ -2484,7 +2484,7 @@ rule PerformTransitionSend(MI, currentStateNumber, transitionNumber) = {
                 debuginfo PerformTransitionSend self + ": messageStoreReceiverVar not set"
             }
 
-        let cIDVarname = messageNewCorrelationVar(processID, transitionNumber) in
+        let cIDVarname = messageNewCorrelationVar(processModelID, transitionNumber) in
             if (cIDVarname != undef and cIDVarname != "") then {
                 SetVar(MI, cIDVarname, "CorrelationID", messageCorrelationID(channelFor(self), MI, currentStateNumber))
                 debuginfo PerformTransitionSend self + ": cIDVarname: SetVar("+MI+", "+cIDVarname+", ChannelInformation, "+messageCorrelationID(channelFor(self), MI, currentStateNumber)+")"
@@ -2564,29 +2564,29 @@ rule DoReservation(MI, currentStateNumber, receiverChannel) = {
     debuginfo DoReservation self + ": in state " + statePretty(MI, currentStateNumber) + " for channel " + receiverChannel
 
     if (properTerminated(receiverChannel) = true) then {
-        let processID          = processIDFor(self) in
+        let processModelID         = processModelIDFor(self) in
         // there must be exactly one transition
-        let transitionNumber   = first_outgoingNormalTransition(processID, currentStateNumber),
-            senderChannel      = channelFor(self),
-            receiverProcessID  = processIDOf(receiverChannel) in
-        let senderSubjectID    = searchSenderSubjectID(processID, subjectIDFor(self), receiverProcessID),
-            msgCorrelationID   = messageCorrelationID(channelFor(self), MI, currentStateNumber),
-            ipCorrelationID    = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
-        let reservationMessage = [senderChannel, messageType(processID, transitionNumber), {}, msgCorrelationID, true] in {
+        let transitionNumber       = first_outgoingNormalTransition(processModelID, currentStateNumber),
+            senderChannel          = channelFor(self),
+            receiverProcessModelID = processModelIDOf(receiverChannel) in
+        let senderSubjectID        = searchSenderSubjectID(processModelID, subjectIDFor(self), receiverProcessModelID),
+            msgCorrelationID       = messageCorrelationID(channelFor(self), MI, currentStateNumber),
+            ipCorrelationID        = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
+        let reservationMessage = [senderChannel, messageType(processModelID, transitionNumber), {}, msgCorrelationID, true] in {
             if (senderSubjectID = undef) then {
                 debuginfo DoReservation self + ": failed to lookup own subject"
                 Crash()
             }
 
             seq
-                if (inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) = undef) then {
-                    add [senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID] to inputPoolDefined(receiverChannel)
-                    inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) := []
+                if (inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) = undef) then {
+                    add [senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID] to inputPoolDefined(receiverChannel)
+                    inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) := []
                 }
             next
-                if (inputPoolIsClosed(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) != true) then {
-                    if (inputPoolGetFreeSpace(receiverChannel, senderSubjectID, messageType(processID, transitionNumber)) > 0) then {
-                        enqueue reservationMessage into inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID)
+                if (inputPoolIsClosed(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) != true) then {
+                    if (inputPoolGetFreeSpace(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber)) > 0) then {
+                        enqueue reservationMessage into inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID)
                         add receiverChannel to reservationsDone(channelFor(self), MI, currentStateNumber)
                         debuginfo DoReservation self + ": added reservation to inputPool: " + reservationMessage
                         result := true
@@ -2611,36 +2611,36 @@ rule DoReservation(MI, currentStateNumber, receiverChannel) = {
 rule CancelReservation(MI, currentStateNumber, receiverChannel) = {
     debuginfo CancelReservation self + ": in state " + statePretty(MI, currentStateNumber) + " for receiver channel " + receiverChannel
 
-    let processID          = processIDFor(self) in
+    let processModelID          = processModelIDFor(self) in
     // there must be exactly one transition
-    let transitionNumber   = first_outgoingNormalTransition(processID, currentStateNumber),
-        senderChannel      = channelFor(self),
-        receiverProcessID  = processIDOf(receiverChannel) in
-    let senderSubjectID    = searchSenderSubjectID(processID, subjectIDFor(self), receiverProcessID),
-        msgCorrelationID   = messageCorrelationID(channelFor(self), MI, currentStateNumber),
-        ipCorrelationID    = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
-    let reservationMessage = [senderChannel, messageType(processID, transitionNumber), {}, msgCorrelationID, true],
-        IP = inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) in {
-        inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) := dropnth(IP, head(indexes(IP, reservationMessage)))
+    let transitionNumber        = first_outgoingNormalTransition(processModelID, currentStateNumber),
+        senderChannel           = channelFor(self),
+        receiverProcessModelID  = processModelIDOf(receiverChannel) in
+    let senderSubjectID         = searchSenderSubjectID(processModelID, subjectIDFor(self), receiverProcessModelID),
+        msgCorrelationID        = messageCorrelationID(channelFor(self), MI, currentStateNumber),
+        ipCorrelationID         = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
+    let reservationMessage = [senderChannel, messageType(processModelID, transitionNumber), {}, msgCorrelationID, true],
+        IP = inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) in {
+        inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) := dropnth(IP, head(indexes(IP, reservationMessage)))
     }
 }
 
 rule ReplaceReservation(MI, currentStateNumber, receiverChannel) = {
     debuginfo ReplaceReservation self + ": in state " + statePretty(MI, currentStateNumber) + " for receiver channel " + receiverChannel
 
-    let processID          = processIDFor(self) in
+    let processModelID         = processModelIDFor(self) in
     // there must be exactly one transition
-    let transitionNumber   = first_outgoingNormalTransition(processID, currentStateNumber),
-        senderChannel      = channelFor(self),
-        receiverProcessID  = processIDOf(receiverChannel) in
-    let senderSubjectID    = searchSenderSubjectID(processID, subjectIDFor(self), receiverProcessID),
-        msgCorrelationID   = messageCorrelationID(channelFor(self), MI, currentStateNumber),
-        ipCorrelationID    = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
-    let reservationMessage = [senderChannel, messageType(processID, transitionNumber), {}, msgCorrelationID, true],
-        message            = [senderChannel, messageType(processID, transitionNumber), messageContent(channelFor(self), MI, currentStateNumber), msgCorrelationID, false],
-        IP = inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) in {
+    let transitionNumber       = first_outgoingNormalTransition(processModelID, currentStateNumber),
+        senderChannel          = channelFor(self),
+        receiverProcessModelID = processModelIDOf(receiverChannel) in
+    let senderSubjectID        = searchSenderSubjectID(processModelID, subjectIDFor(self), receiverProcessModelID),
+        msgCorrelationID       = messageCorrelationID(channelFor(self), MI, currentStateNumber),
+        ipCorrelationID        = messageReceiverCorrelationID(channelFor(self), MI, currentStateNumber) in
+    let reservationMessage = [senderChannel, messageType(processModelID, transitionNumber), {}, msgCorrelationID, true],
+        message            = [senderChannel, messageType(processModelID, transitionNumber), messageContent(channelFor(self), MI, currentStateNumber), msgCorrelationID, false],
+        IP = inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) in {
         // TODO: discuss: setnth or dropnth & enqueue?
-        inputPool(receiverChannel, senderSubjectID, messageType(processID, transitionNumber), ipCorrelationID) := setnth(IP, head(indexes(IP, reservationMessage)), message)
+        inputPool(receiverChannel, senderSubjectID, messageType(processModelID, transitionNumber), ipCorrelationID) := setnth(IP, head(indexes(IP, reservationMessage)), message)
     }
 }
 
@@ -2673,9 +2673,9 @@ rule PerformReceive(MI, currentStateNumber) = {
             ActivateTimeout(MI, currentStateNumber)
         }
         else {
-            let processID = processIDFor(self) in
+            let processModelID = processModelIDFor(self) in
             seq
-                forall transitionNumber in outgoingNormalTransitions(processID, currentStateNumber) do {
+                forall transitionNumber in outgoingNormalTransitions(processModelID, currentStateNumber) do {
                     CheckIP(MI, currentStateNumber, transitionNumber)
                 }
             next
@@ -2689,7 +2689,7 @@ rule PerformReceive(MI, currentStateNumber) = {
                         }
                         else if (|enabledOutgoingTransitions| = 1) then {
                             let transitionNumber = firstFromSet(enabledOutgoingTransitions) in {
-                                if (transitionIsAuto(processID, transitionNumber) = true) then {
+                                if (transitionIsAuto(processModelID, transitionNumber) = true) then {
                                     debuginfo PerformReceive self + ": making automatic decision for transition " + transitionPretty(MI, transitionNumber)
                                     selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
                                 }
@@ -2731,11 +2731,11 @@ rule PerformTransitionReceive(MI, currentStateNumber, transitionNumber) = {
 
 
 rule ReceiveMessage(MI, currentStateNumber, transitionNumber) = {
-    let processID   = processIDFor(self) in
-    let s           = messageSubjectId         (processID, transitionNumber),
-        sChsVarname = messageSubjectVar        (processID, transitionNumber),
-        mt          = messageType              (processID, transitionNumber),
-        cIDVarname  = messageWithCorrelationVar(processID, transitionNumber) in
+    let processModelID = processModelIDFor(self) in
+    let s              = messageSubjectId         (processModelID, transitionNumber),
+        sChsVarname    = messageSubjectVar        (processModelID, transitionNumber),
+        mt             = messageType              (processModelID, transitionNumber),
+        cIDVarname     = messageWithCorrelationVar(processModelID, transitionNumber) in
     // TODO 2019-02-22: local receivedMessages ? Or is that function used elsewhere?
     // Alternative: directly return as listres via result in InputPool_Pop?
     local stringres1, // subjectID
@@ -2800,8 +2800,8 @@ rule ReceiveMessage(MI, currentStateNumber, transitionNumber) = {
             sChsL = setres1,
             mtL   = stringres2,
             cL    = numres1,
-            countMinL = messageSubjectCountMin(processID, transitionNumber),
-            countMaxL = messageSubjectCountMax(processID, transitionNumber) in {
+            countMinL = messageSubjectCountMin(processModelID, transitionNumber),
+            countMaxL = messageSubjectCountMax(processModelID, transitionNumber) in {
             // InputPool_Pop stores the popped messages in receivedMessages
             // undef is wildcard
             InputPool_Pop(MI, currentStateNumber, sL, sChsL, mtL, cL, countMinL, countMaxL)
@@ -2810,8 +2810,8 @@ rule ReceiveMessage(MI, currentStateNumber, transitionNumber) = {
         let msgs = receivedMessages(channelFor(self), MI, currentStateNumber) in {
             debuginfo ReceiveMessage self + ": receivedMessages: " + msgs
 
-            if (messageStoreMessagesVar(processID, transitionNumber) != undef and messageStoreMessagesVar(processID, transitionNumber) != "") then {
-                let varname = messageStoreMessagesVar(processID, transitionNumber) in {
+            if (messageStoreMessagesVar(processModelID, transitionNumber) != undef and messageStoreMessagesVar(processModelID, transitionNumber) != "") then {
+                let varname = messageStoreMessagesVar(processModelID, transitionNumber) in {
                     debuginfo ReceiveMessage self + ": storing messages in: '" + varname + "'"
                     SetMessageSet(MI, varname, msgs)
                 }
@@ -2826,11 +2826,11 @@ rule ReceiveMessage(MI, currentStateNumber, transitionNumber) = {
 rule CheckIP(MI, currentStateNumber, transitionNumber) = {
     debuginfo CheckIP self + ": in state " + statePretty(MI, currentStateNumber) + " for transition " + transitionPretty(MI, transitionNumber)
 
-    let processID   = processIDFor(self) in
-    let sID         = messageSubjectId         (processID, transitionNumber),
-        sChsVarname = messageSubjectVar        (processID, transitionNumber),
-        mT          = messageType              (processID, transitionNumber),
-        cIDVarname  = messageWithCorrelationVar(processID, transitionNumber) in
+    let processModelID = processModelIDFor(self) in
+    let sID            = messageSubjectId         (processModelID, transitionNumber),
+        sChsVarname    = messageSubjectVar        (processModelID, transitionNumber),
+        mT             = messageType              (processModelID, transitionNumber),
+        cIDVarname     = messageWithCorrelationVar(processModelID, transitionNumber) in
     local stringres1, // subjectID
           setres1,    // subjectChannels
           stringres2, // messageType
@@ -2882,13 +2882,13 @@ rule CheckIP(MI, currentStateNumber, transitionNumber) = {
             Crash()
         }
         else {
-            numres1 := loadCorrelationID(MI, messageWithCorrelationVar(processID, transitionNumber))
+            numres1 := loadCorrelationID(MI, messageWithCorrelationVar(processModelID, transitionNumber))
         }
 
 
         // no reservations, suppress multiple channels
         let usedSpace = inputPoolUsedSpace(channelFor(self), stringres1, setres1, stringres2, numres1, true, true) in {
-            if (messageSubjectCountMin(processID, transitionNumber) = 0) then {
+            if (messageSubjectCountMin(processModelID, transitionNumber) = 0) then {
                 if (usedSpace > |setres1|) then {
                     debuginfo CheckIP self + ": WARN: internal error: more messages than expected senders! " + usedSpace + " > " + |setres1|
                     Crash()
@@ -2902,12 +2902,12 @@ rule CheckIP(MI, currentStateNumber, transitionNumber) = {
                     DisableTransition(MI, currentStateNumber, transitionNumber)
                 }
             }
-            else if (usedSpace >= messageSubjectCountMin(processID, transitionNumber)) then {
-                debuginfo CheckIP self + ": enough messages :) " + usedSpace + " >= " + messageSubjectCountMin(processID, transitionNumber)
+            else if (usedSpace >= messageSubjectCountMin(processModelID, transitionNumber)) then {
+                debuginfo CheckIP self + ": enough messages :) " + usedSpace + " >= " + messageSubjectCountMin(processModelID, transitionNumber)
                 EnableTransition(MI, transitionNumber)
             }
             else {
-                debuginfo CheckIP self + ": Not enough messages: " + usedSpace + " < " + messageSubjectCountMin(processID, transitionNumber)
+                debuginfo CheckIP self + ": Not enough messages: " + usedSpace + " < " + messageSubjectCountMin(processModelID, transitionNumber)
                 DisableTransition(MI, currentStateNumber, transitionNumber)
             }
         }
@@ -2942,7 +2942,7 @@ rule PerformTerminate(MI, currentStateNumber) = {
     }
     else {
         if (MI = 1) then {
-            let res = head(stateFunctionArguments(processIDFor(self), currentStateNumber)) in {
+            let res = head(stateFunctionArguments(processModelIDFor(self), currentStateNumber)) in {
                 // just for debugging purposes, a termination of the Main Macro should not have a result, but this is used in TestTransitions2
                 if (res = undef) then { // no parameters for this Terminate state
                     debuginfo PerformTerminate self + ": within mainMacro, terminate subject without result value"
@@ -2963,7 +2963,7 @@ rule PerformTerminate(MI, currentStateNumber) = {
         else {
             ClearAllVarInMIForChannel(channelFor(self), MI)
 
-            let res = head(stateFunctionArguments(processIDFor(self), currentStateNumber)) in {
+            let res = head(stateFunctionArguments(processModelIDFor(self), currentStateNumber)) in {
                 if (res = undef) then { // no parameters for this Terminate state
                     debuginfo PerformTerminate self + ": terminated without result value"
                     macroTerminationResult(channelFor(self), MI) := true
@@ -3005,8 +3005,8 @@ rule StartTau(MI, currentStateNumber) = {
 rule Tau(MI, currentStateNumber, args) = {
     debuginfo Tau self + ": Tau()"
 
-    let processID = processIDFor(self) in {
-        choose transitionNumber in outgoingEnabledTransitions(channelFor(self), MI, currentStateNumber) with (transitionIsAuto(processID, transitionNumber) = true) do {
+    let processModelID = processModelIDFor(self) in {
+        choose transitionNumber in outgoingEnabledTransitions(channelFor(self), MI, currentStateNumber) with (transitionIsAuto(processModelID, transitionNumber) = true) do {
             debuginfo Tau self + ": transition chosen, it is normal and auto: " + transitionPretty(MI, transitionNumber)
 
             selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
@@ -3396,8 +3396,8 @@ rule ModalSplit(MI, currentStateNumber, args) = {
     debuginfo ModalSplit self + ": state: " + statePretty(MI, currentStateNumber)
 
     // start each following state
-    foreach transitionNumber in outgoingNormalTransitions(processIDFor(self), currentStateNumber) do {
-        let sNew = targetStateNumber(processIDFor(self), transitionNumber) in {
+    foreach transitionNumber in outgoingNormalTransitions(processModelIDFor(self), currentStateNumber) do {
+        let sNew = targetStateNumber(processModelIDFor(self), transitionNumber) in {
             AddState(MI, currentStateNumber, MI, sNew)
         }
     }
@@ -3468,10 +3468,10 @@ rule AbortCallMacro(MI, currentStateNumber) = {
 
 rule InitializeMacroArguments(MI, mIDNew, MINew, macroArgumentsValues) = {
     local
-        listres1 := macroArguments(processIDFor(self), mIDNew),
+        listres1 := macroArguments(processModelIDFor(self), mIDNew),
         listres2 := macroArgumentsValues in {
         if (|listres1| != |listres2|) then {
-            debuginfo CallMacro self + ": Macro '"+macroID(processIDFor(self), mIDNew)+"' takes " + |listres1| + " arguments, but " + |listres2| + " given: " + listres2
+            debuginfo CallMacro self + ": Macro '"+macroID(processModelIDFor(self), mIDNew)+"' takes " + |listres1| + " arguments, but " + |listres2| + " given: " + listres2
             Crash()
         }
 
@@ -3514,7 +3514,7 @@ rule CallMacro(MI, currentStateNumber, args) = {
                 // as the MI part will be different in each iteration
 
                 // if the Macro has parameters..
-                if (|macroArguments(processIDFor(self), mIDNew)| > 0) then {
+                if (|macroArguments(processModelIDFor(self), mIDNew)| > 0) then {
                     InitializeMacroArguments(MI, mIDNew, MINew, tail(args))
                 }
 
@@ -3581,9 +3581,9 @@ rule CallMacro(MI, currentStateNumber, args) = {
 
 
 rule CheckCancel(MI, currentStateNumber, transitionNumber) = {
-    let processID = processIDFor(self) in
-    let tName = transitionLabel(processID, transitionNumber) in
-    let nCancel = stateNumberFromID(processID, tName) in {
+    let processModelID = processModelIDFor(self) in
+    let tName = transitionLabel(processModelID, transitionNumber) in
+    let nCancel = stateNumberFromID(processModelID, tName) in {
         debuginfo CheckCancel self + ": state: " + statePretty(MI, currentStateNumber)
         debuginfo CheckCancel self + ": transition: " + transitionPretty(MI, transitionNumber)
         debuginfo CheckCancel self + ": nCancel: " + nCancel
@@ -3604,9 +3604,9 @@ rule CheckCancel(MI, currentStateNumber, transitionNumber) = {
 rule Cancel(MI, currentStateNumber, args) = {
     debuginfo Cancel self + ": args: " + args
 
-    let processID = processIDFor(self) in
+    let processModelID = processModelIDFor(self) in
     seqblock
-        forall transitionNumber in outgoingNormalTransitions(processID, currentStateNumber) do {
+        forall transitionNumber in outgoingNormalTransitions(processModelID, currentStateNumber) do {
             CheckCancel(MI, currentStateNumber, transitionNumber)
         }
 
@@ -3617,7 +3617,7 @@ rule Cancel(MI, currentStateNumber, args) = {
 
                 if (|enabledOutgoingTransitions| = 1) then {
                     let transitionNumber = firstFromSet(enabledOutgoingTransitions) in {
-                        if (transitionIsAuto(processID, transitionNumber) = true) then {
+                        if (transitionIsAuto(processModelID, transitionNumber) = true) then {
                             debuginfo Cancel self + ": making automatic decision for transition " + transitionPretty(MI, transitionNumber)
                             selectedTransition(channelFor(self), MI, currentStateNumber) := transitionNumber
                         }
@@ -3633,7 +3633,7 @@ rule Cancel(MI, currentStateNumber, args) = {
                 if (selectedTransition(channelFor(self), MI, currentStateNumber) != undef) then {
                     debuginfo Cancel self + ": the decision has been made for: " + transitionPretty(MI, selectedTransition(channelFor(self), MI, currentStateNumber))
 
-                    SetCompletedFunction(MI, currentStateNumber, transitionLabel(processID, selectedTransition(channelFor(self), MI, currentStateNumber))) // sets executionState to REPEAT
+                    SetCompletedFunction(MI, currentStateNumber, transitionLabel(processModelID, selectedTransition(channelFor(self), MI, currentStateNumber))) // sets executionState to REPEAT
                 }
                 else {
                     SelectTransition(MI, currentStateNumber)
@@ -3652,12 +3652,12 @@ rule Cancel(MI, currentStateNumber, args) = {
 
 
 rule PerformTransitionCancel(MI, currentStateNumber, transitionNumber) = {
-    let processID = processIDFor(self) in {
+    let processModelID = processModelIDFor(self) in {
         debuginfo PerformTransitionCancel self + ": state: " + statePretty(MI, currentStateNumber)
         debuginfo PerformTransitionCancel self + ": transition: " + transitionPretty(MI, transitionNumber)
 
-        let tLabel = transitionLabel(processID, transitionNumber) in
-        let nCancel = stateNumberFromID(processID, tLabel) in {
+        let tLabel = transitionLabel(processModelID, transitionNumber) in
+        let nCancel = stateNumberFromID(processModelID, tLabel) in {
             debuginfo PerformTransitionCancel self + ": MI: " + MI
             debuginfo PerformTransitionCancel self + ": nCancel: " + nCancel
 
@@ -3858,10 +3858,10 @@ rule IsIPEmpty(MI, currentStateNumber, args) = {
 // Channel * MacroInstanceNumber * StateNumber -> BOOLEAN
 function selectAgentsDecision : LIST * NUMBER * NUMBER -> SET
 
-function selectAgentsProcessID : LIST * NUMBER * NUMBER -> STRING
-function selectAgentsSubjectID : LIST * NUMBER * NUMBER -> STRING
-function selectAgentsCountMin  : LIST * NUMBER * NUMBER -> NUMBER
-function selectAgentsCountMax  : LIST * NUMBER * NUMBER -> NUMBER
+function selectAgentsProcessModelID : LIST * NUMBER * NUMBER -> STRING
+function selectAgentsSubjectID      : LIST * NUMBER * NUMBER -> STRING
+function selectAgentsCountMin       : LIST * NUMBER * NUMBER -> NUMBER
+function selectAgentsCountMax       : LIST * NUMBER * NUMBER -> NUMBER
 
 function selectAgentsResult : LIST * NUMBER * NUMBER -> SET
 
@@ -3894,11 +3894,11 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
         Crash()
     }
 
-    let processID = processIDFor(self),
-        PI        = processInstanceFor(self) in
-    let resolvedInterface = resolveInterfaceSubject(sIDLocal) in
-    let resolvedProcessID = nth(resolvedInterface, 1),
-        resolvedSubjectID = nth(resolvedInterface, 2) in
+    let processModelID = processModelIDFor(self),
+        PI             = processInstanceFor(self) in
+    let resolvedInterface      = resolveInterfaceSubject(sIDLocal) in
+    let resolvedProcessModelID = nth(resolvedInterface, 1),
+        resolvedSubjectID      = nth(resolvedInterface, 2) in
     if (selectAgentsDecision(channelFor(self), MI, currentStateNumber) != undef) then {
         // validate min/max
         if ((countMax = 0) and (hasMinimalSize(selectAgentsDecision(channelFor(self), MI, currentStateNumber), countMin) != true)) then {
@@ -3913,17 +3913,17 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
         local setres1 := {} in // created channels
             seq
                 foreach agent in selectAgentsDecision(channelFor(self), MI, currentStateNumber) do { // note: forall not possible as nextPI is incremented
-                    if (resolvedProcessID = processID) then {
+                    if (resolvedProcessModelID = processModelID) then {
                         // local process, use own PI
-                        let ch = [processID, PI, sIDLocal, agent] in {
+                        let ch = [processModelID, PI, sIDLocal, agent] in {
                             InitializeSubject(ch)
 
                             add ch to setres1
                         }
                     }
                     else {
-                        if (resolvedProcessID = undef) then {
-                            debuginfo SelectAgents self + ": invalid resolvedProcessID"
+                        if (resolvedProcessModelID = undef) then {
+                            debuginfo SelectAgents self + ": invalid resolvedProcessModelID"
                             Crash()
                         }
 
@@ -3935,16 +3935,16 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
                         // external process, create new PI
                         local numres1 in {
                             seq
-                                numres1 <- StartProcess(resolvedProcessID, resolvedSubjectID, agent)
+                                numres1 <- StartProcessModel(resolvedProcessModelID, resolvedSubjectID, agent)
                             next {
-                                debuginfo SelectAgents self + ": created PI " + numres1 + " for " + sIDLocal + " (" + resolvedSubjectID + " in " + resolvedProcessID + ")"
+                                debuginfo SelectAgents self + ": created PI " + numres1 + " for " + sIDLocal + " (" + resolvedSubjectID + " in " + resolvedProcessModelID + ")"
 
                                 if (numres1 = undef) then {
                                     debuginfo SelectAgents self + ": invalid PI"
                                     Crash()
                                 }
 
-                                let ch = [resolvedProcessID, numres1, resolvedSubjectID, agent] in
+                                let ch = [resolvedProcessModelID, numres1, resolvedSubjectID, agent] in
                                     add ch to setres1
                             }
                         }
@@ -3953,28 +3953,28 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
             next
                 selectAgentsResult(channelFor(self), MI, currentStateNumber) := setres1
 
-        selectAgentsDecision (channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsDecision      (channelFor(self), MI, currentStateNumber) := undef
 
-        selectAgentsCountMin (channelFor(self), MI, currentStateNumber) := undef
-        selectAgentsCountMax (channelFor(self), MI, currentStateNumber) := undef
-        selectAgentsProcessID(channelFor(self), MI, currentStateNumber) := undef
-        selectAgentsSubjectID(channelFor(self), MI, currentStateNumber) := undef
-
-        debuginfo SelectAgents self + ": REPEAT"
-        SetExecutionState(MI, currentStateNumber, 0)
-    }
-    else if((countMax = 0) and (hasMinimalSize(predefinedAgents(processID, sIDLocal), countMin) = true)) then {
-        debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processID, sIDLocal)
-
-        selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processID, sIDLocal)
+        selectAgentsCountMin      (channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsCountMax      (channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsProcessModelID(channelFor(self), MI, currentStateNumber) := undef
+        selectAgentsSubjectID     (channelFor(self), MI, currentStateNumber) := undef
 
         debuginfo SelectAgents self + ": REPEAT"
         SetExecutionState(MI, currentStateNumber, 0)
     }
-    else if((countMax > 0) and (hasSizeWithin(predefinedAgents(processID, sIDLocal), countMin, countMax) = true)) then {
-        debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processID, sIDLocal)
+    else if((countMax = 0) and (hasMinimalSize(predefinedAgents(processModelID, sIDLocal), countMin) = true)) then {
+        debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processModelID, sIDLocal)
 
-        selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processID, sIDLocal)
+        selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processModelID, sIDLocal)
+
+        debuginfo SelectAgents self + ": REPEAT"
+        SetExecutionState(MI, currentStateNumber, 0)
+    }
+    else if((countMax > 0) and (hasSizeWithin(predefinedAgents(processModelID, sIDLocal), countMin, countMax) = true)) then {
+        debuginfo SelectAgents self + ": apply predefinedAgents: " + predefinedAgents(processModelID, sIDLocal)
+
+        selectAgentsDecision(channelFor(self), MI, currentStateNumber) := predefinedAgents(processModelID, sIDLocal)
 
         debuginfo SelectAgents self + ": REPEAT"
         SetExecutionState(MI, currentStateNumber, 0)
@@ -3983,15 +3983,15 @@ rule SelectAgents(MI, currentStateNumber, sIDLocal, countMin, countMax) = {
         if not(contains(wantInput(channelFor(self), MI, currentStateNumber), "SelectAgentsDecision")) then {
             add "SelectAgentsDecision" to wantInput(channelFor(self), MI, currentStateNumber)
 
-            debuginfo selectAgents self + ": resolvedProcessID: " + resolvedProcessID
-            debuginfo selectAgents self + ": resolvedSubjectID: " + resolvedSubjectID
-            debuginfo selectAgents self + ": countMin: " + countMin
-            debuginfo selectAgents self + ": countMax: " + countMax
+            debuginfo selectAgents self + ": resolvedProcessModelID: " + resolvedProcessModelID
+            debuginfo selectAgents self + ": resolvedSubjectID: "      + resolvedSubjectID
+            debuginfo selectAgents self + ": countMin: "               + countMin
+            debuginfo selectAgents self + ": countMax: "               + countMax
 
-            selectAgentsProcessID(channelFor(self), MI, currentStateNumber) := resolvedProcessID
-            selectAgentsSubjectID(channelFor(self), MI, currentStateNumber) := resolvedSubjectID
-            selectAgentsCountMin (channelFor(self), MI, currentStateNumber) := countMin
-            selectAgentsCountMax (channelFor(self), MI, currentStateNumber) := countMax
+            selectAgentsProcessModelID(channelFor(self), MI, currentStateNumber) := resolvedProcessModelID
+            selectAgentsSubjectID     (channelFor(self), MI, currentStateNumber) := resolvedSubjectID
+            selectAgentsCountMin      (channelFor(self), MI, currentStateNumber) := countMin
+            selectAgentsCountMax      (channelFor(self), MI, currentStateNumber) := countMax
 
             selectAgentsResult(channelFor(self), MI, currentStateNumber) := undef
 

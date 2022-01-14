@@ -12,7 +12,7 @@ object Implicits {
       val f: Iterator[Future[String]] = regex.findAllMatchIn(target).map(replacer)
 
       Future.sequence(f).map( it2 => {
-        regex.replaceAllIn(target, y => it2.next)
+        regex.replaceAllIn(target, y => it2.next())
       })
     }
 
@@ -20,7 +20,7 @@ object Implicits {
       val f: Iterator[Future[Option[String]]] = regex.findAllMatchIn(target).map(replacer)
 
       Future.sequence(f).map( it2 => {
-        regex.replaceSomeIn(target, y => it2.next)
+        regex.replaceSomeIn(target, y => it2.next())
       })
     }
   }

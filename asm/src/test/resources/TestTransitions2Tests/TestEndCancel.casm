@@ -1,4 +1,4 @@
-// @maxsteps 400
+// @maxsteps 600
 // @minsteps 10
 
 // @refuse "unhandled Task"
@@ -35,7 +35,7 @@ include "../Transitions2_EndCancel.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_EndCancel"}
+    processModelIDs := {"Transitions2_EndCancel"}
 
     LoadTransitions2_EndCancel
 }

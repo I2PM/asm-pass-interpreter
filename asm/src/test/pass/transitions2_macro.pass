@@ -15,7 +15,7 @@ Process Transitions2_Macro {
 
         Macro X {
             StartState := START_Inner
-            START_Inner: InternalAction "y" (timeout (0)) -> TERMINATE
+            START_Inner: InternalAction "y" (timeout (0)) -> RETURN
         }
     }
 }

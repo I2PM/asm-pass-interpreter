@@ -53,14 +53,14 @@ Process Transitions2_EndCancel {
             }
 
             Send "TrySendBlock: Send": Send {
-                ["block" to 2 of B in "b" with content of "pingContent"] -> TERMINATE_ok
+                ["block" to 2 of B in "b" with content of "pingContent"] -> RETURN_ok
             }
             Guard "TrySendBlock: Guard Send timeout": InternalAction {
-                (timeout (5)) -> TERMINATE_fail
+                (timeout (5)) -> RETURN_fail
             }
 
-            TERMINATE_ok:   Terminate ("ok")
-            TERMINATE_fail: Terminate ("failed")
+            RETURN_ok:   Return ("ok")
+            RETURN_fail: Return ("failed")
         }
     }
 

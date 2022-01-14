@@ -12,35 +12,35 @@
 
 package de.athalis.asm.test
 
-import java.io.BufferedReader
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileFilter
-import java.io.FileNotFoundException
-import java.io.FileReader
-import java.io.IOException
-import java.io.PrintStream
-import java.net.URL
-import java.util.Properties
-import java.util.regex.Pattern
-
-import org.coreasm.util.Tools
-import org.coreasm.engine.{Engine, EngineProperties}
-import org.coreasm.engine.test.TestEngineDriver
-
 import de.athalis.asm.test.Util._
+
+import org.coreasm.engine.Engine
+import org.coreasm.engine.EngineProperties
+import org.coreasm.engine.test.TestEngineDriver
+import org.coreasm.util.Tools
 
 import org.scalatest._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.PrintStream
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.Properties
+import java.util.regex.Pattern
+
+import scala.collection.JavaConverters._
+
 object TestAllCasm {
-  def getFilteredOutput(file: File, filter: String): Seq[String] = {
+  def getFilteredOutput(path: Path, filter: String): Seq[String] = {
     var filteredOutputList = Seq.empty[String]
     val pattern = Pattern.compile(filter + ".*")
 
     try {
-      val input = new BufferedReader(new FileReader(file))
+      val input = Files.newBufferedReader(path)
       var line: String = null //not declared within while loop
 
       while ({line = input.readLine(); line != null}) {
@@ -54,22 +54,22 @@ object TestAllCasm {
         }
       }
 
-      input.close();
+      // TODO: ... finally ...
+      input.close()
     }
     catch {
-      case e: FileNotFoundException => e.printStackTrace();
       case e: IOException => e.printStackTrace();
     }
 
     filteredOutputList
   }
 
-  def getParameter(file: File, name: String): Option[Int] = {
+  def getParameter(path: Path, name: String): Option[Int] = {
     var value: Option[Int] = None
     val pattern = Pattern.compile("@" + name + "\\s*(\\d+)")
 
     try {
-      val input = new BufferedReader(new FileReader(file))
+      val input = Files.newBufferedReader(path)
       var line: String = null
       var abort = false
       while (!abort && {line = input.readLine(); line != null}) {
@@ -79,38 +79,30 @@ object TestAllCasm {
           abort = true
         }
       }
-      input.close();
+
+      // TODO: ... finally ...
+      input.close()
     }
     catch {
-      case e: FileNotFoundException => e.printStackTrace();
       case e: IOException => e.printStackTrace();
     }
 
     value
   }
 
-  private val fileFilterCoreASM = new FileFilter() {
-    override def accept(file: File): Boolean = {
-      if (file.isDirectory) {
-        false
-      }
-      else {
-        val lowerName = file.getName.toLowerCase
-        (lowerName.endsWith(".casm") || lowerName.endsWith(".coreasm"))
-      }
-    }
-  }
-
-  def findTestFiles(base: File, folder: String): Seq[File] = {
-    if (base == null || !base.exists || !base.isDirectory)
+  def findTestFiles(base: Path, folder: String): Set[Path] = {
+    if (base == null || !Files.exists(base) || !Files.isDirectory(base))
         throw new IllegalArgumentException("base does not exist or is no directory: " + base)
 
-    val dir = new File(base, folder)
+    val dir = base.resolve(folder)
 
-    if (!dir.exists || !dir.isDirectory)
+    if (!Files.exists(dir) || !Files.isDirectory(dir))
         throw new IllegalArgumentException("dir does not exist or is no directory: " + dir)
 
-    dir.listFiles(fileFilterCoreASM)
+    val ds = Files.newDirectoryStream(dir, "*.{casm,coreasm}")
+    val r = ds.asScala.toSet
+    ds.close()
+    r
   }
 }
 
@@ -123,13 +115,12 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
   def errFilter(in: String): Boolean = false
   def failOnWarning: Boolean = true
 
-  def getTestFiles: Seq[File] = {
+  def getTestFiles: Set[Path] = {
     //setup the test by finding the test specifications
     val url: URL = this.getClass.getClassLoader.getResource(".")
 
-    findTestFiles(new File(url.toURI), this.getClass.getSimpleName)
+    findTestFiles(Path.of(url.toURI), this.getClass.getSimpleName)
   }
-
 
   private val testFiles = getTestFiles
 
@@ -138,12 +129,12 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
   }
 
   for (testFile <- testFiles) {
-    test(testFile.getName) {
+    test(testFile.getFileName.toString) {
       runSpecification(testFile)
     }
   }
 
-  private def runSpecification(testFile: File): Unit = synchronized {
+  private def runSpecification(testFile: Path): Unit = synchronized {
     val origOutput: java.io.PrintStream = System.out
     val origError: java.io.PrintStream = System.err
 
@@ -171,19 +162,16 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
     }
   }
 
-  private def runSpecification(testFile: File, outStream: ByteArrayOutputStream, logStream: ByteArrayOutputStream, errStream: ByteArrayOutputStream, origOutput: PrintStream): Unit = {
+  private def runSpecification(testFile: Path, outStream: ByteArrayOutputStream, logStream: ByteArrayOutputStream, errStream: ByteArrayOutputStream, origOutput: PrintStream): Unit = {
     var requiredOutputList = getFilteredOutput(testFile, "@require")
     val refusedOutputList = getFilteredOutput(testFile, "@refuse")
     val minSteps = getParameter(testFile, "minsteps").getOrElse(1)
     val maxSteps = getParameter(testFile, "maxsteps").getOrElse(minSteps)
 
-    val path = testFile.getAbsolutePath
-
-
     val properties: Properties = new Properties()
     properties.setProperty(EngineProperties.MAX_PROCESSORS, Runtime.getRuntime.availableProcessors().toString)
 
-    val td = TestEngineDriver.newLaunch(path, Tools.getRootFolder(classOf[Engine]) + "/plugins", properties)
+    val td = TestEngineDriver.newLaunch(testFile.toRealPath().toString, Tools.getRootFolder(classOf[Engine]) + "/plugins", properties)
 
     try {
 
@@ -192,7 +180,7 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
       val startTime = System.nanoTime()
 
       // TODO: isn't this too much, as minSteps are executed each time?
-      for (step <- 0 to maxSteps if (step < minSteps || !requiredOutputList.isEmpty)) {
+      for (step <- 0 to maxSteps if (step < minSteps || requiredOutputList.nonEmpty)) {
 
         if (td.getStatus == TestEngineDriver.TestEngineDriverStatus.stopped) {
           (requiredOutputList shouldBe empty) withMessage ("output:\n" + outStream.toString + "\n\nerrors:\n" + errStream.toString + "\n\nEngine terminated after " + step + " steps, but is missing required output: ")
@@ -225,7 +213,6 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
         cp {
           //test if no unexpected error has occurred
           var errors: Iterator[String] = outputErr.linesIterator
-          errors = errors.filterNot(msg => msg.contains("SLF4J") && msg.contains("binding"))
           (errors.toSeq shouldBe empty) withMessage ("log:\n" + outputLog + "\n\noutput:\n" + outputOut + f"\n\nEngine had an error after $step steps ($durationSecondsCP%1.2f seconds): ")
         }
 

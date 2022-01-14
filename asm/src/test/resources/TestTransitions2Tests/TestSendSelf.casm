@@ -1,4 +1,4 @@
-// @maxsteps 200
+// @maxsteps 400
 // @minsteps 10
 
 // @refuse "unhandled Task"
@@ -35,7 +35,7 @@ include "../Transitions2_SendSelf.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_SendSelf"}
+    processModelIDs := {"Transitions2_SendSelf"}
 
     LoadTransitions2_SendSelf
 }

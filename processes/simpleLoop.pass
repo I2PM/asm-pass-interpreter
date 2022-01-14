@@ -1,0 +1,14 @@
+Process Example_SimpleLoop {
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: InternalAction {
+                "a" -> a
+                "terminate" -> TERMINATE
+            }
+
+            a: InternalAction "start" -> START
+        }
+    }
+}

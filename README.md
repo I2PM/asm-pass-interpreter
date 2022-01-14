@@ -1,10 +1,10 @@
 # Readme
 
-Version 2.0.0-M5-public
+Version 2.0.0-M6-public
 
 ## About
 
-This is the fifth milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is under heavy development right now.
+This is the sixth milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is under heavy development right now.
 
 This project contains the reference implementation for "Spezifikation einer Ausführungssemantik für das Subjektorientierte Prozessmanagement mit CoreASM", available at https://tuprints.ulb.tu-darmstadt.de/id/eprint/8360
 
@@ -65,7 +65,7 @@ Example processes are given in the `processes` folder.
 ## Process Model Parsing
 
 If you don't want to execute Process Models, but just want to parse and print them
-into the case classes provided in the package `de.athalis.pass.model.TUDarmstadtModel`,
+into the case classes provided in the package `de.athalis.pass.processmodel.tudarmstadt`,
 you can use the Process Parsing Util
 and don't need to start the UI nor the Process interpreter.
 It takes a single path to a process file as argument.

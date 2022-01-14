@@ -2,18 +2,22 @@ package de.athalis.coreasm.helper
 
 import de.athalis.coreasm.base.Typedefs._
 
-import scala.collection.JavaConverters._
-
-import org.coreasm.engine.interpreter.{ASTNode, Interpreter, ScannerInfo}
 import org.coreasm.engine.absstorage._
-
-import org.coreasm.engine.plugins.number.NumberElement
-import org.coreasm.engine.plugins.string.StringElement
-import org.coreasm.engine.plugins.set.{ SetPlugin, SetElement }
+import org.coreasm.engine.interpreter.ASTNode
+import org.coreasm.engine.interpreter.Interpreter
+import org.coreasm.engine.interpreter.ScannerInfo
 import org.coreasm.engine.plugins.list.ListElement
 import org.coreasm.engine.plugins.map.MapElement
+import org.coreasm.engine.plugins.number.NumberElement
+import org.coreasm.engine.plugins.set.SetElement
+import org.coreasm.engine.plugins.set.SetPlugin
+import org.coreasm.engine.plugins.string.StringElement
 
-import java.util.{ Set => JavaSet, Map => JavaMap, List => JavaList }
+import java.util.{List => JavaList}
+import java.util.{Map => JavaMap}
+import java.util.{Set => JavaSet}
+
+import scala.collection.JavaConverters._
 
 object Implicits {
 

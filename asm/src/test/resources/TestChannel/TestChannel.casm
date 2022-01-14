@@ -18,8 +18,8 @@ include "../semantic/InitSemantic.casm"
 
 init TestChannel
 
-function processID_Local    : -> STRING
-function processID_External : -> STRING
+function processModelID_Local    : -> STRING
+function processModelID_External : -> STRING
 
 function subjectID_A : -> STRING
 function subjectID_B : -> STRING
@@ -33,33 +33,33 @@ function agent_Z  : -> Agents
 rule TestChannel = seqblock
     initSemantic
 
-    processID_Local    := "LocalProcess"
-    processID_External := "ExternalProcess"
+    processModelID_Local    := "LocalProcess"
+    processModelID_External := "ExternalProcess"
 
     subjectID_A   := "A"
     subjectID_B   := "B"
     subjectID_X   := "X"
 
-    processTransitions(processID_Local) := {
+    processTransitions(processModelID_Local) := {
         1 -> {
             "type" -> "normal"
         }
     }
 
-    processStates(processID_Local) := {
+    processStates(processModelID_Local) := {
         1 -> {
             "ID" -> "Test",
             "outgoingTransitionNumbers" -> {1}
         }
     }
 
-    processSubjects(processID_Local) := {
+    processSubjects(processModelID_Local) := {
         subjectID_A -> {"mainMacroNumber" -> 0},
         subjectID_B -> {"mainMacroNumber" -> 0},
         subjectID_X -> {"mainMacroNumber" -> 0}
     }
 
-    processMacros(processID_Local) := {
+    processMacros(processModelID_Local) := {
         0 -> {
             "ID" -> "TestChannel"
         }
@@ -67,24 +67,24 @@ rule TestChannel = seqblock
 
 
 
-    processTransitions(processID_External) := {
+    processTransitions(processModelID_External) := {
         1 -> {
             "type" -> "normal"
         }
     }
 
-    processStates(processID_External) := {
+    processStates(processModelID_External) := {
         1 -> {
             "ID" -> "Test",
             "outgoingTransitionNumbers" -> {1}
         }
     }
 
-    processSubjects(processID_External) := {
+    processSubjects(processModelID_External) := {
         subjectID_A -> {"mainMacroNumber" -> 0}
     }
 
-    processMacros(processID_External) := {
+    processMacros(processModelID_External) := {
         0 -> {
             "ID" -> "TestChannel"
         }
@@ -95,7 +95,7 @@ rule TestChannel = seqblock
     extend Agents with a do {
         program(a) := undef
 
-        initAgent(a, processID_Local, 1, subjectID_A, "AgentA")
+        initAgent(a, processModelID_Local, 1, subjectID_A, "AgentA")
 
         agent_A := a
     }
@@ -103,7 +103,7 @@ rule TestChannel = seqblock
     extend Agents with b1 do {
         program(b1) := undef
 
-        initAgent(b1, processID_Local, 1, subjectID_B, "AgentB1")
+        initAgent(b1, processModelID_Local, 1, subjectID_B, "AgentB1")
 
         agent_B1 := b1
     }
@@ -111,7 +111,7 @@ rule TestChannel = seqblock
     extend Agents with b2 do {
         program(b2) := undef
 
-        initAgent(b2, processID_Local, 1, subjectID_B, "AgentB2")
+        initAgent(b2, processModelID_Local, 1, subjectID_B, "AgentB2")
 
         agent_B2 := b2
     }
@@ -119,7 +119,7 @@ rule TestChannel = seqblock
     extend Agents with z do {
         program(z) := undef
 
-        initAgent(z, processID_External, 1, subjectID_A, "AgentZ")
+        initAgent(z, processModelID_External, 1, subjectID_A, "AgentZ")
 
         agent_Z := z
     }
@@ -127,7 +127,7 @@ rule TestChannel = seqblock
     extend Agents with tester do {
         program(tester) := testChannels
 
-        initAgent(tester, processID_Local, 1, subjectID_X, "Tester")
+        initAgent(tester, processModelID_Local, 1, subjectID_X, "Tester")
     }
 
 

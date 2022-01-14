@@ -1,25 +1,28 @@
 package de.athalis.pass.ui.util
 
+import de.athalis.coreasm.binding.Binding
+
+import de.athalis.pass.processmodel.tudarmstadt.Types.AgentIdentifier
+import de.athalis.pass.processmodel.tudarmstadt.Types.SubjectIdentifier
+import de.athalis.pass.semantic.Activities._
+import de.athalis.pass.semantic.Semantic
+import de.athalis.pass.semantic.Typedefs._
+import de.athalis.pass.ui.PASSInterpreterConsole
+
+import de.athalis.util._
+import de.athalis.util.jline.JLineHelper
+
 import akka.util.Timeout
+
 import org.jline.terminal.Terminal
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-import de.athalis.util.jline.JLineHelper
-
-import de.athalis.coreasm.binding.Binding
-import de.athalis.pass.semantic.Semantic
-import de.athalis.pass.semantic.Activities._
-import de.athalis.pass.semantic.Typedefs._
-
-import de.athalis.util._
-import de.athalis.pass.ui.PASSInterpreterConsole
-
 class UIInputGetter(implicit val timeout: Timeout, executionContext: ExecutionContext, binding: Binding, terminal: Terminal) extends InputGetter {
-  override def selectAgents(subjectID: String, min: Int, max: Int): PASSActivityInputAgents = {
-    val knownAgents: Set[String] = Semantic.aALL.loadAndGetAsync().blockingWait
-    val selectedAgents: Set[String] = PASSInterpreterConsole.selectAgents(subjectID, knownAgents, min, max)
+  override def selectAgents(subjectID: SubjectIdentifier, min: Int, max: Int): PASSActivityInputAgents = {
+    val knownAgents: Set[AgentIdentifier] = Semantic.aALL.loadAndGetAsync().blockingWait()
+    val selectedAgents: Set[AgentIdentifier] = PASSInterpreterConsole.selectAgents(subjectID, knownAgents, min, max)
     PASSActivityInputAgents(selectedAgents)
   }
 
@@ -44,7 +47,7 @@ class UIInputGetter(implicit val timeout: Timeout, executionContext: ExecutionCo
 
     while (isInvalidSelection() && !abort) {
       val prompt = {
-        val sep = "(seperate multiple options with a simple space)"
+        val sep = "(separate multiple options with a simple space)"
 
         if (max == 0 && min == 1) "Select at least one element " + sep + ": "
         else if (max == 0) "Select at least " + min + " elements " + sep + ": "

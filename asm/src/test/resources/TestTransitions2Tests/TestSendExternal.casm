@@ -1,4 +1,4 @@
-// @maxsteps 200
+// @maxsteps 400
 // @minsteps 10
 
 // @refuse "unhandled Task"
@@ -36,7 +36,7 @@ include "../Transitions2_SendExternalX.casm"
 init TestTransitions2
 
 rule InitializeTest = {
-    processIDs := {"Transitions2_SendExternalA", "Transitions2_SendExternalX"}
+    processModelIDs := {"Transitions2_SendExternalA", "Transitions2_SendExternalX"}
 
     LoadTransitions2_SendExternalA
     LoadTransitions2_SendExternalX

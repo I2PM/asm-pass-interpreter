@@ -10,7 +10,7 @@ Process Transitions2_CancelMacroTwice {
         StartSubject := true
 
         Macro Main {
-            START: "VarMan" ("storeData", "msgContent", "please terminate with 'ok'") -> split
+            START: "VarMan" ("storeData", "msgContent", "please return with 'ok'") -> split
 
             split: "ModalSplit" {
                 -> call
@@ -41,7 +41,7 @@ Process Transitions2_CancelMacroTwice {
                 (timeout (2)) -> TERMINATE_Fail2
             }
 
-            "send": Send ["terminate" to Proxy with content of "msgContent"] -> join
+            "send": Send ["return" to Proxy with content of "msgContent"] -> join
 
             join: "ModalJoin" -> TERMINATE
 
@@ -51,20 +51,20 @@ Process Transitions2_CancelMacroTwice {
 
         Macro Foo {
             START: Receive {
-                ["terminate" from Proxy] (auto) -> TERMINATE_ok
+                ["return" from Proxy] (auto) -> RETURN_ok
             }
 
-            TERMINATE_ok:  Terminate ("ok")
-            TERMINATE_bad: Terminate ("bad")
+            RETURN_ok:  Return ("ok")
+            RETURN_bad: Return ("bad")
         }
     }
 
     Subject Proxy {
         Macro Main {
             START: Receive {
-                ["terminate" from A store message in "tmp"] (auto) -> reply
+                ["return" from A store message in "tmp"] (auto) -> reply
             }
-            reply: Send ["terminate" to A in "tmp" with content of "tmp"] -> TERMINATE
+            reply: Send ["return" to A in "tmp" with content of "tmp"] -> TERMINATE
         }
     }
 }
