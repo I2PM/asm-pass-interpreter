@@ -6,7 +6,7 @@ Version 2.0.0-M6-public
 
 This is the sixth milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is under heavy development right now.
 
-This project contains the reference implementation for "Spezifikation einer Ausführungssemantik für das Subjektorientierte Prozessmanagement mit CoreASM", available at https://tuprints.ulb.tu-darmstadt.de/id/eprint/8360
+This repository contains the reference implementation for the subject-oriented modeling language ["Parallel Activity Specification Scheme" (PASS)](https://github.com/I2PM/PASS-Standard-Book-Tex-Project).
 
 See TODO.md for proposed features and known problems.
 
@@ -77,6 +77,15 @@ You can parse multiple files at once, which might be required if a process is di
 across multiple files, if you separate the files with the system path separator.
 For example on Windows: `parse_processfile.cmd processes\Macro.graphml;processes\echo_server.pass`
 For example on \*nix: `./parse_processfile.sh processes\Macro.graphml:processes\echo_server.pass`
+
+
+## Literature
+
+* André Wolski. **Spezifikation einer Ausführungssemantik für das Subjektorientierte Prozessmanagement mit CoreASM**. Bachelor-Thesis, TU Darmstadt, October 2018. https://tuprints.ulb.tu-darmstadt.de/id/eprint/8360
+* André Wolski, Stephan Borgert, and Lutz Heuser. **An extended Subject-Oriented Business Process Management Execution Semantics**. In _S-BPM ONE 2019, June 26 - 28, 2019, Seville, Spain_. ACM, New York, NY, USA, 2019. https://doi.org/10.1145/3329007.3332706
+* André Wolski, Stephan Borgert, and Lutz Heuser. **A CoreASM based Reference Implementation for Subject-Oriented Business Process Management Execution Semantics**. In _S-BPM ONE'19, June 26 - 28, 2019, Seville, Spain_. ACM, New York, NY, USA, 2019. https://doi.org/10.1145/3329007.3329018
+* Matthes Elstermann, and André Wolski. **Mapping Execution and Model Semantics for Subject-Oriented Process Models**. In: _Freitag, M., Kinra, A., Kotzab, H., Kreowski, HJ., Thoben, KD. (eds) Subject-Oriented Business Process Management. The Digital Workplace – Nucleus of Transformation._ S-BPM ONE 2020. Communications in Computer and Information Science, vol 1278. Springer, Cham. http://doi.org/10.1007/978-3-030-64351-5_4
+* **PASS Standard Book** (work in progress): https://github.com/I2PM/PASS-Standard-Book-Tex-Project
 
 
 ## Development
