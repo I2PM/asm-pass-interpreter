@@ -1,0 +1,70 @@
+Process Transitions2_CancelMacroNotTwice {
+    Data {
+        "agents" -> {
+            "A" -> {"foo"},
+            "Proxy" -> {"bar"}
+        }
+    }
+
+    Subject A {
+        StartSubject := true
+
+        Macro Main {
+            START: "VarMan" ("storeData", "msgContent", "please return with 'ok'") -> split
+
+            split: "ModalSplit" {
+                -> call
+                -> wait1
+            }
+
+            call: "CallMacro" ("Foo") {
+                "ok"  -> join
+                "bad" -> TERMINATE_Fail1
+                (cancel) -> call
+            }
+
+            // give CallMacro NO chance to run
+            wait1: InternalAction with priority 1 {
+                (timeout (1)) -> "cancel1"
+            }
+            "cancel1": "Cancel" with priority 1 {
+                "call" (auto) -> wait2
+                (timeout (1)) -> TERMINATE_Fail2
+            }
+
+            // give CallMacro NO chance to run
+            wait2: InternalAction with priority 1 {
+                (timeout (1)) -> "cancel2"
+            }
+            "cancel2": "Cancel" with priority 1 {
+                "call" (auto) -> "send"
+                (timeout (1)) -> TERMINATE_Fail2
+            }
+
+            "send": Send ["return" to Proxy with content of "msgContent"] -> join
+
+            join: "ModalJoin" -> TERMINATE
+
+            TERMINATE_Fail1: Terminate ("something bad happened")
+            TERMINATE_Fail2: Terminate ("cancel timed out")
+        }
+
+        Macro Foo {
+            START: Receive {
+                ["return" from Proxy] (auto) -> RETURN_ok
+            }
+
+            RETURN_ok:  Return ("ok")
+            RETURN_bad: Return ("bad")
+        }
+    }
+
+    Subject Proxy {
+        Macro Main {
+            START: Receive {
+                ["return" from A store message in "tmp"] (auto) -> reply
+            }
+            reply: Send ["return" to A in "tmp" with content of "tmp"] -> TERMINATE
+        }
+    }
+}

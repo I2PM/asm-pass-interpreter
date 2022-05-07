@@ -3450,10 +3450,15 @@ rule ModalJoin(MI, currentStateNumber, args) = {
 rule AbortCallMacro(MI, currentStateNumber) = {
     let childInstance = callMacroChildInstance(channelFor(self), MI, currentStateNumber) in {
         debuginfo AbortCallMacro self + ": MI: " + MI
-        debuginfo AbortCallMacro self + ": childInstance: " + childInstance
+        debuginfo AbortCallMacro self + ": childInstance: " + undefStr(childInstance)
 
-        if (|activeStates(channelFor(self), childInstance)| > 0) then {
-            AbortMacroInstance(childInstance, undef)
+        // if Macro Instance is not yet running..
+        if (childInstance = undef) then {
+            // .. then there is nothing to do.
+            SetAbortionCompleted(MI, currentStateNumber)  // sets executionState to DONE
+        }
+        else if (|activeStates(channelFor(self), childInstance)| > 0) then {
+            AbortMacroInstance(childInstance, undef) // keep calling until all states of the child MI are aborted
 
             SetExecutionState(MI, currentStateNumber, 1) // DONE, make global update
         }
