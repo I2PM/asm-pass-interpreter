@@ -4,6 +4,8 @@ import de.athalis.pass.processmodel.writer.asm.TUDarmstadtModel2ASMMap.ProcessMo
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
+
 import scala.collection.immutable.TreeMap
 import scala.collection.immutable.TreeSet
 
@@ -14,17 +16,17 @@ object ASMCodeGenerator {
     logger.debug("toASMRule")
 
     val rule: StringBuilder = new StringBuilder()
-    rule.append("rule " + ruleName + " = {\n")
+    rule.append("rule " + ruleName + " = {").append(EOL)
 
-    rule.append("  debuginfo " + ruleName + " \": adding process model '" + processModelID + "'\"\n\n")
+    rule.append("  debuginfo " + ruleName + " \": adding process model '" + processModelID + "'\"").append(EOL).append(EOL)
 
     rule.append("  let processModelMap = ")
 
     appendASMCode(rule, processModelMap)
 
-    rule.append("  in {\n")
-    rule.append("    AddProcessModel(\"" + processModelID + "\", processModelMap)\n")
-    rule.append("  }\n")
+    rule.append("  in {").append(EOL)
+    rule.append("    AddProcessModel(\"" + processModelID + "\", processModelMap)").append(EOL)
+    rule.append("  }").append(EOL)
 
     rule.append("}")
 
@@ -32,13 +34,14 @@ object ASMCodeGenerator {
   }
 
 
-  private def appendASMCode(sb: StringBuilder, o: Any): StringBuilder = {
+  private[asm] def appendASMCode(sb: StringBuilder, o: Any): StringBuilder = {
     logger.trace("appendASMCode_Any: " + o)
 
     o match {
       case x: String => appendASMCode(sb, x)
       case x: Int => appendASMCode(sb, x)
       case x: Long => appendASMCode(sb, x)
+      case x: Double => appendASMCode(sb, x)
       case x: Boolean => appendASMCode(sb, x)
       case x: Seq[_] => appendASMCode(sb, x)
       case x: Set[_] => appendASMCode(sb, x)
@@ -62,6 +65,12 @@ object ASMCodeGenerator {
 
   private def appendASMCode(sb: StringBuilder, x: Long): StringBuilder = {
     logger.trace("appendASMCode_Long: " + x)
+
+    sb.append(x)
+  }
+
+  private def appendASMCode(sb: StringBuilder, x: Double): StringBuilder = {
+    logger.trace("appendASMCode_Double: " + x)
 
     sb.append(x)
   }
@@ -139,13 +148,13 @@ object ASMCodeGenerator {
 
       val maybeSorted = maybeSortedMap(x)
 
-      for ((k, v) <- maybeSorted) {
+      maybeSorted.foreach({ case (k, v) => {
         if (first) {
           first = false
-          sb.append("{\n")
+          sb.append("{").append(EOL)
         }
         else {
-          sb.append(",\n")
+          sb.append(",").append(EOL)
         }
 
         appendASMCode(sb, k)
@@ -153,9 +162,9 @@ object ASMCodeGenerator {
         sb.append(" -> ")
 
         appendASMCode(sb, v)
-      }
+      }})
 
-      sb.append("\n}\n")
+      sb.append(EOL).append("}").append(EOL)
 
       sb
     }

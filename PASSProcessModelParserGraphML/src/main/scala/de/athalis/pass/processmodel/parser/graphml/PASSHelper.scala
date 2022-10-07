@@ -1,5 +1,6 @@
 package de.athalis.pass.processmodel.parser.graphml
 
+import de.athalis.pass.processmodel.operation.PASSProcessModelReaderSettings
 import de.athalis.pass.processmodel.parser.graphml.structure._
 
 import com.typesafe.config.Config
@@ -12,16 +13,34 @@ import scala.annotation.elidable.ASSERTION
 import scala.collection.immutable._
 
 object PASSHelper {
+
+  class PASSProcessModelReaderGraphMLSettings(
+                                               override val failOnWarning: Boolean,
+                                             ) extends PASSProcessModelReaderSettings(failOnWarning) {
+
+    def this(config: Config = ConfigFactory.load()) = {
+      this(
+        failOnWarning = config.getBoolean("pass.parser.graphml.fail-on-warning"),
+      )
+    }
+
+    def copyPASSProcessModelReaderGraphMLSettings(
+                        failOnWarning: Boolean = failOnWarning,
+                      ): PASSProcessModelReaderGraphMLSettings = {
+      new PASSProcessModelReaderGraphMLSettings(
+        failOnWarning = failOnWarning,
+      )
+    }
+
+  }
+
+  private val settings = new PASSProcessModelReaderGraphMLSettings()
+
   private val logger = LoggerFactory.getLogger(PASSHelper.getClass)
 
-  private val fallbackConfig: Config = ConfigFactory.load(this.getClass.getClassLoader)
-  private val config: Config = fallbackConfig.getConfig("pass-parser.graphml").withFallback(fallbackConfig)
-
-  private val failOnWarn = config.getBoolean("fail-on-warning")
-
-  private def warn(msg: String, args: Object*): Unit = {
+  private[graphml] def warn(msg: String, args: Object*): Unit = {
     logger.warn(msg, args: _*)
-    if(failOnWarn) throw new Exception("WARN: " + msg.replaceAll("""\{\}""", """\%s""").format(args))
+    if(settings.failOnWarning) throw new Exception("WARN: " + msg.replaceAll("""\{\}""", """\%s""").format(args))
   }
 
   // START small helpers

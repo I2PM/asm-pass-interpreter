@@ -43,7 +43,10 @@ object PASSProcessModelParserPlugin extends AutoPlugin {
         val parsePASSClassValue: String = parsePASSClass.value
         val forkOptionsValue: ForkOptions = (Compile / run / forkOptions).value
 
-        val x = Vector("-cp", (Compile / fullClasspath).value.map{_.data.getAbsolutePath }.mkString(File.pathSeparator))
+        val x = Vector(
+          "-Dlogback.configurationFile=logback-sbt-parse-plugin.xml",
+          "-cp", (Compile / fullClasspath).value.map{_.data.getAbsolutePath }.mkString(File.pathSeparator),
+        )
 
         val generatedFiles: Seq[File] = ParsePASSProcessModels.runMainToFiles(parsePASSClassValue, args, forkOptionsValue, x)
 
@@ -90,5 +93,5 @@ object PASSProcessModelParserPlugin extends AutoPlugin {
       output.linesIterator.map(line => new File(line)).toSeq
     }
   }
-  
+
 }

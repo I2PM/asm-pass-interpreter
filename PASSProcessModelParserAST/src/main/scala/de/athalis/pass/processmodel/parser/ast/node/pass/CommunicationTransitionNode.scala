@@ -5,6 +5,8 @@ import de.athalis.pass.processmodel.parser.ast.node.NodeDebugger
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
+
 object CommunicationTransitionNode {
   private val logger = LoggerFactory.getLogger(CommunicationTransitionNode.getClass)
 
@@ -59,7 +61,7 @@ object CommunicationTransitionNode {
           case TransitionPropertyWithNewCorrelation(x) => {
               node.new_correlation_var = x
             }
-          case x: TransitionPropertyMsgTypeWithCorrelation => throw new IllegalArgumentException("TransitionPropertyMsgTypeWithCorrelation must be within TransitionPropertyToFromSubj or TransitionPropertyMsgFromSubj")
+          case _: TransitionPropertyMsgTypeWithCorrelation => throw new IllegalArgumentException("TransitionPropertyMsgTypeWithCorrelation must be within TransitionPropertyToFromSubj or TransitionPropertyMsgFromSubj")
         }
       }
 
@@ -83,18 +85,18 @@ class CommunicationTransitionNode extends CustomNode {
 
   override def toString: String = (
 
-      "CommunicationTransitionNode\n" +
-      "msgType: " + this.msgType + "\n" +
+      "CommunicationTransitionNode" + EOL +
+      "msgType: " + this.msgType + EOL +
 
-      "subject: " + this.subject + "\n" +
-      "subjectCountMin: " + this.subjectCountMin + "\n" +
-      "subjectCountMax: " + this.subjectCountMax + "\n" +
-      "subjectVar: " + this.subjectVar + "\n" +
+      "subject: " + this.subject + EOL +
+      "subjectCountMin: " + this.subjectCountMin + EOL +
+      "subjectCountMax: " + this.subjectCountMax + EOL +
+      "subjectVar: " + this.subjectVar + EOL +
 
-      "content_var: " + this.content_var + "\n" +
-      "with_correlation_var: " + this.with_correlation_var + "\n" +
-      "new_correlation_var: " + this.new_correlation_var + "\n" +
-      "store_messages_var: " + this.store_messages_var + "\n" +
-      "store_receiver_var: " + this.store_receiver_var + "\n"
+      "content_var: " + this.content_var + EOL +
+      "with_correlation_var: " + this.with_correlation_var + EOL +
+      "new_correlation_var: " + this.new_correlation_var + EOL +
+      "store_messages_var: " + this.store_messages_var + EOL +
+      "store_receiver_var: " + this.store_receiver_var + EOL
     )
 }

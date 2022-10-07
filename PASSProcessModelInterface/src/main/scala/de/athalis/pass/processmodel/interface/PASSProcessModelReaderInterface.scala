@@ -2,24 +2,18 @@ package de.athalis.pass.processmodel.interface
 
 import de.athalis.pass.processmodel.PASSProcessModelCollection
 import de.athalis.pass.processmodel.interface.context.Analysis
-import de.athalis.pass.processmodel.parser.ast.PASSProcessModelReaderAST
-import de.athalis.pass.processmodel.parser.graphml.PASSProcessModelReaderGraphML
+import de.athalis.pass.processmodel.operation.PASSProcessModelReader
 import de.athalis.pass.processmodel.tudarmstadt._
-import de.athalis.pass.processutil.base.PASSProcessModelReader
 
 import java.io.File
 import java.io.Reader
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.PathMatcher
 
 object PASSProcessModelReaderInterface {
 
-  private val readers: Set[PASSProcessModelReader] = Set(PASSProcessModelReaderAST, PASSProcessModelReaderGraphML)
-  val pathMatchers: Set[PathMatcher] = readers.map(_.getPathMatcher)
-
-  private def getReader(path: Path): PASSProcessModelReader = {
-    val possibleReaders = readers.filter(_.canReadPath(path))
+  private def getReader(path: Path): PASSProcessModelReader[Process] = {
+    val possibleReaders = Repository.readers.values.filter(_.canReadPath(path))
 
     if (possibleReaders.isEmpty) {
       throw new IllegalArgumentException(s"unable to find parser for file $path")
@@ -29,18 +23,6 @@ object PASSProcessModelReaderInterface {
     }
 
     possibleReaders.head
-  }
-
-  def main(args: Array[String]): Unit = {
-    if (args.length == 0) {
-      throw new IllegalArgumentException(s"please specify file names, separated by '${File.pathSeparatorChar}'")
-    }
-
-    val paths = args.mkString(" ")
-
-    val processModels: PASSProcessModelCollection[Process] = readProcessModels(paths)
-
-    println(processModels)
   }
 
   def readProcessModels(rawPaths: String): PASSProcessModelCollection[Process] = {
@@ -68,24 +50,25 @@ object PASSProcessModelReaderInterface {
       throw new IllegalArgumentException("no paths given")
     }
 
-    val filesWithReader: Set[(Path, PASSProcessModelReader)] = paths.map(path => (path, getReader(path)))
+    val filesWithReader: Set[(Path, PASSProcessModelReader[Process])] = paths.map(path => (path, getReader(path)))
 
-    val readersWithFiles: Set[(PASSProcessModelReader, Set[Path])] = readers.map(reader => (reader, filesWithReader.filter(_._2 == reader).map(_._1)))
+    val readersWithFiles: Iterable[(PASSProcessModelReader[Process], Set[Path])] = Repository.readers.values.map(reader => (reader, filesWithReader.filter(_._2 == reader).map(_._1)))
 
     val processModelsSet: Set[PASSProcessModelCollection[Process]] = readersWithFiles.map(t => {
       val reader = t._1
       val files = t._2
       reader.readProcessModels(files)
-    })
+    }).toSet
 
     val processModels: PASSProcessModelCollection[Process] = PASSProcessModelCollection.flatten(processModelsSet)
 
     Analysis.convert(processModels)
   }
 
-  def readProcessModels(sourceReader: Reader, sourceName: String, processModelReader: PASSProcessModelReader): PASSProcessModelCollection[Process] = {
+  def readProcessModels(sourceReader: Reader, sourceName: String, processModelReader: PASSProcessModelReader[Process]): PASSProcessModelCollection[Process] = {
     val processModels: PASSProcessModelCollection[Process] = processModelReader.readProcessModels(sourceReader, sourceName)
 
     Analysis.convert(processModels)
   }
+
 }

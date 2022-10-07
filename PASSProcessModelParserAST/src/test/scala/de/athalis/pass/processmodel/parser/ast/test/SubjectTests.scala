@@ -1,15 +1,16 @@
 package de.athalis.pass.processmodel.parser.ast.test
 
 import de.athalis.pass.processmodel.parser.ast.PASSParser
+import de.athalis.pass.processmodel.parser.ast.util.ParserUtils
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class SubjectTests extends AnyFunSuite with Matchers {
-  import Util._
+  import ParserUtils.parsePASSwithCause
 
   test("subjectTestSimple") {
-    val s = parse(PASSParser.subjectParser, """Subject Test { }""")
+    val s = parsePASSwithCause(PASSParser.subjectParser, """Subject Test { }""")
 
     s.id shouldBe "Test"
     s.getMacros shouldBe empty
@@ -18,14 +19,14 @@ class SubjectTests extends AnyFunSuite with Matchers {
   }
 
   test("subjectTestSimpleNamed") {
-    val s = parse(PASSParser.subjectParser, """Subject "A B C" { }""")
+    val s = parsePASSwithCause(PASSParser.subjectParser, """Subject "A B C" { }""")
 
     s.id shouldBe "A B C"
     s.getMacros shouldBe empty
   }
 
   test("externalSubjectTestSimple") {
-    val s = parse(PASSParser.interfaceSubjectParser, """InterfaceSubject Foo is Bar in Baz""")
+    val s = parsePASSwithCause(PASSParser.interfaceSubjectParser, """InterfaceSubject Foo is Bar in Baz""")
 
     s.id shouldBe "Foo"
     s.externalSubjectID shouldBe "Bar"
@@ -34,7 +35,7 @@ class SubjectTests extends AnyFunSuite with Matchers {
   }
 
   test("externalSubjectTestSimpleNamed") {
-    val s = parse(PASSParser.interfaceSubjectParser, """InterfaceSubject "A B C" is "D E F" in "X Y Z"""")
+    val s = parsePASSwithCause(PASSParser.interfaceSubjectParser, """InterfaceSubject "A B C" is "D E F" in "X Y Z"""")
 
     s.id shouldBe "A B C"
     s.externalSubjectID shouldBe "D E F"
@@ -43,7 +44,7 @@ class SubjectTests extends AnyFunSuite with Matchers {
   }
 
   test("externalSubjectTestSimpleAnonymous") {
-    val s = parse(PASSParser.interfaceSubjectParser, """InterfaceSubject Foo is ? in ?""")
+    val s = parsePASSwithCause(PASSParser.interfaceSubjectParser, """InterfaceSubject Foo is ? in ?""")
 
     s.id shouldBe "Foo"
     s.externalSubjectID shouldBe "?"
@@ -52,7 +53,7 @@ class SubjectTests extends AnyFunSuite with Matchers {
   }
 
   test("subjectTest IP Size") {
-    val s = parse(PASSParser.subjectParser, """Subject Test { InputPool := 2 }""")
+    val s = parsePASSwithCause(PASSParser.subjectParser, """Subject Test { InputPool := 2 }""")
 
     s.id shouldBe "Test"
     s.getMacros shouldBe empty
@@ -60,7 +61,7 @@ class SubjectTests extends AnyFunSuite with Matchers {
   }
 
   test("subjectTest StartSubject") {
-    val s = parse(PASSParser.subjectParser, """Subject Test { StartSubject := true }""")
+    val s = parsePASSwithCause(PASSParser.subjectParser, """Subject Test { StartSubject := true }""")
 
     s.id shouldBe "Test"
     s.getMacros shouldBe empty
@@ -68,7 +69,7 @@ class SubjectTests extends AnyFunSuite with Matchers {
   }
 
   test("subjectTest Macro") {
-    val s = parse(PASSParser.subjectParser, """Subject Test { Macro Foo {} }""")
+    val s = parsePASSwithCause(PASSParser.subjectParser, """Subject Test { Macro Foo {} }""")
 
     s.id shouldBe "Test"
     s.getMacros should have size 1

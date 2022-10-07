@@ -3,6 +3,8 @@ package de.athalis.pass.processmodel.interface.context
 import de.athalis.pass.processmodel.operation.PASSProcessModelConverterSingle
 import de.athalis.pass.processmodel.tudarmstadt.Process
 
+import scala.collection.parallel.mutable.ParArray
+
 
 trait AnalysisException extends RuntimeException {
   def message: String
@@ -30,7 +32,7 @@ object Analysis extends PASSProcessModelConverterSingle[Process, Process] {
 
     val analyses: Seq[Analysis[_ <: AnalysisResult]] = Seq[Analysis[_ <: AnalysisResult]](new ModalJoinAnalysis(from))
 
-    val analysisResults: Seq[AnalysisResult] = analyses.par.map(_.analyze()).seq
+    val analysisResults: Seq[AnalysisResult] = ParArray.handoff(analyses.toArray).map(_.analyze()).seq.toSeq
 
     (from, analysisResults)
   }

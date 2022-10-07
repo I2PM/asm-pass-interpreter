@@ -2,6 +2,8 @@ package de.athalis.pass.processmodel.parser.graphml.structure
 
 import de.athalis.pass.processmodel.parser.graphml.Helper
 
+import java.lang.System.{lineSeparator => EOL}
+
 import scala.collection.immutable._
 import scala.collection.{Seq => DefaultSeq}
 
@@ -152,7 +154,7 @@ case class LabelData(data: Map[String, String], remaining: String)
 
 object LabelData {
   def apply(text: String): LabelData = {
-    val lines: DefaultSeq[String] = text.split("\n")
+    val lines: DefaultSeq[String] = text.split("\\R")
     val x = lines.filter(_.contains(":"))
 
     val m: Map[String, String] = x.map(_.split(":")).map(
@@ -160,7 +162,7 @@ object LabelData {
     ).toMap
 
     // TODO: very ugly
-    val remaining = lines.filterNot(l => (l.startsWith("ID:") || l.startsWith("PRIO:"))).mkString("\n")
+    val remaining = lines.filterNot(l => (l.startsWith("ID:") || l.startsWith("PRIO:"))).mkString(EOL)
 
     LabelData(m, remaining)
   }

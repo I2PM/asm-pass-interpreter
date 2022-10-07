@@ -348,7 +348,7 @@ object PASSParser {
     statePropertyNode.many().asSeq.asOption,
     stateArguments.asOption,
     Parsers.or[Seq[TransitionNode]](
-      transition.atomic map[Seq[TransitionNode]] (transition => Seq(transition)),
+      transition.atomic.map[Seq[TransitionNode]](transition => Seq(transition)),
       transition.many().asSeq.between(lParenCurl, rParenCurl)
     ).asOption,
 

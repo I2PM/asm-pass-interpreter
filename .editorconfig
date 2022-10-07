@@ -1,0 +1,32 @@
+# top-most EditorConfig file
+root = true
+
+
+# default: 2 spaces, no trailing whitespaces
+[*.{sbt,scala,yml,conf}]
+indent_style = space
+indent_size = 2
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+
+# 4 spaces instead of 2
+[*.{xml,java,casm,coreasm,pass,sh,bat,cmd}]
+indent_size = 4
+
+
+# allow trailing whitespaces on files written by tools
+[*Vocabulary.java]
+trim_trailing_whitespace = false
+
+
+
+# Windows-style newlines, even on Unix
+[*.{bat,cmd}]
+end_of_line = crlf
+
+
+# Unix-style newlines, even on Windows
+[*.sh]
+end_of_line = lf

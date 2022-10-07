@@ -9,6 +9,8 @@ import scala.collection.JavaConverters._
 
 object FileUtils {
 
+  private val processModelPathMatchers: DirectoryStream.Filter[Path] = new FileExtensionFilter(Repository.pathMatchers)
+
   def listProcessModelFiles(path: Path): Set[Path] = listFiles(path, processModelPathMatchers)
 
   def listFiles(path: Path, filter: DirectoryStream.Filter[Path]): Set[Path] = {
@@ -23,7 +25,5 @@ object FileUtils {
       fileExtensions.exists(_.matches(path))
     }
   }
-
-  private val processModelPathMatchers: DirectoryStream.Filter[Path] = new FileExtensionFilter(PASSProcessModelReaderInterface.pathMatchers)
 
 }

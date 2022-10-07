@@ -1,15 +1,15 @@
 package de.athalis.pass.processmodel.writer.asm
 
 import de.athalis.pass.processmodel.PASSProcessModelCollection
+import de.athalis.pass.processmodel.operation.PASSProcessModelWriter
 import de.athalis.pass.processmodel.tudarmstadt.Process
 import de.athalis.pass.processmodel.writer.asm.TUDarmstadtModel2ASMMap.ProcessModelsASMMap
-import de.athalis.pass.processutil.base.PASSProcessModelWriter
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 
-object PASSProcessModelWriterASM extends PASSProcessModelWriter {
+object PASSProcessModelWriterASM extends PASSProcessModelWriter[Process] {
 
   private val fileExtension = ".casm"
 

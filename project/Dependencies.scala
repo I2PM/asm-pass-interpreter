@@ -1,29 +1,50 @@
 import sbt._
 
 object Dependencies {
-  val scalaVersion = "2.12.15"
+  val jdkVersion_2_12_target  =  "8" // Unlike Scala 2.13, Scala 2.12 cannot emit valid class files for target bytecode versions newer than 8
+  val jdkVersion_2_12_release = "11"
+  val jdkVersion_2_13         = "11"
+  val jdkVersion_3            = "11"
 
-  val scalafixOrganizeImportsVersion = "0.5.0"
+  val scalaVersion_2_12 = "2.12.17"
+  val scalaVersion_2_13 = "2.13.9"
+  val scalaVersion_3_1  = "3.1.3"
+  val scalaVersion_3_2  = "3.2.0"
+  // note: default to Scala 2.13
+  // Akka has only experimental support for Scala 3
+  val scalaVersions = List(scalaVersion_2_13, scalaVersion_3_1, scalaVersion_3_2, scalaVersion_2_12)
+
+  val semanticdbVersion_2_12 = "4.5.13"
+  val semanticdbVersion_2_13 = semanticdbVersion_2_12
+  val semanticdbVersion_3    = semanticdbVersion_2_13
+  def semanticdbVersion(scalaVersion: String): String = CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, n)) if n <= 12 => semanticdbVersion_2_12
+    case Some((2, n)) if n == 13 => semanticdbVersion_2_13
+    case Some((3, _))            => semanticdbVersion_3
+  }
+
+  val scalafixOrganizeImportsVersion = "0.6.0"
+  val scalafixOrganizeImports = "com.github.liancheng" %% "organize-imports" % scalafixOrganizeImportsVersion
 
   val coreASMVersion = "1.7.3-locke-5"
   val coreASMEngine = "de.athalis.coreasm" % "coreasm-engine"   % coreASMVersion
   val coreASMCarma  = "de.athalis.coreasm" % "coreasm-ui-carma" % coreASMVersion
 
-  val slf4jVersion = "1.7.32"
+  val slf4jVersion = "1.7.36"
   val slf4j = "org.slf4j" % "slf4j-api" % slf4jVersion
 
-  val logbackVersion = "1.2.10"
+  val logbackVersion = "1.2.11"
   val logback = "ch.qos.logback" % "logback-classic" % logbackVersion
 
-  val akkaVersion = "2.6.18"
+  val akkaVersion = "2.6.20"
   val akkaActor  = "com.typesafe.akka" %% "akka-actor"  % akkaVersion
   val akkaRemote = "com.typesafe.akka" %% "akka-remote" % akkaVersion
   val akkaSlf4j  = "com.typesafe.akka" %% "akka-slf4j"  % akkaVersion
 
-  val typesafeConfigVersion = "1.4.1"
+  val typesafeConfigVersion = "1.4.2"
   val typesafeConfig = "com.typesafe" % "config" % typesafeConfigVersion
 
-  val scalaTestVersion = "3.2.10"
+  val scalaTestVersion = "3.2.13"
   val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
   val jparsecVersion = "3.1"
@@ -39,12 +60,38 @@ object Dependencies {
   val jAnsi = "org.fusesource.jansi" % "jansi" % jAnsiVersion
 
   val asyncVersion = "1.0.1"
-  val async = "org.scala-lang.modules" %% "scala-async" % asyncVersion
+  def async(scalaVersion: String): Seq[ModuleID] = CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, n)) if n <= 12 => Seq("org.scala-lang.modules" %% "scala-async" % asyncVersion)
+    case Some((2, n)) if n == 13 => Seq("org.scala-lang.modules" %% "scala-async" % asyncVersion)
+    case Some((3, _))            => Seq("com.github.rssh" %% "shim-scala-async-dotty-cps-async" % "0.9.8") // TODO: scala-async is not available for scala 3
+  }
 
-  val scalaXmlVersion = "2.0.1"
-  val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
+  val scalaXmlVersion_2_12 = "1.3.0" // old version needed for https://github.com/scoverage/sbt-scoverage/issues/439
+  val scalaXmlVersion_2_13 = "2.1.0"
+  val scalaXmlVersion_3    = scalaXmlVersion_2_13
+  def scalaXml(scalaVersion: String): ModuleID = CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, n)) if n <= 12 => "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion_2_12
+    case Some((2, n)) if n == 13 => "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion_2_13
+    case Some((3, _))            => "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion_3
+  }
 
-  val scalaReflect = "org.scala-lang" % "scala-reflect" % scalaVersion
+  // 1.0.2 is most recent, but most likely incompatible with 0.x & akka 2.5.x and 2.6.x for scala 2.12 depend on 0.8.0
+  val java8compatVersion_2_12 = "0.9.1"
+  val java8compatVersion_2_13 = "1.0.2"
+  val java8compatVersion_3    = java8compatVersion_2_13
+  def java8compat(scalaVersion: String): Seq[ModuleID] = CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, n)) if n <= 12 => Seq("org.scala-lang.modules" %% "scala-java8-compat" % java8compatVersion_2_12)
+    case Some((2, n)) if n == 13 => Seq("org.scala-lang.modules" %% "scala-java8-compat" % java8compatVersion_2_13)
+    case Some((3, _))            => Seq("org.scala-lang.modules" %% "scala-java8-compat" % java8compatVersion_3)
+  }
+
+  val scalaParallelCollectionsVersion_2_13 = "1.0.4"
+  val scalaParallelCollectionsVersion_3    = scalaParallelCollectionsVersion_2_13
+  def scalaParallelCollections(scalaVersion: String): Seq[ModuleID] = CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, n)) if n <= 12 => Seq()
+    case Some((2, n)) if n == 13 => Seq("org.scala-lang.modules" %% "scala-parallel-collections" % scalaParallelCollectionsVersion_2_13)
+    case Some((3, _))            => Seq("org.scala-lang.modules" %% "scala-parallel-collections" % scalaParallelCollectionsVersion_3)
+  }
 
 
   val PASSProcessModelDependencies: Seq[ModuleID] = Seq(
@@ -52,6 +99,7 @@ object Dependencies {
   )
 
   val PASSProcessModelOperationDependencies: Seq[ModuleID] = Seq(
+    typesafeConfig,
     scalaTest % Test
   )
 
@@ -59,30 +107,35 @@ object Dependencies {
     scalaTest % Test
   )
 
-  val PASSProcessUtilBaseDependencies: Seq[ModuleID] = Seq.empty
+  def PASSProcessModelInterfaceDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
+    slf4j,
+    scalaTest % Test
+  ) ++
+    scalaParallelCollections(scalaVersion)
 
-  val PASSProcessModelInterfaceDependencies: Seq[ModuleID] = Seq(
+  val PASSProcessModelInterfaceCLIDependencies: Seq[ModuleID] = Seq(
     slf4j,
     logback, // required to enforce logging level in ConsoleUtil
-    scalaTest % Test
+    jAnsi, // needed for support on Windows (CLI apps use logging which uses colored output (could be disabled though))
   )
 
-  val PASSProcessModelParserASTDependencies: Seq[ModuleID] = Seq(
+  def PASSProcessModelParserASTDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
     slf4j,
     jparsec,
     logback % Test,
     scalaTest % Test
-  )
+  ) ++
+    scalaParallelCollections(scalaVersion)
 
-  val PASSProcessModelParserGraphMLDependencies: Seq[ModuleID] = Seq(
+  def PASSProcessModelParserGraphMLDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
     typesafeConfig,
     slf4j,
     jparsec,
-    scalaReflect,
-    scalaXml,
+    scalaXml(scalaVersion),
     logback % Test,
     scalaTest % Test
-  )
+  ) ++
+    scalaParallelCollections(scalaVersion)
 
   val PASSProcessModelWriterASMDependencies: Seq[ModuleID] = Seq(
     slf4j,
@@ -132,7 +185,7 @@ object Dependencies {
   )
 
 
-  val PASSInterpreterConsoleDependencies: Seq[ModuleID] = Seq(
+  def PASSInterpreterConsoleDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
     akkaActor,
     akkaRemote % Runtime,
     akkaSlf4j % Runtime,
@@ -140,8 +193,9 @@ object Dependencies {
     typesafeConfig,
     jAnsi, // needed for support on Windows
     jline,
-    async,
     scalaTest % Test,
-    scalaReflect % Provided // workaround for https://github.com/scala/scala-async/issues/220
-  )
+  ) ++
+    async(scalaVersion) ++
+    scalaParallelCollections(scalaVersion)
+
 }

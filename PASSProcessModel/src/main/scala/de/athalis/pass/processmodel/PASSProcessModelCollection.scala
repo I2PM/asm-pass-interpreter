@@ -16,6 +16,9 @@ class PASSProcessModelCollectionImpl[+T <: PASSProcessModel](of: Set[T]) extends
 
 object PASSProcessModelCollection {
 
+  private val emptyInstance: PASSProcessModelCollection[PASSProcessModel] = new PASSProcessModelCollectionImpl(Set.empty[PASSProcessModel])
+  def empty[T <: PASSProcessModel]: PASSProcessModelCollection[T] = emptyInstance.asInstanceOf[PASSProcessModelCollection[T]]
+
   def apply[T <: PASSProcessModel](args: T*): PASSProcessModelCollection[T] = {
     new PASSProcessModelCollectionImpl(args.toSet)
   }

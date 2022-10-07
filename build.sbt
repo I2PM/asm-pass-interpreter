@@ -10,12 +10,13 @@ val processesFolder = file("./processes/").getAbsoluteFile
 
 lazy val cleanRelease = taskKey[Unit]("cleans release folder")
 lazy val prepareRelease = taskKey[File]("prepares all files for the release folder and returns it")
+lazy val prepareCleanRelease = taskKey[File]("cleans release folder, then prepares all files for the release folder and returns it")
 lazy val zipRelease = taskKey[File]("zips the release folder")
 
-ThisBuild / version := "2.0.0-M6-public"
+ThisBuild / version := "2.0.0-M7-public"
 ThisBuild / versionScheme := Some(VersionScheme.Strict) // NOTE: as of now, semver (or at least PVP) is aimed, but cannot be guaranteed as "the public API" needs to be defined
 
-ThisBuild / scalaVersion := Dependencies.scalaVersion
+ThisBuild / scalaVersion := Dependencies.scalaVersions.head
 
 ThisBuild / packageTimestamp := Package.gitCommitDateTimestamp
 
@@ -23,35 +24,74 @@ ThisBuild / resolvers ++= Seq(
   Resolver.mavenLocal
 )
 
-ThisBuild / semanticdbEnabled := true // enable SemanticDB
-ThisBuild / semanticdbVersion := scalafixSemanticdb.revision // only required for Scala 2.x
-ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % Dependencies.scalafixOrganizeImportsVersion
+ThisBuild / scalafixDependencies += Dependencies.scalafixOrganizeImports
 
-ThisBuild / scalacOptions ++= Seq(
+val scalacOptionsAll = Seq(
   "-unchecked",
-  "-deprecation",
   "-feature",
   "-encoding", "utf8",
-  "-language:higherKinds",
-  "-language:implicitConversions",
-  "-Xfuture",
-  "-Xlint:-unused", // TODO: unused should be enabled
+)
+
+val scalacOptionsPrimary = Seq(
+  "-deprecation",
+  "-Xfatal-warnings",
+)
+
+val scalacOptions_2 = Seq(
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
-  "-Ywarn-unused-import",
   //"-Ywarn-value-discard", // TODO: this should be enabled
-  "-Xfatal-warnings",
   "-Xasync", // for scala-async 1.0.0
+  // TODO: -Xsource:3 ?
 )
+
+val scalacOptions_2_12 = Seq(
+  "-Ywarn-unused-import",
+  "-Xlint:-unused", // TODO: all unused warnings should be enabled
+  "-release", Dependencies.jdkVersion_2_12_release,
+  "-target:" + Dependencies.jdkVersion_2_12_target,
+)
+
+val scalacOptions_2_13 = Seq(
+  "-Xlint",
+  "-release", Dependencies.jdkVersion_2_13, // implies -target
+)
+
+val scalacOptions_3 = Seq(
+  "-release", Dependencies.jdkVersion_3, // implies -target
+  // TODO: Xlint etc. are no longer / not yet supported
+)
+
 
 ThisBuild / assembly / assemblyMergeStrategy := {
   case "module-info.class" => MergeStrategy.discard
+  case "application.conf" => MergeStrategy.discard
+  case PathList(ps @ _*) if (ps.last.startsWith("logback") && ps.last.endsWith(".xml")) => MergeStrategy.discard
   case x =>
     val oldStrategy = (assembly / assemblyMergeStrategy).value
     oldStrategy(x)
 }
 
-Global / cancelable := true
+lazy val defaultSettings: Seq[Def.Setting[_]] = Seq(
+  crossScalaVersions := Dependencies.scalaVersions,
+
+  scalacOptions ++= {
+    scalacOptionsAll ++ (CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, n)) if n <= 12 => scalacOptions_2 ++ scalacOptions_2_12 ++ scalacOptionsPrimary
+      case Some((2, n)) if n == 13 => scalacOptions_2 ++ scalacOptions_2_13
+      case Some((3, _))            => scalacOptions_3
+    })
+  },
+
+  semanticdbEnabled := true,
+  semanticdbVersion := Dependencies.semanticdbVersion(scalaVersion.value),
+
+  scalafixConfig := (CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, _)) => Some(file(".scalafix_2.conf"))
+    case Some((3, _)) => Some(file(".scalafix_3.conf"))
+  }),
+)
+
 
 lazy val root = (project in file("."))
   // run Tasks like test and compile on all projects
@@ -59,11 +99,11 @@ lazy val root = (project in file("."))
     PASSProcessModel,
     PASSProcessModelOperation,
     PASSProcessModelTUDarmstadt,
-    PASSProcessUtilBase,
     PASSProcessModelParserAST,
     PASSProcessModelParserGraphML,
     PASSProcessModelWriterASM,
     PASSProcessModelInterface,
+    PASSProcessModelInterfaceCLI,
 
     asm,
 
@@ -78,13 +118,18 @@ lazy val root = (project in file("."))
     ASMSemantic,
     PASSInterpreterConsole,
   )
+  .settings(defaultSettings)
   .settings(
+    crossScalaVersions := Nil, // crossScalaVersions must be set to Nil on the aggregating project
+    publish / skip := true,    // also, the root project doesn't need to be published
+
     name := "asm-pass-interpreter",
     run := (PASSInterpreterConsole / Compile / run).evaluated, // overwrite run Task to use the run in PASSUI
   )
 
 lazy val PASSProcessModel = (project in file("PASSProcessModel"))
   .enablePlugins(BuildInfoPlugin)
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model",
     libraryDependencies ++= Dependencies.PASSProcessModelDependencies,
@@ -95,6 +140,7 @@ lazy val PASSProcessModel = (project in file("PASSProcessModel"))
 
 lazy val PASSProcessModelOperation = (project in file("PASSProcessModelOperation"))
   .enablePlugins(BuildInfoPlugin)
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model Operation",
     libraryDependencies ++= Dependencies.PASSProcessModelOperationDependencies,
@@ -106,6 +152,7 @@ lazy val PASSProcessModelOperation = (project in file("PASSProcessModelOperation
 
 lazy val PASSProcessModelTUDarmstadt = (project in file("PASSProcessModelTUDarmstadt"))
   .enablePlugins(BuildInfoPlugin)
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model TUDarmstadt",
     libraryDependencies ++= Dependencies.PASSProcessModelTUDarmstadtDependencies,
@@ -116,35 +163,29 @@ lazy val PASSProcessModelTUDarmstadt = (project in file("PASSProcessModelTUDarms
   .dependsOn(PASSProcessModel)
 
 
-lazy val PASSProcessUtilBase = (project in file("PASSProcessUtilBase"))
-  .settings(
-    name := "PASS Process Util Base",
-    libraryDependencies ++= Dependencies.PASSProcessUtilBaseDependencies,
-  )
-  .dependsOn(PASSProcessModel)
-  .dependsOn(PASSProcessModelTUDarmstadt)
-
 lazy val PASSProcessModelParserAST = (project in file("PASSProcessModelParserAST"))
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model Parser AST",
-    libraryDependencies ++= Dependencies.PASSProcessModelParserASTDependencies,
+    libraryDependencies ++= Dependencies.PASSProcessModelParserASTDependencies(scalaVersion.value),
   )
   .dependsOn(PASSProcessModel)
   .dependsOn(PASSProcessModelOperation)
   .dependsOn(PASSProcessModelTUDarmstadt)
-  .dependsOn(PASSProcessUtilBase)
 
 lazy val PASSProcessModelParserGraphML = (project in file("PASSProcessModelParserGraphML"))
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model Parser GraphML",
-    libraryDependencies ++= Dependencies.PASSProcessModelParserGraphMLDependencies,
+    libraryDependencies ++= Dependencies.PASSProcessModelParserGraphMLDependencies(scalaVersion.value),
   )
   .dependsOn(PASSProcessModel)
+  .dependsOn(PASSProcessModelOperation)
   .dependsOn(PASSProcessModelTUDarmstadt)
-  .dependsOn(PASSProcessUtilBase)
-  .dependsOn(PASSProcessModelParserAST % "test->test;compile->compile")
+  .dependsOn(PASSProcessModelParserAST)
 
 lazy val PASSProcessModelWriterASM = (project in file("PASSProcessModelWriterASM"))
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model Writer ASM",
     libraryDependencies ++= Dependencies.PASSProcessModelWriterASMDependencies,
@@ -152,17 +193,42 @@ lazy val PASSProcessModelWriterASM = (project in file("PASSProcessModelWriterASM
   .dependsOn(PASSProcessModel)
   .dependsOn(PASSProcessModelOperation)
   .dependsOn(PASSProcessModelTUDarmstadt)
-  .dependsOn(PASSProcessUtilBase)
 
 
 lazy val PASSProcessModelInterface = (project in file("PASSProcessModelInterface"))
+  .settings(defaultSettings)
   .settings(
     name := "PASS Process Model Interface",
-    libraryDependencies ++= Dependencies.PASSProcessModelInterfaceDependencies,
+    libraryDependencies ++= Dependencies.PASSProcessModelInterfaceDependencies(scalaVersion.value),
+  )
+  .dependsOn(PASSProcessModel)
+  .dependsOn(PASSProcessModelOperation)
+  .dependsOn(PASSProcessModelTUDarmstadt % "test->test;compile->compile")
+  .dependsOn(PASSProcessModelParserAST)
+  .dependsOn(PASSProcessModelParserGraphML)
+  .dependsOn(PASSProcessModelWriterASM)
 
-    parsePASSClass := "de.athalis.pass.processmodel.interface.ConsoleUtil",
+
+lazy val PASSProcessModelInterfaceCLI = (project in file("PASSProcessModelInterfaceCLI"))
+  .enablePlugins(BuildInfoPlugin)
+  .settings(defaultSettings)
+  .settings(
+    name := "PASS Process Model Command-Line Interface",
+    libraryDependencies ++= Dependencies.PASSProcessModelInterfaceCLIDependencies,
+
+    parsePASSClass := "de.athalis.pass.processmodel.interface.cli.ConsoleConverter",
+
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoPackage := "de.athalis.pass.processmodel.interface.cli",
+
+    assembly / assemblyJarName := "pass-processmodel-cli.jar",
+
+    Compile / mainClass := Some("de.athalis.pass.processmodel.interface.cli.ConsoleParser"),
 
     prepareRelease := {
+      val assemblyFile: File = assembly.value
+      FileUtils.copyFileToDirectory(assemblyFile, releaseFolder)
+
       val resources = (Compile / resourceDirectory).value
       FileUtils.copyDirectory(resources, releaseFolder)
 
@@ -172,15 +238,12 @@ lazy val PASSProcessModelInterface = (project in file("PASSProcessModelInterface
   .enablePlugins(PASSProcessModelParserPlugin)
   .dependsOn(PASSProcessModel)
   .dependsOn(PASSProcessModelOperation)
-  .dependsOn(PASSProcessModelTUDarmstadt)
-  .dependsOn(PASSProcessUtilBase)
-  .dependsOn(PASSProcessModelParserAST % "test->test;compile->compile")
-  .dependsOn(PASSProcessModelParserGraphML % "test->test;compile->compile")
-  .dependsOn(PASSProcessModelWriterASM % "test->test;compile->compile")
+  .dependsOn(PASSProcessModelInterface)
 
 
 
 lazy val asm = (project in file("asm"))
+  .settings(defaultSettings)
   .settings(
     name := "PASS ASM Semantic",
     libraryDependencies ++= Dependencies.asmDependencies,
@@ -210,7 +273,7 @@ lazy val asm = (project in file("asm"))
         "**/*.owl"// overwrite *.owl that is present by default
       ),
     ParsePASS / parsePASSFileType := "asm",
-    ParsePASS / parsePASSProject := PASSProcessModelInterface,
+    ParsePASS / parsePASSProject := PASSProcessModelInterfaceCLI,
 
     // fork is necessary as the CoreASM Engine only writes to System.out
     Test / fork := true,
@@ -219,12 +282,14 @@ lazy val asm = (project in file("asm"))
 
 
 lazy val CoreASMBase = (project in file("CoreASMBase"))
+  .settings(defaultSettings)
   .settings(
     name := "CoreASM Base",
     libraryDependencies ++= Dependencies.CoreASMBaseDependencies,
   )
 
 lazy val CoreASMHelper = (project in file("CoreASMHelper"))
+  .settings(defaultSettings)
   .settings(
     name := "CoreASM Helper",
     libraryDependencies ++= Dependencies.CoreASMHelperDependencies,
@@ -232,6 +297,7 @@ lazy val CoreASMHelper = (project in file("CoreASMHelper"))
   .dependsOn(CoreASMBase)
 
 lazy val CoreASMBinding = (project in file("CoreASMBinding"))
+  .settings(defaultSettings)
   .settings(
     name := "CoreASM Binding",
     libraryDependencies ++= Dependencies.CoreASMBindingDependencies,
@@ -239,6 +305,7 @@ lazy val CoreASMBinding = (project in file("CoreASMBinding"))
   .dependsOn(CoreASMBase)
 
 lazy val CoreASMBindingAkka = (project in file("CoreASMBindingAkka"))
+  .settings(defaultSettings)
   .settings(
     name := "CoreASM AkkaBinding",
     libraryDependencies ++= Dependencies.CoreASMBindingAkkaDependencies,
@@ -248,6 +315,7 @@ lazy val CoreASMBindingAkka = (project in file("CoreASMBindingAkka"))
 
 
 lazy val AkkaStorageLib = (project in file("AkkaStorage-lib"))
+  .settings(defaultSettings)
   .settings(
     name := "CoreASM Akka Storage Library",
     libraryDependencies ++= Dependencies.AkkaStorageLibDependencies,
@@ -256,6 +324,7 @@ lazy val AkkaStorageLib = (project in file("AkkaStorage-lib"))
 
 lazy val AkkaStoragePlugin = (project in file("AkkaStorage"))
   .enablePlugins(BuildInfoPlugin)
+  .settings(defaultSettings)
   .settings(
     name := "CoreASM Akka Storage Plugin",
     libraryDependencies ++= Dependencies.AkkaStoragePluginDependencies,
@@ -277,6 +346,7 @@ lazy val AkkaStoragePlugin = (project in file("AkkaStorage"))
 
 
 lazy val ASMSemantic = (project in file("ASMSemantic"))
+  .settings(defaultSettings)
   .settings(
     name := "ASM Semantic",
     libraryDependencies ++= Dependencies.ASMSemanticDependencies,
@@ -286,9 +356,10 @@ lazy val ASMSemantic = (project in file("ASMSemantic"))
 
 lazy val PASSInterpreterConsole = (project in file("PASSInterpreterConsole"))
   .enablePlugins(BuildInfoPlugin)
+  .settings(defaultSettings)
   .settings(
     name := "PASS ASM Interpreter Console",
-    libraryDependencies ++= Dependencies.PASSInterpreterConsoleDependencies,
+    libraryDependencies ++= Dependencies.PASSInterpreterConsoleDependencies(scalaVersion.value),
 
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "de.athalis.pass.ui.info",
@@ -302,8 +373,11 @@ lazy val PASSInterpreterConsole = (project in file("PASSInterpreterConsole"))
       val assemblyFile: File = assembly.value
       FileUtils.copyFileToDirectory(assemblyFile, releaseFolder)
 
-      val resources = (Compile / resourceDirectory).value
-      FileUtils.copyDirectory(resources, releaseFolder)
+      val resourcesDir = (Compile / resourceDirectory).value
+      val applicationConf = resourcesDir / "application.conf"
+      val logbackConf = resourcesDir / "logback.xml"
+      FileUtils.copyFileToDirectory(applicationConf, releaseFolder)
+      FileUtils.copyFileToDirectory(logbackConf, releaseFolder)
 
       releaseFolder
     },
@@ -320,7 +394,7 @@ prepareRelease := {
   (asm / prepareRelease).value
   (AkkaStoragePlugin / prepareRelease).value
   (PASSInterpreterConsole / prepareRelease).value
-  (PASSProcessModelInterface / prepareRelease).value
+  (PASSProcessModelInterfaceCLI / prepareRelease).value
 
   val readme = file("README.md")
   FileUtils.copyFileToDirectory(readme, releaseFolder)
@@ -358,13 +432,13 @@ cleanRelease := {
   if (releaseFolder.exists) FileUtils.cleanDirectory(releaseFolder)
 }
 
-prepareRelease := (prepareRelease dependsOn cleanRelease).value
+prepareCleanRelease := (prepareRelease dependsOn cleanRelease).value
 
 clean := (clean dependsOn cleanRelease).value
 
 
 zipRelease := {
-  val releaseFolderValue = prepareRelease.value
+  val releaseFolderValue = prepareCleanRelease.value
   val releaseVersion = (ThisBuild / version).value
 
   IO.withTemporaryDirectory(tmp => {

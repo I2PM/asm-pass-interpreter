@@ -42,7 +42,7 @@ object Activities {
   case class StartSubject(task: TaskMap, processModelID: ProcessIdentifier, processInstanceNumber: RuntimeProcessInstanceNumber, subjectID: SubjectIdentifier) extends PASSActivityTask[PASSActivityInputAgents] {
 
     override def toActivityString: String = {
-      "Select Agent for Subject '" + subjectID + "' in Process Model '" + processModelID + "' (Instance " + processInstanceNumber + ") and start execution"
+      f"Select Agent for Subject '$subjectID%s' in Process Model '$processModelID%s' (Instance $processInstanceNumber%,d) and start execution"
     }
 
     override def getInput(inputGetter: InputGetter): PASSActivityInputAgents = {
@@ -163,17 +163,17 @@ object Activities {
   case class SelectAgents(state: ActiveState, processModelID: ProcessIdentifier, subjectID: SubjectIdentifier, min: Int, max: Int) extends PASSActivityAgent[PASSActivityInputAgents] {
     override def toActivityString: String = {
       val text = {
-        if (max == 1) "Select agent"
-        else if (min == max) "Select " + min + " Agents"
-        else if (max == 0) "Select at least " + min + " Agents"
-        else "Select " + min + " to " + max + " Agents"
+        if (max == 1) f"Select agent"
+        else if (min == max) f"Select $min%,d Agents"
+        else if (max == 0) f"Select at least $min%,d Agents"
+        else f"Select $min%,d to $max%,d Agents"
       }
 
       val suffix = if (processModelID != state.ch.processModelID) {
-        " in Process Model '" + processModelID + "'"
+        f" in Process Model '$processModelID%s'"
       } else ""
 
-      text + " for Subject '" + subjectID + "'" + suffix
+      text + f" for Subject '$subjectID%s'" + suffix
     }
 
     override def getInput(inputGetter: InputGetter): PASSActivityInputAgents = {

@@ -2,6 +2,7 @@ package de.athalis.pass.processmodel.parser.ast.test
 
 import de.athalis.pass.processmodel.parser.ast.PASSParser
 import de.athalis.pass.processmodel.parser.ast.node.pass.TransitionNode.TransitionType._
+import de.athalis.pass.processmodel.parser.ast.util.ParserUtils
 
 import org.jparsec.error.ParserException
 
@@ -10,10 +11,10 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class TransitionTests extends AnyFunSuite with Matchers {
-  import Util._
+  import ParserUtils.parsePASSwithCause
 
   test("countMinMaxParserCount") {
-    val c = parse(PASSParser.countMinMaxParser, """3""")
+    val c = parsePASSwithCause(PASSParser.countMinMaxParser, """3""")
 
     c.min shouldBe 3
     c.maxO.value shouldBe 3
@@ -22,18 +23,18 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
   test("countMinMaxParserMinFail") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.countMinMaxParser, """min 3""")
+      parsePASSwithCause(PASSParser.countMinMaxParser, """min 3""")
     }
   }
 
   test("countMinMaxParserMin?Fail") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.countMinMaxParser, """min 3 max ?""")
+      parsePASSwithCause(PASSParser.countMinMaxParser, """min 3 max ?""")
     }
   }
 
   test("countMinMaxParserMin*") {
-    val c = parse(PASSParser.countMinMaxParser, """min 3 max *""")
+    val c = parsePASSwithCause(PASSParser.countMinMaxParser, """min 3 max *""")
 
     c.min shouldBe 3
     c.maxO shouldBe None
@@ -42,24 +43,24 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
   test("countMinMaxParserMaxFail") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.countMinMaxParser, """max 3""")
+      parsePASSwithCause(PASSParser.countMinMaxParser, """max 3""")
     }
   }
 
   test("countMinMaxParserMaxFail*") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.countMinMaxParser, """min * max 3""")
+      parsePASSwithCause(PASSParser.countMinMaxParser, """min * max 3""")
     }
   }
 
   test("countMinMaxParserMaxFail?") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.countMinMaxParser, """min ? max 3""")
+      parsePASSwithCause(PASSParser.countMinMaxParser, """min ? max 3""")
     }
   }
 
   test("countMinMaxParserMinMax") {
-    val c = parse(PASSParser.countMinMaxParser, """min 5 max 10""")
+    val c = parsePASSwithCause(PASSParser.countMinMaxParser, """min 5 max 10""")
 
     c.min shouldBe 5
     c.maxO.value shouldBe 10
@@ -68,25 +69,25 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
 
   test("transitionTestBasicToID") {
-    val e = parse(PASSParser.transition, """-> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """-> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.getType shouldBe Normal
     e.targetStateID shouldBe "nextState"
     e.isAuto shouldBe false
   }
 
   test("transitionTestBasicToName") {
-    val e = parse(PASSParser.transition, """-> "next state"""")
+    val e = parsePASSwithCause(PASSParser.transition, """-> "next state"""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.getType shouldBe Normal
     e.targetStateID shouldBe "next state"
     e.isAuto shouldBe false
   }
 
   test("transitionTestNamedToID") {
-    val e = parse(PASSParser.transition, """"transition name" -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Normal
@@ -95,9 +96,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageTo") {
-    val e = parse(PASSParser.transition, """["msg type" to A] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.getType shouldBe Normal
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
@@ -106,7 +107,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageToWithName") {
-    val e = parse(PASSParser.transition, """"transition name" ["msg type" to A] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" ["msg type" to A] -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Normal
@@ -117,7 +118,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestAutoWithName") {
-    val e = parse(PASSParser.transition, """"transition name" (auto) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" (auto) -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Normal
@@ -126,7 +127,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestHiddenWithName") {
-    val e = parse(PASSParser.transition, """"transition name" (hidden) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" (hidden) -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Normal
@@ -135,7 +136,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestAutoWithNameAndPriority") {
-    val e = parse(PASSParser.transition, """"transition name" (auto with priority 2) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" (auto with priority 2) -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Normal
@@ -145,7 +146,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestCancelWithoutName") {
-    val e = parse(PASSParser.transition, "(cancel) -> nextState")
+    val e = parsePASSwithCause(PASSParser.transition, "(cancel) -> nextState")
 
     e.getType shouldBe Cancel
     e.targetStateID shouldBe "nextState"
@@ -153,7 +154,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestCancelWithName") {
-    val e = parse(PASSParser.transition, """"transition name" (cancel) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" (cancel) -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Cancel
@@ -163,12 +164,12 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
   test("transitionTestTimeoutManualWithName fail without time") {
     an[ParserException] shouldBe thrownBy {
-      parse(PASSParser.transition, """"transition name" (timeout) -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """"transition name" (timeout) -> nextState""")
     }
   }
 
   test("transitionTestTimeoutManualWithTimeWithName") {
-    val e = parse(PASSParser.transition, """"transition name" (timeout(120)) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" (timeout(120)) -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Timeout
@@ -179,7 +180,7 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
   // note: timeouts are always handled as auto
   test("transitionTestTimeoutAutoWithTimeWithName") {
-    val e = parse(PASSParser.transition, """"transition name" (auto timeout(120)) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"transition name" (auto timeout(120)) -> nextState""")
 
     e.label shouldBe Some("transition name")
     e.getType shouldBe Timeout
@@ -189,23 +190,23 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestDollarSingleQuote") {
-    val e = parse(PASSParser.transition, """'$foo and \$bar' -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """'$foo and \$bar' -> nextState""")
 
     e.label shouldBe Some("""$foo and \$bar""")
     e.targetStateID shouldBe "nextState"
   }
 
   test("transitionTestDollarDoubleQuote") {
-    val e = parse(PASSParser.transition, """"$foo and \\$bar" -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """"$foo and \\$bar" -> nextState""")
 
     e.label shouldBe Some("""$foo and \$bar""")
     e.targetStateID shouldBe "nextState"
   }
 
   test("transitionTestMessageFrom") {
-    val e = parse(PASSParser.transition, """["msg type" from B] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from B] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "B"
@@ -213,9 +214,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageFromMulti") {
-    val e = parse(PASSParser.transition, """["msg type" from 3 of B] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from 3 of B] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "B"
@@ -225,9 +226,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestReceiveAnyWithAnyFromAny") {
-    val e = parse(PASSParser.transition, """[? with correlation of ? from ?] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """[? with correlation of ? from ?] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "?"
     e.communicationProperties.value.with_correlation_var shouldBe "?"
@@ -236,9 +237,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestSendAnyWithAnyFromAny") {
-    val e = parse(PASSParser.transition, """["foo" with correlation of "x" to * in "bar" /*|*/ with new correlation "y"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["foo" with correlation of "x" to * in "bar" /*|*/ with new correlation "y"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "foo"
     e.communicationProperties.value.with_correlation_var shouldBe "x"
@@ -249,9 +250,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageToVarname") {
-    val e = parse(PASSParser.transition, """["msg type" to A in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -260,9 +261,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageFromVarname") {
-    val e = parse(PASSParser.transition, """["msg type" from A in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from A in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -271,9 +272,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageToMulti") {
-    val e = parse(PASSParser.transition, """["msg type" to 3 of A] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to 3 of A] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -283,9 +284,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageToMultiVarname") {
-    val e = parse(PASSParser.transition, """["msg type" to 3 of A in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to 3 of A in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -296,9 +297,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageToAnyVarname") {
-    val e = parse(PASSParser.transition, """["msg type" to * in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to * in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "*"
@@ -307,9 +308,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageWithContent") {
-    val e = parse(PASSParser.transition, """["msg type" to A with content of "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A with content of "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -320,28 +321,28 @@ class TransitionTests extends AnyFunSuite with Matchers {
   test("transitionTestMessageStoreContentFail") {
     an[ParserException] should be thrownBy {
       // `store content in` has been removed in favor of VarMan/ExtractContent
-      parse(PASSParser.transition, """["msg type" from A store content in "varname"] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" from A store content in "varname"] -> nextState""")
     }
   }
 
   test("transitionTestMessageStoreChannelFail") {
     an[ParserException] should be thrownBy {
       // `store channel in` has been removed in favor of VarMan/ExtractChannel
-      parse(PASSParser.transition, """["msg type" from A store channel in "varname"] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" from A store channel in "varname"] -> nextState""")
     }
   }
 
   test("transitionTestMessageStoreCorrelationFail") {
     an[ParserException] should be thrownBy {
       // `store correlation in` has been removed in favor of VarMan/ExtractCorrelationID
-      parse(PASSParser.transition, """["msg type" from A store correlation in "varname"] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" from A store correlation in "varname"] -> nextState""")
     }
   }
 
   test("transitionTestMessageStoreMessage") {
-    val e = parse(PASSParser.transition, """["msg type" from A store message in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from A store message in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -350,9 +351,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageStoreReceiver") {
-    val e = parse(PASSParser.transition, """["msg type" to A store receiver in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A store receiver in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -364,15 +365,15 @@ class TransitionTests extends AnyFunSuite with Matchers {
   test("transitionTestMessageStoreMessageMultiFail") {
     an[ParserException] should be thrownBy {
       // should fail as there are multiple messages to be stored
-      parse(PASSParser.transition, "[\"msg type\" from 3 of A store message in \"varname\"] -> nextState");
+      parsePASSwithCause(PASSParser.transition, "[\"msg type\" from 3 of A store message in \"varname\"] -> nextState");
     }
   }
   */
 
   test("transitionTestMessageStoreMessages") {
-    val e = parse(PASSParser.transition, """["msg type" from 3 of A store messages in "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from 3 of A store messages in "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -386,15 +387,15 @@ class TransitionTests extends AnyFunSuite with Matchers {
   test("transitionTestMessageStoreMessagesSingleFail") {
     an[ParserException] should be thrownBy {
       // should fail as there is only one messages to be stored
-      parse(PASSParser.transition, "[\"msg type\" from A store messages in \"varname\"] -> nextState");
+      parsePASSwithCause(PASSParser.transition, "[\"msg type\" from A store messages in \"varname\"] -> nextState");
     }
   }
   */
 
   test("transitionTestMessageWithCorrelation") {
-    val e = parse(PASSParser.transition, """["msg type" with correlation of "varname" to A] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" with correlation of "varname" to A] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -403,9 +404,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageWithNewCorrelation") {
-    val e = parse(PASSParser.transition, """["msg type" to A with new correlation "varname"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A with new correlation "varname"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -414,9 +415,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageWithBothCorrelation") {
-    val e = parse(PASSParser.transition, """["msg type" with correlation of "foo" to A with new correlation "bar"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" with correlation of "foo" to A with new correlation "bar"] -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -427,29 +428,29 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
   test("transitionTestCorrelationDeprecatedFail") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.transition, """["msg type" to A having correlation of "varname"] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" to A having correlation of "varname"] -> nextState""")
     }
 
     an[ParserException] should be thrownBy {
-      parse(PASSParser.transition, """["msg type" to A with correlation of "varname"] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" to A with correlation of "varname"] -> nextState""")
     }
   }
 
   test("transitionTestCorrelationIllegalFail") {
     an[ParserException] should be thrownBy {
-      parse(PASSParser.transition, """["msg type" with new correlation "varname" to A] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" with new correlation "varname" to A] -> nextState""")
     }
 
     an[ParserException] should be thrownBy {
-      parse(PASSParser.transition, """["msg type" to A with new correlation ?] -> nextState""")
+      parsePASSwithCause(PASSParser.transition, """["msg type" to A with new correlation ?] -> nextState""")
     }
   }
 
   // TODO: priority should be independent of Message
   test("transitionTestMessageWithPriority") {
-    val e = parse(PASSParser.transition, """["msg type" to A] (with priority 2) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A] (with priority 2) -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -459,9 +460,9 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
   // TODO: priority should be independent of Message
   test("transitionTestMessageWithPriorityAuto") {
-    val e = parse(PASSParser.transition, """["msg type" to A] (auto with priority 2) -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to A] (auto with priority 2) -> nextState""")
 
-    e.label should not be 'defined
+    e.label should not be Symbol("defined")
     e.targetStateID shouldBe "nextState"
     e.communicationProperties.value.msgType shouldBe "msg type"
     e.communicationProperties.value.subject shouldBe "A"
@@ -471,14 +472,14 @@ class TransitionTests extends AnyFunSuite with Matchers {
 
 
   test("transitionTestMessageCountMin") {
-    val e = parse(PASSParser.transition, """["msg type" from min 1 max * of B] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from min 1 max * of B] -> nextState""")
 
     e.communicationProperties.value.subjectCountMin shouldBe 1
     e.communicationProperties.value.subjectCountMax shouldBe 0
   }
 
   test("transitionTestMessageCountAll") {
-    val e = parse(PASSParser.transition, """["msg type" from * of B in "foo"] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from * of B in "foo"] -> nextState""")
 
     e.communicationProperties.value.subjectCountMin shouldBe 0
     e.communicationProperties.value.subjectCountMax shouldBe 0
@@ -487,21 +488,21 @@ class TransitionTests extends AnyFunSuite with Matchers {
   }
 
   test("transitionTestMessageCountMax") {
-    val e = parse(PASSParser.transition, """["msg type" from min 1 max 2 of B] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from min 1 max 2 of B] -> nextState""")
 
     e.communicationProperties.value.subjectCountMin shouldBe 1
     e.communicationProperties.value.subjectCountMax shouldBe 2
   }
 
   test("transitionTestMessageCountMinMax") {
-    val e = parse(PASSParser.transition, """["msg type" from min 5 max 10 of B] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" from min 5 max 10 of B] -> nextState""")
 
     e.communicationProperties.value.subjectCountMin shouldBe 5
     e.communicationProperties.value.subjectCountMax shouldBe 10
   }
 
   test("transitionTestMessageCountMinMaxSend") {
-    val e = parse(PASSParser.transition, """["msg type" to min 5 max 10 of B] -> nextState""")
+    val e = parsePASSwithCause(PASSParser.transition, """["msg type" to min 5 max 10 of B] -> nextState""")
 
     e.communicationProperties.value.subjectCountMin shouldBe 5
     e.communicationProperties.value.subjectCountMax shouldBe 10

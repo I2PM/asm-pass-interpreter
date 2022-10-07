@@ -14,12 +14,10 @@ import org.jline.terminal.TerminalBuilder
 
 import org.fusesource.jansi.AnsiConsole
 
+import scala.compat.java8.DurationConverters.DurationOps
 import scala.concurrent._
-import scala.concurrent.duration._
 
 object Boot {
-  private implicit val timeout: Timeout = Timeout(10.seconds)
-
   def main(args: Array[String]): Unit = {
     println("starting [" + info.BuildInfo + "]")
 
@@ -31,14 +29,18 @@ object Boot {
     try {
       println("initializing Akka ActorSystem")
 
-      val config: Config = ConfigFactory.load(this.getClass.getClassLoader)
+      val rootConfig: Config = ConfigFactory.load()
+      rootConfig.checkValid(ConfigFactory.defaultReference())
+      val config: Config = rootConfig.getConfig("coreasm-cli")
 
-      val system = ActorSystem("coreasm-cli", config.getConfig("coreasm-cli").withFallback(config), this.getClass.getClassLoader)
+      implicit val timeout: Timeout = Timeout(config.getDuration("timeout").toScala)
+
+      val system = ActorSystem("coreasm-cli", config.withFallback(rootConfig), this.getClass.getClassLoader)
 
       try {
         val logger: LoggingAdapter = Logging(system, getClass.getName)
 
-        val storagePath = config.getString("coreasm-storage.remote-actor-selection-path")
+        val storagePath = rootConfig.getString("coreasm-storage.remote-actor-selection-path")
         val storageActor: ActorSelection = system.actorSelection(storagePath)
 
         logger.info("initialized Akka ActorSystem")
@@ -54,7 +56,7 @@ object Boot {
         console.run()
       }
       finally {
-        Await.result(system.terminate(), 10.seconds)
+        Await.result(system.terminate(), timeout.duration)
       }
     }
     finally {

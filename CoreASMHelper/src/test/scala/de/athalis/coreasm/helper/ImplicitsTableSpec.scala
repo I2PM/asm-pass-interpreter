@@ -6,6 +6,10 @@ import org.coreasm.engine.plugins.map.MapElement
 import org.coreasm.engine.plugins.number.NumberElement
 import org.coreasm.engine.plugins.set.SetElement
 import org.coreasm.engine.plugins.string.StringElement
+import org.coreasm.network.plugins.graph.ToGraphFunctionElement
+
+import org.jgrapht.graph.DefaultEdge
+import org.jgrapht.graph.SimpleGraph
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -31,11 +35,35 @@ class ImplicitsTableSpec extends AnyPropSpec with TableDrivenPropertyChecks with
 
   val nestedElement = new ListElement(nestedList)
 
+  // JGraphT
+  val graph = new SimpleGraph[String, DefaultEdge](classOf[DefaultEdge])
+  graph.addVertex("A")
+  graph.addVertex("B")
+  graph.addEdge("A", "B")
+
+
+  val verticesElement = new ListElement(java.util.List.of(Seq(
+    new StringElement("A"),
+    new StringElement("B"),
+  ): _*))
+
+  val edgesElement = new ListElement(java.util.List.of(Seq(
+    new ListElement(java.util.List.of(Seq(
+      new StringElement("A"),
+      new StringElement("B"),
+    ): _*))
+  ): _*))
+
+  val graphElement = new ToGraphFunctionElement().getValue(java.util.List.of(verticesElement, edgesElement))
+
+
   val scalaExamples =
     Table(
       ("Scala", "Element"),
       (None,    Element.UNDEF),
       ("x",     new StringElement("x")),
+      (1,       NumberElement.getInstance(1.0)),
+      (1L,      NumberElement.getInstance(1.0)),
       (1.3,     NumberElement.getInstance(1.3)),
       (true,    BooleanElement.valueOf(true)),
       (Set(),   new SetElement()),
@@ -44,12 +72,38 @@ class ImplicitsTableSpec extends AnyPropSpec with TableDrivenPropertyChecks with
       (nestedScala, nestedElement)
     )
 
-  val javaExamples =
+  val javaExamplesPositive =
+    Table(
+      ("Java",                    "Element"),
+      (new java.util.HashSet(),   new SetElement()),
+      (new java.util.ArrayList(), new ListElement()),
+      (new java.util.HashMap(),   new MapElement()),
+    )
+
+  // NOTE: some of these work, some not. That's just how the CoreASM collections are...
+  val javaExamplesNegative =
     Table(
       ("Java",                  "Element"),
-      (new java.util.HashSet(), new SetElement()),
-      (new java.util.HashSet(), new ListElement()), // TODO: why does this work?
-      (new java.util.HashSet(), new MapElement())
+      (new java.util.HashSet(), new ListElement()),
+      (new java.util.HashSet(), new MapElement()),
+
+      (new java.util.ArrayList(), new SetElement()),
+      (new java.util.ArrayList(), new MapElement()),
+
+      (new java.util.HashMap(), new SetElement()),
+      (new java.util.HashMap(), new ListElement()),
+    )
+
+  val negativeExamples =
+    Table(
+      ("Object", "is not"),
+      (true,     Element.UNDEF),
+    )
+
+  val notImplemented =
+    Table(
+      ("Missing", "Element"),
+      (graph,     graphElement),
     )
 
   property("E should convert Scala to Elements") {
@@ -59,14 +113,54 @@ class ImplicitsTableSpec extends AnyPropSpec with TableDrivenPropertyChecks with
   }
 
   property("E should convert Java Collections to Elements") {
-    forAll(javaExamples) { case (a, b) =>
+    forAll(javaExamplesPositive) { case (a, b) =>
       E(a) shouldBe b
+    }
+  }
+
+  ignore("E should not convert Java Collections to different Elements") {
+    forAll(javaExamplesNegative) { case (a, b) =>
+      E(a) should not be (b)
+    }
+  }
+
+  property("E should not convert Objects to different Elements") {
+    forAll(negativeExamples) { case (a, b) =>
+      E(a) should not be (b)
+    }
+  }
+
+  ignore("E should convert more classes") {
+    forAll(notImplemented) { case (a, b) =>
+      E(a) shouldBe (b)
+    }
+  }
+
+  property("E should convert more classes, but does not") {
+    forAll(notImplemented) { case (a, b) =>
+      an[NotImplementedError] should be thrownBy {
+        E(a)
+      }
     }
   }
 
   property("V should convert to Scala") {
     forAll(scalaExamples) { case (a, b) =>
       V(b) shouldBe a
+    }
+  }
+
+  ignore("V should convert more classes") {
+    forAll(notImplemented) { case (a, b) =>
+      V(b) shouldBe a
+    }
+  }
+
+  property("V should convert more classes, but does not") {
+    forAll(notImplemented) { case (a, b) =>
+      an[NotImplementedError] should be thrownBy {
+        V(b)
+      }
     }
   }
 

@@ -6,6 +6,8 @@ import org.jparsec.functors.Map6
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
+
 import TransitionNode.TransitionType._
 
 sealed trait StateProperty extends CustomNode
@@ -123,6 +125,6 @@ class StateNode(val id: String, private val parsedFrom: Option[Any] = None) exte
   def getNormalOutgoingTransitions: Set[TransitionNode] = this.outgoingTransitions.filter(_.getType == Normal)
 
   override def toString: String = "StateNode '" + this.id + "' (label: '" + this.label.getOrElse("") + "', type: " + this.stateType + ")"
-  def mkStringParsedFrom: String = if (parsedFrom.isDefined) { "\n| parsedFrom: " + parsedFrom.get } else ""
-  def mkString: String = toString + "\n| priority: " + priority + "\n| function: " + function + "\n| functionArguments: " + functionArguments + "\n| outgoingTransitions: " + outgoingTransitions + mkStringParsedFrom
+  def mkStringParsedFrom: String = if (parsedFrom.isDefined) { EOL + "| parsedFrom: " + parsedFrom.get } else ""
+  def mkString: String = toString + EOL + "| priority: " + priority + EOL + "| function: " + function + EOL + "| functionArguments: " + functionArguments + EOL + "| outgoingTransitions: " + outgoingTransitions + mkStringParsedFrom
 }

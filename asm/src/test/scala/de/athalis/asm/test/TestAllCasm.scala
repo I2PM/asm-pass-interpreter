@@ -183,8 +183,8 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
       for (step <- 0 to maxSteps if (step < minSteps || requiredOutputList.nonEmpty)) {
 
         if (td.getStatus == TestEngineDriver.TestEngineDriverStatus.stopped) {
-          (requiredOutputList shouldBe empty) withMessage ("output:\n" + outStream.toString + "\n\nerrors:\n" + errStream.toString + "\n\nEngine terminated after " + step + " steps, but is missing required output: ")
-          (step should be >= minSteps) withMessage ("output:\n" + outStream.toString + "\n\nerrors:\n" + errStream.toString + "\n\nEngine terminated after " + step + " steps: ")
+          (requiredOutputList shouldBe empty) withMessage (f"output:%n$outStream%s%n%nerrors:%n$errStream%s%n%nEngine terminated after $step%,d steps, but is missing required output: ")
+          (step should be >= minSteps) withMessage (f"output:%n$outStream%s%n%nerrors:%n$errStream%s%n%nEngine terminated after $step%,d steps: ")
         }
 
         td.executeSteps(1)
@@ -213,7 +213,7 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
         cp {
           //test if no unexpected error has occurred
           var errors: Iterator[String] = outputErr.linesIterator
-          (errors.toSeq shouldBe empty) withMessage ("log:\n" + outputLog + "\n\noutput:\n" + outputOut + f"\n\nEngine had an error after $step steps ($durationSecondsCP%1.2f seconds): ")
+          (errors.toSeq shouldBe empty) withMessage (f"log:%n$outputLog%s%n%noutput:%n$outputOut%s%n%nEngine had an error after $step%,d steps ($durationSecondsCP%,1.2f seconds): ")
         }
 
         if (failOnWarning) cp {
@@ -221,12 +221,12 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
           var warnings = outputLog.linesIterator.filter(_.contains("WARN"))
           warnings = warnings.filterNot(msg => msg.contains("The update was not successful so it might not be added to the universe."))
           warnings = warnings.filterNot(msg => msg.contains("org.coreasm.util.Tools") && msg.toLowerCase.contains("root folder"))
-          (warnings.toSeq shouldBe empty) withMessage ("output:\n" + outputOut + f"\n\nEngine had an warning after $step steps ($durationSecondsCP%1.2f seconds): ")
+          (warnings.toSeq shouldBe empty) withMessage (f"output:%n$outputOut%s%n%nEngine had an warning after $step%,d steps ($durationSecondsCP%,1.2f seconds): ")
         }
 
         for (refusedOutput <- refusedOutputList) {
           cp {
-            outputOut.linesIterator.filter(_.contains(refusedOutput)).toSeq shouldBe empty withMessage (f"output of step $step ($durationSecondsCP%1.2f seconds): \n" + outputOut)
+            outputOut.linesIterator.filter(_.contains(refusedOutput)).toSeq shouldBe empty withMessage (f"output of step $step%,d ($durationSecondsCP%,1.2f seconds):%n$outputOut%s")
           }
         }
         cp.reportAll()
@@ -242,7 +242,7 @@ class TestAllCasm extends AnyFunSuite with Matchers with Checkpoints {
       val durationSecondsTotal = (System.nanoTime() - startTime) / 1e9
 
       //check if no required output is missing
-      (requiredOutputList shouldBe empty) withMessage (outStream.toString + f"\n\nremaining required output after $maxSteps maxSteps ($durationSecondsTotal%1.2f seconds): ")
+      (requiredOutputList shouldBe empty) withMessage (f"$outStream%s%n%nremaining required output after $maxSteps%,d maxSteps ($durationSecondsTotal%,1.2f seconds): ")
     }
     finally {
       td.stop()

@@ -28,6 +28,7 @@ import org.jline.terminal.Terminal
 import org.jline.utils.AttributedString
 import org.jline.utils.AttributedStyle
 
+import java.lang.System.{lineSeparator => EOL}
 import java.nio.file.Path
 
 import scala.async.Async.async
@@ -48,13 +49,13 @@ object PASSInterpreterConsole {
     while (more && (max == 0 || selectedAgents.size < max)) {
       val possibleAgentsList: Seq[AgentIdentifier] = (possibleAgents -- selectedAgents).toSeq.sorted
 
-      val info = if (selectedAgents.size >= min) {" (leave empty to use only " + selectedAgents.size + " agents)"} else {""}
+      val info = if (selectedAgents.size >= min) {f" (leave empty to use only ${selectedAgents.size}%d agents)"} else {""}
 
       val promptMessage = if (max > 0) {
-        "Agent name (" + (selectedAgents.size+1) + "/" + max + ") for '" + subjectID + "'" + info + ": "
+        f"Agent name (${selectedAgents.size + 1}%d/$max%d) for '$subjectID%s'$info%s: "
       }
       else {
-        "Agent name (" + (selectedAgents.size+1) + ") for '" + subjectID + "'" + info + ": "
+        f"Agent name (${selectedAgents.size + 1}) for '$subjectID%s'$info%s: "
       }
 
       val l = JLineHelper.readLine(promptMessage, possibleAgentsList)
@@ -101,13 +102,12 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
   def printHelp(): Unit = {
     processUI.printHelp()
 
-    val txt =
-"""
+    val txt = f"""
   You can quit this shell with one of these commands: `q`, `quit` or `exit`.
 
   If you enter an empty line the available activities are reloaded.
 
-  The activity '0' shows all running subjects with their IPs and with all active states, regardless of their execution state (i.e. states with a lower priority will be shown).
+  The activity '${0}%d' shows all running subjects with their IPs and with all active states, regardless of their execution state (i.e. states with a lower priority will be shown).
 
   You can display this information with the command `help`.
 """
@@ -216,7 +216,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
           availableActivitiesSorted :+= activity
 
-          out.append(new AttributedString(s" $i) $text\n", AttributedStyle.BOLD.foreground(AttributedStyle.RED)).toAnsi)
+          out.append(new AttributedString(f" $i%d) $text%s", AttributedStyle.BOLD.foreground(AttributedStyle.RED)).toAnsi).append(EOL)
 
           i += 1
         }
@@ -225,7 +225,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
       if (availableAgentActivitiesWithUIPathAndText.nonEmpty) {
         if (out.nonEmpty) {
-          out.append("\n")
+          out.append(EOL)
         }
 
         val agentActivitiesSorted = availableAgentActivitiesWithUIPathAndText.sortBy(_._3).sortBy(_._2)(UIPath.ordering.reverse)
@@ -246,9 +246,9 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
           if (printNextSegment || (lastUIPath.get.processInstance != uiPath.processInstance)) {
             if (hadProcessSegment) {
-              out.append("\n\n")
+              out.append(EOL).append(EOL)
             }
-            out.append(s"Process '${uiPath.processModelID}' (Instance ${uiPath.processInstance})\n")
+            out.append(f"Process '${uiPath.processModelID}%s' (Instance ${uiPath.processInstance}%,d)").append(EOL)
             printNextSegment = true
             hadProcessSegment = true
             hadSubjectSegment = false
@@ -256,15 +256,15 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
           if (printNextSegment || (lastUIPath.get.subjectID != uiPath.subjectID) || (lastUIPath.get.agent != uiPath.agent)) {
             if (hadSubjectSegment) {
-              out.append("\n")
+              out.append(EOL)
             }
-            out.append(s" Subject '${uiPath.subjectID}' executed by Agent '${uiPath.agent}'\n")
+            out.append(f" Subject '${uiPath.subjectID}%s' executed by Agent '${uiPath.agent}%s'").append(EOL)
             printNextSegment = true
             hadSubjectSegment = true
           }
 
           if (showMacroIDs && (printNextSegment || (lastUIPath.get.macroInstanceNumber != uiPath.macroInstanceNumber))) {
-            out.append(s"  Macro '${uiPath.macroID}' (Instance ${uiPath.macroInstanceNumber})\n")
+            out.append(f"  Macro '${uiPath.macroID}%s' (Instance ${uiPath.macroInstanceNumber}%,d)").append(EOL)
             printNextSegment = true
           }
 
@@ -278,7 +278,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
               case stateType => stateType
             }
 
-            out.append(s"  State '${uiPath.stateLabel}' (${stateType})\n")
+            out.append(f"  State '${uiPath.stateLabel}%s' (${stateType}%s)").append(EOL)
           }
 
           if (showMacroIDs) {
@@ -287,7 +287,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
 
           availableActivitiesSorted :+= x._1
 
-          out.append(new AttributedString(s"   $i) $text\n", AttributedStyle.BOLD.foreground(AttributedStyle.RED)).toAnsi)
+          out.append(new AttributedString(f"   $i%d) $text%s", AttributedStyle.BOLD.foreground(AttributedStyle.RED)).toAnsi).append(EOL)
 
 
           lastUIPath = Some(uiPath)
@@ -308,7 +308,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
       case Some(wait) if wait.isCompleted => ()
       case Some(wait) => {
         wait.blockingWait()
-        println("waited " + (System.nanoTime() - start) / 1e6 + "ms for the current ASM step to complete (otherwise we would load the exact same data)")
+        println(f"waited ${(System.nanoTime() - start) / 1e6}%,1.4fms for the current ASM step to complete (otherwise we would load the exact same data)")
       }
     }
 
@@ -353,7 +353,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
     Thread.`yield`() // give the logger a chance to print before we want to
 
     println("")
-    println("updating took " + (end - start)/1e6 + "ms")
+    println(f"updating took ${(end - start)/1e6}%,1.4fms")
   }
 
   def run(): Unit = {
@@ -417,7 +417,7 @@ class PASSInterpreterConsole()(implicit timeout: Timeout, logger: LoggingAdapter
         else if (l == "help" || l == "h" || l == "info" || l == "version") {
           printHelp()
         }
-        else if (l == "0") {
+        else if (l == "0" || l == f"${0}%d" || Try(l.toInt) == Success(0)) {
           printState()
         }
         else if (l == "exit" || l == "quit" || l == "q") {

@@ -2,6 +2,8 @@ package de.athalis.pass.processmodel.interface.context
 
 import de.athalis.pass.processmodel.tudarmstadt._
 
+import scala.collection.parallel.mutable.ParArray
+
 private trait StructuralSoundnessAnalysisAction {
   def analyzeAction(m: Macro, action: Action, suffix: String): Unit
 
@@ -24,13 +26,14 @@ private object StructuralSoundnessAnalysis {
   private val stateAnalyses = Set(StateConnectionsAnalysis, MessageSubjectCountAnalysis)
 
   private def analyzeProcess(p: Process): Unit = {
+    val getMacrosOfFullySpecifiedSubjects: PartialFunction[Subject, (FullySpecifiedSubject, Set[Macro])] = {
+      case s: FullySpecifiedSubject => (s, s.internalBehavior.additionalMacros + s.internalBehavior.mainMacro)
+    }
     val jobs: Seq[(Macro, String)] =
-      p.subjects.collect[(FullySpecifiedSubject, Set[Macro]), Set[(FullySpecifiedSubject, Set[Macro])]] {
-        case s: FullySpecifiedSubject => (s, s.internalBehavior.additionalMacros + s.internalBehavior.mainMacro)
-      }.toSeq.flatMap(sm => sm._2.map(m => (m, getSuffix(p, sm._1, m)))) ++
+      p.subjects.collect(getMacrosOfFullySpecifiedSubjects).toSeq.flatMap(sm => sm._2.map(m => (m, getSuffix(p, sm._1, m)))) ++
         p.macros.toSeq.map(m => (m, getSuffix(p, m)))
 
-    jobs.par.foreach(t => analyzeMacro(t._1, t._2))
+    ParArray.handoff(jobs.toArray).foreach(t => analyzeMacro(t._1, t._2))
   }
 
   private def analyzeMacro(m: Macro, suffix: String): Unit = {

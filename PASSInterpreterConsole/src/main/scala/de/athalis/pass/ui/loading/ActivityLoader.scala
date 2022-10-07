@@ -12,6 +12,7 @@ import de.athalis.pass.semantic.Typedefs._
 import de.athalis.pass.ui.definitions._
 
 import scala.async.Async._
+import scala.collection.parallel.mutable.ParArray
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
@@ -35,13 +36,13 @@ class ActivityLoader()(implicit executionContext: ExecutionContext, binding: Bin
 
     val runningSubjects: Set[Channel] = await(runningSubjectsF)
 
-    val subjectActivitiesF: Set[Future[Set[PASSActivity[_ <: PASSActivityInput]]]] = runningSubjects.par.map(loadAvailableActivitiesAsync).seq
+    val subjectActivitiesF: Seq[Future[Set[PASSActivity[_ <: PASSActivityInput]]]] = ParArray.handoff(runningSubjects.toArray).map(loadAvailableActivitiesAsync).seq.toSeq
 
     val subjectActivities = await(Future.sequence(subjectActivitiesF))
 
     val taskSetActivities = await(taskSetActivitiesF)
 
-    taskSetActivities ++ subjectActivities.flatten
+    taskSetActivities ++ subjectActivities.toSet.flatten
   }
 
 
@@ -49,11 +50,11 @@ class ActivityLoader()(implicit executionContext: ExecutionContext, binding: Bin
     val allowedStatesPerMI: Map[RuntimeMacroInstanceNumber, Set[RuntimeStateNumber]] = await(Semantic.AllAllowedStates(channel).loadAndGetAsync())
     val allowedStates: Set[ActiveStateF] = mapToActiveStates(channel, allowedStatesPerMI)
 
-    val availableActivitiesF: Set[Future[Set[PASSActivity[_ <: PASSActivityInput]]]] = allowedStates.par.map(loadAvailableActivitiesAsync).seq
+    val availableActivitiesF: Seq[Future[Set[PASSActivity[_ <: PASSActivityInput]]]] = ParArray.handoff(allowedStates.toArray).map(loadAvailableActivitiesAsync).seq.toSeq
 
-    val availableActivities: Set[Set[PASSActivity[_ <: PASSActivityInput]]] = await(Future.sequence(availableActivitiesF))
+    val availableActivities: Seq[Set[PASSActivity[_ <: PASSActivityInput]]] = await(Future.sequence(availableActivitiesF))
 
-    availableActivities.flatten
+    availableActivities.toSet.flatten
   }
 
   private def loadAvailableActivitiesAsync(currentState: ActiveStateF): Future[Set[PASSActivity[_ <: PASSActivityInput]]] = async {

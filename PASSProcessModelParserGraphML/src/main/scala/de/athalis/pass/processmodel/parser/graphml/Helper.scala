@@ -5,8 +5,7 @@ import de.athalis.pass.processmodel.parser.graphml.structure._
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable._
-import scala.reflect._
-import scala.reflect.runtime.universe._
+import scala.reflect.ClassTag
 import scala.xml.{Node => XMLNode}
 import scala.xml.{NodeSeq => XMLNodeSeq}
 
@@ -167,42 +166,55 @@ object Helper {
     parseData(x, key)
   }
 
-  // TODO: may split into parseDataInt etc to avoid weird typeTags
-  def parseData[T](x: XMLNode, key: Key[T])(implicit tag: TypeTag[T], loc: ParserLocation): Data[T] = {
-    val value: Option[T] = if (x.child.isEmpty) None else key match {
-      case k: IntKey  => Some(x.text.trim.toInt)
-      case k: StringKey  => Some(x.text.trim)
-      case k: YNodeGraphicsKey  => {
-        val yNodeO = (x \: "y:GenericNode").headOption
-
-        if (yNodeO.isDefined) {
-          val yNode: YGenericNode = parseYGenericNode(yNodeO.get)
-          Some(yNode.asInstanceOf[T])
-        }
-        else {
-          val yProxyO = (x \: "y:ProxyAutoBoundsNode").headOption
-
-          yProxyO.map(parseYProxyAutoBoundsNode)
-        }
-      }
-      case k: YEdgeGraphicsKey  => {
-        val yEdgeO = (x \: "y:GenericEdge").headOption
-
-        yEdgeO.map(parseYGenericEdge)
-      }
-      case k: NothingKey => {
-        logger.warn("not implemented data-key '{}', id = {}, for {}", k.name, k.id, k.keyFor)
-        None
-      }
-    }
-
+  def parseData[T](x: XMLNode, key: Key[T])(implicit loc: ParserLocation): Data[T] = {
     key match {
-      case k: IntKey  => IntData(k, value)
-      case k: StringKey  => StringData(k, value)
-      case k: YNodeGraphicsKey  => YNodeGraphicsData(k, value)
-      case k: YEdgeGraphicsKey  => YEdgeGraphicsData(k, value)
-      case k: NothingKey => NothingData(k, value)
+      case k: IntKey  => parseDataInt(x, key)
+      case k: StringKey  => parseDataString(x, key)
+      case k: YNodeGraphicsKey  => parseDataYNodeGraphics(x, key)
+      case k: YEdgeGraphicsKey  => parseDataYEdgeGraphics(x, key)
+      case k: NothingKey => parseDataNothing(x, key)
     }
+  }
+
+  private def parseDataInt(x: XMLNode, key: Key[Int])(implicit loc: ParserLocation): Data[Int] = {
+    val value: Option[Int] = if (x.child.isEmpty) None else Some(x.text.trim.toInt)
+    IntData(key, value)
+  }
+
+  private def parseDataString(x: XMLNode, key: Key[String])(implicit loc: ParserLocation): Data[String] = {
+    val value: Option[String] = if (x.child.isEmpty) None else Some(x.text.trim)
+    StringData(key, value)
+  }
+
+  private def parseDataYNodeGraphics(x: XMLNode, key: Key[YNodeGraphics])(implicit loc: ParserLocation): Data[YNodeGraphics] = {
+    val value: Option[YNodeGraphics] = if (x.child.isEmpty) None else {
+      val yNodeO = (x \: "y:GenericNode").headOption
+
+      if (yNodeO.isDefined) {
+        val yNode: YGenericNode = parseYGenericNode(yNodeO.get)
+        Some(yNode.asInstanceOf[YNodeGraphics]) // unproblematic upcast
+      }
+      else {
+        val yProxyO = (x \: "y:ProxyAutoBoundsNode").headOption
+
+        yProxyO.map(parseYProxyAutoBoundsNode)
+      }
+    }
+    YNodeGraphicsData(key, value)
+  }
+
+  private def parseDataYEdgeGraphics(x: XMLNode, key: Key[YEdgeGraphics])(implicit loc: ParserLocation): Data[YEdgeGraphics] = {
+    val value: Option[YGenericEdge] = if (x.child.isEmpty) None else {
+      val yEdgeO = (x \: "y:GenericEdge").headOption
+
+      yEdgeO.map(parseYGenericEdge)
+    }
+    YEdgeGraphicsData(key, value)
+  }
+
+  private def parseDataNothing(x: XMLNode, key: Key[Nothing])(implicit loc: ParserLocation): Data[Nothing] = {
+    val value: Option[Nothing] = None
+    NothingData(key, value)
   }
 
   def findData[T](data: Seq[Data[_]], dataKeyType: String, name: String): Option[Data[T]] = {
@@ -299,8 +311,8 @@ object Helper {
     GraphML(keys, data, graph)
   }
 
-  def setToMapOfSets[A, B](x: Set[(A, B)]): Map[A, Set[B]] = {
-    x.groupBy(_._1).mapValues(_.map(_._2))
+  private def setToMapOfSets[A, B](x: Set[(A, B)]): Map[A, Set[B]] = {
+    x.groupBy(_._1).mapValues(_.map(_._2)).toMap
   }
 
   implicit class richSeqSet[A, B](self: Set[(A, B)]) {

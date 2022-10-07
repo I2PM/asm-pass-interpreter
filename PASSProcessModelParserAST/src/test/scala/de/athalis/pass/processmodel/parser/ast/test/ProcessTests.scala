@@ -2,33 +2,34 @@ package de.athalis.pass.processmodel.parser.ast.test
 
 import de.athalis.pass.processmodel.parser.ast.PASSParser
 import de.athalis.pass.processmodel.parser.ast.node.pass.ProcessNode
+import de.athalis.pass.processmodel.parser.ast.util.ParserUtils
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class ProcessTests extends AnyFunSuite with Matchers {
-  import Util._
+  import ParserUtils.parsePASSwithCause
 
   test("processTestID") {
-    val p: ProcessNode = parse(PASSParser.processNodeParser, """Process Foo { }""")
+    val p: ProcessNode = parsePASSwithCause(PASSParser.processNodeParser, """Process Foo { }""")
 
     p.id shouldBe "Foo"
   }
 
   test("processTestNamedDoubleQuote") {
-    val p: ProcessNode = parse(PASSParser.processNodeParser, """Process "A B C" { }""")
+    val p: ProcessNode = parsePASSwithCause(PASSParser.processNodeParser, """Process "A B C" { }""")
 
     p.id shouldBe "A B C"
   }
 
   test("processTestNamedSingleQuote") {
-    val p: ProcessNode = parse(PASSParser.processNodeParser, """Process 'A B C' { }""")
+    val p: ProcessNode = parsePASSwithCause(PASSParser.processNodeParser, """Process 'A B C' { }""")
 
     p.id shouldBe "A B C"
   }
 
   test("processTest NoAgentManager") {
-    val p: ProcessNode = parse(PASSParser.processNodeParser, """Process Foo { }""")
+    val p: ProcessNode = parsePASSwithCause(PASSParser.processNodeParser, """Process Foo { }""")
 
     p.getSubjects should have size 0
 
@@ -36,7 +37,7 @@ class ProcessTests extends AnyFunSuite with Matchers {
   }
 
   test("processTestData") {
-    val p: ProcessNode = parse(PASSParser.processNodeParser, """Process Test { Data { "emptySet" -> {}, "emptyMap" -> {->}, "foo1" -> "baa", "foo2" -> ["baz"], "foo3" -> [["bar1"], {"bar2", abc, 3}, {"bar3" -> "bar4", "bar5" -> "bar6"}]} }""")
+    val p: ProcessNode = parsePASSwithCause(PASSParser.processNodeParser, """Process Test { Data { "emptySet" -> {}, "emptyMap" -> {->}, "foo1" -> "baa", "foo2" -> ["baz"], "foo3" -> [["bar1"], {"bar2", abc, 3}, {"bar3" -> "bar4", "bar5" -> "bar6"}]} }""")
 
     val data: Map[String, Any] = p.getData
     data should have size 5

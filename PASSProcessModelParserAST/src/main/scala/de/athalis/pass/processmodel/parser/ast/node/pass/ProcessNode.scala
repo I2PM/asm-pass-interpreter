@@ -6,6 +6,8 @@ import de.athalis.pass.processmodel.parser.ast.node.MapAbleNode
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
+
 object ProcessNode {
   private val logger = LoggerFactory.getLogger(ProcessNode.getClass)
 
@@ -59,5 +61,5 @@ class ProcessNode(val id: String) extends CustomNode with PASSProcessModel {
   }
 
   override def toString: String = "ProcessNode '" + this.id + "'"
-  def mkString(): String = toString + "\n| Data: " + data.mkString(", ") + "\n| Macros: " + macros.mkString(", ") + "\n| Subjects: " + subjects.mkString(", ")
+  def mkString(): String = toString + EOL + "| Data: " + data.mkString(", ") + EOL + "| Macros: " + macros.mkString(", ") + EOL + "| Subjects: " + subjects.mkString(", ")
 }

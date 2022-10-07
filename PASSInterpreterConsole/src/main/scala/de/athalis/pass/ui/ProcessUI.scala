@@ -24,8 +24,7 @@ import java.io.File
 class ProcessUI(binding: Binding)(implicit timeout: Timeout, logger: LoggingAdapter) {
 
   def printHelp(): Unit = {
-    val txt =
-s"""
+    val txt = s"""
   process load FILENAME
   process load FILENAME1${File.pathSeparatorChar}FILENAME2
   process start PROCESSMODELID

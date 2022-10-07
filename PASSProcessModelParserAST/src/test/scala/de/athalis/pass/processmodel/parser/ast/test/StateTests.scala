@@ -2,16 +2,17 @@ package de.athalis.pass.processmodel.parser.ast.test
 
 import de.athalis.pass.processmodel.parser.ast.PASSParser
 import de.athalis.pass.processmodel.parser.ast.node.pass.StateNode.StateType._
+import de.athalis.pass.processmodel.parser.ast.util.ParserUtils
 
 import org.scalatest.OptionValues._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class StateTests extends AnyFunSuite with Matchers {
-  import Util._
+  import ParserUtils.parsePASSwithCause
 
   test("stateTestSimpleID") {
-    val s = parse(PASSParser.states, """foo: InternalAction -> bar""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: InternalAction -> bar""")
 
     s.id shouldBe "foo"
     s.stateType shouldBe InternalAction
@@ -19,7 +20,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestSimpleNamed") {
-    val s = parse(PASSParser.states, """"foo bar": InternalAction -> bar""")
+    val s = parsePASSwithCause(PASSParser.states, """"foo bar": InternalAction -> bar""")
 
     s.id shouldBe "foo bar"
     s.stateType shouldBe InternalAction
@@ -27,7 +28,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestSimpleIDWithLabel") {
-    val s = parse(PASSParser.states, """foo "foo bar": InternalAction -> bar""")
+    val s = parsePASSwithCause(PASSParser.states, """foo "foo bar": InternalAction -> bar""")
 
     s.id shouldBe "foo"
     s.label.value shouldBe "foo bar"
@@ -36,7 +37,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestFunction") {
-    val s = parse(PASSParser.states, """foo: "MyAction" (arg1, "arg2", 42, [1, 2], {3, 4}, {->}, {5 -> 6}, {[1, 2] -> {"a b" -> {3}}}) -> bar""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: "MyAction" (arg1, "arg2", 42, [1, 2], {3, 4}, {->}, {5 -> 6}, {[1, 2] -> {"a b" -> {3}}}) -> bar""")
 
     s.id shouldBe "foo"
     s.function shouldBe "MyAction"
@@ -57,7 +58,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestTwoTransitions") {
-    val s = parse(PASSParser.states, """foo: InternalAction {x -> bar y -> baz }""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: InternalAction {x -> bar y -> baz }""")
 
     s.id shouldBe "foo"
     s.stateType shouldBe InternalAction
@@ -66,7 +67,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestPriority") {
-    val s = parse(PASSParser.states, """foo: InternalAction with priority 3 {x -> bar y -> baz }""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: InternalAction with priority 3 {x -> bar y -> baz }""")
 
     s.id shouldBe "foo"
     s.stateType shouldBe InternalAction
@@ -75,7 +76,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestCallMacro") {
-    val s = parse(PASSParser.states, """foo: "CallMacro" ("X") { -> A -> B }""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: "CallMacro" ("X") { -> A -> B }""")
 
     s.id shouldBe "foo"
     s.stateType shouldBe FunctionState
@@ -88,7 +89,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestTerminateWithArguments") {
-    val s = parse(PASSParser.states, """foo: Terminate ("x")""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: Terminate ("x")""")
 
     s.id shouldBe "foo"
     s.stateType shouldBe Terminate
@@ -101,7 +102,7 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTestReturnWithArguments") {
-    val s = parse(PASSParser.states, """foo: Return ("x")""")
+    val s = parsePASSwithCause(PASSParser.states, """foo: Return ("x")""")
 
     s.id shouldBe "foo"
     s.stateType shouldBe Return
@@ -114,20 +115,20 @@ class StateTests extends AnyFunSuite with Matchers {
   }
 
   test("stateTests") {
-    parse(PASSParser.states, """x:  InternalAction         -> nextState""")
-    parse(PASSParser.states, """x: "MyAction"              -> nextState""")
-    parse(PASSParser.states, """x:  InternalAction   "foo" -> nextState""")
-    parse(PASSParser.states, """x:  InternalAction  {      -> nextState }""")
-    parse(PASSParser.states, """x:  InternalAction  {"foo" -> nextState }""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction         -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x: "MyAction"              -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction   "foo" -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction  {      -> nextState }""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction  {"foo" -> nextState }""")
 
-    parse(PASSParser.states, """x:  InternalAction  (auto) -> nextState""")
-    parse(PASSParser.states, """x:  "MyAction"      (auto) -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction  (auto) -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  "MyAction"      (auto) -> nextState""")
 
-    parse(PASSParser.states, """x:  InternalAction   ["foo" to A]   -> nextState""")
-    parse(PASSParser.states, """x:  InternalAction   ["foo" from A] -> nextState""")
-    parse(PASSParser.states, """x:  InternalAction  {["foo" from A] -> nextState }""")
-    parse(PASSParser.states, """x:  InternalAction  {["foo" from A] -> nextState ["bar" from A] -> nextState }""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction   ["foo" to A]   -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction   ["foo" from A] -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction  {["foo" from A] -> nextState }""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction  {["foo" from A] -> nextState ["bar" from A] -> nextState }""")
 
-    parse(PASSParser.states, """x:  InternalAction  ["foo" to A in "var"] -> nextState""")
+    parsePASSwithCause(PASSParser.states, """x:  InternalAction  ["foo" to A in "var"] -> nextState""")
   }
 }

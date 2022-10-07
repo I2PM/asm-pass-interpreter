@@ -22,7 +22,7 @@ object TUDarmstadtModel2ASMMap extends PASSProcessModelConverterSingle[Process, 
   type ProcessModelASMMap = Map[String, Any]
   type ProcessModelsASMMap = Map[ProcessIdentifier, ProcessModelASMMap]
 
-  private def getServiceName(x: Function): Option[FunctionName] = x match {
+  private[asm] def getFunctionName(x: Function): Option[FunctionName] = x match {
     case Tau => Some("Tau")
     case CallMacro(_, _) => Some("CallMacro")
     case Cancel => Some("Cancel")
@@ -195,9 +195,9 @@ object TUDarmstadtModel2ASMMap extends PASSProcessModelConverterSingle[Process, 
         }
         case Some(ModalJoin) => throw new IllegalArgumentException("ModalJoin must be transformed to ModalJoinRich first")
         case Some(t) => {
-          val sNameO = getServiceName(t)
+          val fNameO = getFunctionName(t)
 
-          sNameO match {
+          fNameO match {
             case Some(sName) => {
               x += ("function" -> sName)
               x += ("functionArguments" -> getFunctionArguments(t))

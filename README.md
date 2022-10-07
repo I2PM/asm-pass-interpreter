@@ -1,10 +1,10 @@
 # Readme
 
-Version 2.0.0-M6-public
+Version 2.0.0-M7-public
 
 ## About
 
-This is the sixth milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is under heavy development right now.
+This is the seventh public milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is still under heavy development.
 
 This repository contains the reference implementation for the subject-oriented modeling language ["Parallel Activity Specification Scheme" (PASS)](https://github.com/I2PM/PASS-Standard-Book-Tex-Project).
 
@@ -12,7 +12,7 @@ See TODO.md for proposed features and known problems.
 
 ## Execution
 
-This project is developed using OpenJDK 11. It is recommended to use Java 11 or newer. You can check your Java version by typing `java -version` in a terminal / Command Prompt. There are no other requirements as everything is provided in the jar files.
+This project is developed using OpenJDK 11 and Scala 2.13. It is required to use Java 11 or newer. You can check your Java version by typing `java -version` in a terminal / Command Prompt. There are no other requirements as everything is provided in the jar files, including the Scala runtime.
 
 The execution is separated into two programs. The interpreter which runs in the background and a console application which loads the processes and controls the execution.
 
@@ -62,22 +62,52 @@ You can edit the provided application.conf file, for example to change the ports
 
 Example processes are given in the `processes` folder.
 
-## Process Model Parsing
+## Process Model Parsing and File Conversion
 
-If you don't want to execute Process Models, but just want to parse and print them
+It is possible to parse or convert process model files,
+without executing them / running the above applications.
+This might be useful during modeling,
+for example when you just want to make sure that your process model files are valid.
+It can also be used to convert your process model files to a different format, e.g.,
+when you want to exchange them with a different application.
+
+### Parsing to CLI
+
+To just parse and print process model files
 into the case classes provided in the package `de.athalis.pass.processmodel.tudarmstadt`,
-you can use the Process Parsing Util
-and don't need to start the UI nor the Process interpreter.
-It takes a single path to a process file as argument.
+you can use the Process Model Parsing Util with the scripts `parse_processfile.cmd` resp. `parse_processfile.sh`.
 
-For example, run in a console `parse_processfile.cmd processes\Macro.graphml` on Windows
+It takes a single argument: the path(s) to the file(s) that contain the process model(s),
+separated by the OS-dependent path separator character.
+
+For example, for a single file, run in a console `parse_processfile.cmd processes\Macro.graphml` on Windows
 or `./parse_processfile.sh processes/Macro.graphml` on Unix.
 
-You can parse multiple files at once, which might be required if a process is distributed
-across multiple files, if you separate the files with the system path separator.
-For example on Windows: `parse_processfile.cmd processes\Macro.graphml;processes\echo_server.pass`
-For example on \*nix: `./parse_processfile.sh processes\Macro.graphml:processes\echo_server.pass`
+To parse multiple files at once, separate the paths with the OS-dependent path separator character:
+- Example on Windows: `parse_processfile.cmd processes\Macro.graphml;processes\echo_server.pass`
+- Example on \*nix: `./parse_processfile.sh processes\Macro.graphml:processes\echo_server.pass`
 
+### Converting process model files
+
+With the scripts `convert_processmodel_files.cmd` and `convert_processmodel_files.sh` it is possible to convert process model files.
+
+Currently, these formats / conversions are supported:
+
+| Format        | Extension   | Input | Output | Parameter |
+| ------------- | ----------- | ----- | ------ | --------- |
+| textual / AST | `*.pass`    | yes   | no     |           |
+| GraphML       | `*.graphml` | yes   | no     |           |
+| ASM           | `*.coreasm` | no    | yes    | `asm`     |
+
+The input format is automatically detected by the file extension.
+The output format has to be given as first parameter,
+the target folder as second parameter.
+
+As with the CLI parser, to parse multiple process model files at once, separate the paths with the OS-dependent path separator character:
+- Example on Windows: `convert_processmodel_files.cmd asm processes-asm processes\Macro.graphml;processes\echo_server.pass`
+- Example on \*nix: `./convert_processmodel_files.sh asm processes-asm processes\Macro.graphml:processes\echo_server.pass`
+
+The output will list the created files per line.
 
 ## Literature
 
@@ -90,7 +120,14 @@ For example on \*nix: `./parse_processfile.sh processes\Macro.graphml:processes\
 
 ## Development
 
-See DEVELOPMENT.md
+See [DEVELOPMENT.md](DEVELOPMENT.md).
+
+
+## Releases
+
+Releases are currently only published as a single zip file, containing fat-jars for the bundled applications, scripts to run them, example process models and other auxiliary files.
+
+As there are currently still no known downstream users, the modules are not yet released separately to Maven. Feel free to get in contact about this.
 
 
 ## Contact

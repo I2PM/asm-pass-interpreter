@@ -2,8 +2,6 @@ package de.athalis.pass.ui
 
 import de.athalis.pass.ui.loading.VarLoader
 
-import akka.util.Timeout
-
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -15,7 +13,7 @@ import scala.concurrent.duration._
 
 
 class VarLoaderSpec extends AnyFunSuite with Matchers with ScalaFutures {
-  implicit val timeout: Timeout = Timeout(5.seconds)
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 250.milliseconds)
 
   def varLoaderMock(varname: String): Future[String] = async {
     "MOCK[" + varname + "]"

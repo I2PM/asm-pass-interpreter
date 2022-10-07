@@ -183,7 +183,7 @@ case class DoTransitionCondition(description: String) extends TransitionConditio
 // just an idea: case class FunctionTransitionCondition(operator: ((Any, Any)=>Boolean), value: Any) extends TransitionCondition
 
 /**
-  * Condition to enable Transitions of Actions with an Send or Receive Service.
+  * Condition to enable Transitions of Actions with an Send or Receive Function.
   *
   * @note Used by [[AutoSend]], [[ManualSend]], [[AutoReceive]] and [[ManualReceive]].
   * @param messageType                 The message type.

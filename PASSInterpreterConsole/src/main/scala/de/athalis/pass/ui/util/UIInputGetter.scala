@@ -16,6 +16,8 @@ import akka.util.Timeout
 
 import org.jline.terminal.Terminal
 
+import java.lang.System.{lineSeparator => EOL}
+
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
@@ -27,16 +29,16 @@ class UIInputGetter(implicit val timeout: Timeout, executionContext: ExecutionCo
   }
 
   override def setMessageContent(messageType: String, receivers: Set[Channel]): PASSActivityInputMessageContent = {
-    val messageContent: String = JLineHelper.readLine("Receivers: " + receivers.mkString("{", ", ", "}") + "\nMessage Content (\"" + messageType + "\"): ")
+    val messageContent: String = JLineHelper.readLine("Receivers: " + receivers.mkString("{", ", ", "}") + EOL + "Message Content (\"" + messageType + "\"): ")
 
     PASSActivityInputMessageContent(messageContent)
   }
 
   override def performSelection(options: Seq[String], min: Int, max: Int): PASSActivityInputSelection = {
-    if (min < 1) throw new IllegalArgumentException("`min` must be at least 1")
+    if (min < 1) throw new IllegalArgumentException(f"`min` must be at least ${1}%d")
 
     for ((x, i) <- options.zipWithIndex) {
-      println("["+(i+1)+"] " + x) // +1 as CoreASM is off-by-one relative to usual programming related list-indices, and it is also better to read
+      println(f"[${(i+1)}%d] $x%s") // +1 as CoreASM is off-by-one relative to usual programming related list-indices, and it is also better to read
     }
 
     var selection: Set[Int] = Set()
@@ -49,11 +51,11 @@ class UIInputGetter(implicit val timeout: Timeout, executionContext: ExecutionCo
       val prompt = {
         val sep = "(separate multiple options with a simple space)"
 
-        if (max == 0 && min == 1) "Select at least one element " + sep + ": "
-        else if (max == 0) "Select at least " + min + " elements " + sep + ": "
-        else if (max == 1) "Select one element: "
-        else if (max == min) "Select " + min + " elements " + sep + ": "
-        else "Select between " + min + " and " + max + " elements " + sep + ": "
+        if (max == 0 && min == 1) f"Select at least one element $sep: "
+        else if (max == 0) f"Select at least $min%,d elements $sep: "
+        else if (max == 1) f"Select one element: "
+        else if (max == min) f"Select $min%,d elements $sep%s: "
+        else f"Select between $min%,d and $max%,d elements $sep%s: "
       }
       val input: String = JLineHelper.readLine(prompt)
 

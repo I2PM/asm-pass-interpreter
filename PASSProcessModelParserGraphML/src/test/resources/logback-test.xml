@@ -1,24 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <withJansi>true</withJansi>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} PASSParser [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %logger{80} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>log/debug.log</file>
-        <append>true</append>
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} PASSParser [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <logger name="de.athalis.pass.processmodel.parser" level="info">
+    <root level="warn">
         <appender-ref ref="STDOUT" />
-    </logger>
-
-    <root level="debug">
-        <appender-ref ref="FILE" />
     </root>
+
+    <logger name="de.athalis.pass" level="info"/>
 </configuration>

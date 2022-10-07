@@ -78,7 +78,7 @@ class AkkaStoragePlugin() extends Plugin with InterpreterPlugin with VocabularyE
   override def terminate(): Unit = {
     logger.info("terminate plugin")
     super.terminate()
-    Await.result(system.terminate, 10.seconds)
+    Await.result(system.terminate(), 10.seconds)
     queue.clear()
   }
 
@@ -176,14 +176,14 @@ class AkkaStoragePlugin() extends Plugin with InterpreterPlugin with VocabularyE
 
     updateList +:= new Update(
       IOPlugin.PRINT_OUTPUT_FUNC_LOC,
-      new StringElement(i.getSelf + ": AkkaStorageRuleNode collected " + writeJobCount + " writes"),
+      new StringElement(i.getSelf.toString + ": AkkaStorageRuleNode collected " + writeJobCount + " writes"),
       IOPlugin.PRINT_ACTION,
       interpreter.getSelf,
       node.getScannerInfo)
 
     updateList +:= new Update(
       IOPlugin.PRINT_OUTPUT_FUNC_LOC,
-      new StringElement(i.getSelf + ": AkkaStorageRuleNode answered " + readJobCount + " reads"),
+      new StringElement(i.getSelf.toString + ": AkkaStorageRuleNode answered " + readJobCount + " reads"),
       IOPlugin.PRINT_ACTION,
       interpreter.getSelf,
       node.getScannerInfo)

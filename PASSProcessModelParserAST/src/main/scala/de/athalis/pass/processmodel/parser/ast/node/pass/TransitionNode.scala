@@ -7,6 +7,8 @@ import org.jparsec.functors.Map4
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
+
 object TransitionNode {
   object TransitionType extends Enumeration {
     type TransitionType = Value
@@ -78,5 +80,5 @@ class TransitionNode(val label: Option[String]) extends CustomNode {
   def getTimeout: Int = this.timeout.getOrElse(0)
 
   override def toString: String = "TransitionNode '" + this.label + "'"
-  def mkString: String = toString + "\n| Destination: " + targetStateID + "\n| priority: " + priority + "\n| auto: " + auto + "\n| hidden: " + hidden + "\n| timeout: " + timeout + "\n| cancel: " + cancel + "\n| communicationProperties: " + communicationProperties
+  def mkString: String = toString + EOL + "| Destination: " + targetStateID + EOL + "| priority: " + priority + EOL + "| auto: " + auto + EOL + "| hidden: " + hidden + EOL + "| timeout: " + timeout + EOL + "| cancel: " + cancel + EOL + "| communicationProperties: " + communicationProperties
 }

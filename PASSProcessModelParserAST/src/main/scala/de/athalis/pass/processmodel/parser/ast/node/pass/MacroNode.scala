@@ -6,6 +6,7 @@ import de.athalis.pass.processmodel.parser.ast.node.pass.StateNode.StateType._
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
 import java.util.NoSuchElementException
 
 object MacroNode {
@@ -140,5 +141,5 @@ class MacroNode(val id: String, val isProcessMacro: Boolean) extends CustomNode 
   def getStateNumbers: Set[Int] = this.states.values.map(_.stateNumber).toSet
 
   override def toString: String = "MacroNode '" + this.id + "'"
-  def mkString: String = toString + "\n| Arguments: " + arguments.mkString(", ") + "\n| Parameters: " + parameters.mkString(", ") + "\n| States: " + states.mkString(", ")
+  def mkString: String = toString + EOL + "| Arguments: " + arguments.mkString(", ") + EOL + "| Parameters: " + parameters.mkString(", ") + EOL + "| States: " + states.mkString(", ")
 }

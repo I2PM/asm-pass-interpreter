@@ -23,7 +23,7 @@ package object util {
   }
 
   def mapWithFuturesToFutureMap[A, B](m: Map[Future[A], Future[B]])(implicit executionContext: ExecutionContext): Future[Map[A, B]] = {
-    val x: Future[Map[A, B]] = Future.traverse(m)({
+    val x: Future[Map[A, B]] = Future.traverse(m.toSeq)({
       case (k, v) => async {
         val k2 = await(k)
         val v2 = await(v)

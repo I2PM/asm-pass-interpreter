@@ -444,16 +444,16 @@ object GraphMLParser {
     val edges_b: Map[(String, String), Set[Edge]] = edges_a.toSet[((String, String), Edge)].toSetMap
     val edges: Map[(String, String), Set[Edge]] = edges_b.map(x => ((subjectIdMapping(x._1._1), subjectIdMapping(x._1._2)), x._2))
 
-    val edgesLabel: Map[(String, String), Set[YEdgeLabel]] = edges.mapValues(s => s.map(_.label).flatten.toSet)
-    val msgTypeBoxes: Map[(String, String), Set[String]] = edgesLabel.mapValues(_.map(_.text))
+    val edgesLabel: Map[(String, String), Set[YEdgeLabel]] = edges.mapValues(s => s.map(_.label).flatten.toSet).toMap
+    val msgTypeBoxes: Map[(String, String), Set[String]] = edgesLabel.mapValues(_.map(_.text)).toMap
 
     def parseMsgTypes(x: String): Set[String] = {
       val locParseMsgTypes: ParserLocation = ParserLocation("parseMsgTypes(" + x + ")", Some(loc))
-      x.split("\n").map(_.trim).filterNot(_.isEmpty).map(_.drop(1)).map(x => GraphMLJParser.cleanQuotes(x)(locParseMsgTypes)).toSet
+      x.split("\\R").map(_.trim).filterNot(_.isEmpty).map(_.drop(1)).map(x => GraphMLJParser.cleanQuotes(x)(locParseMsgTypes)).toSet
     }
 
     // note: lazy mapping
-    val msgTypes: MsgTypes = msgTypeBoxes.mapValues(_.map(parseMsgTypes).flatten)
+    val msgTypes: MsgTypes = msgTypeBoxes.mapValues(_.map(parseMsgTypes).flatten).toMap
 
 
     if (data.isDefined) {

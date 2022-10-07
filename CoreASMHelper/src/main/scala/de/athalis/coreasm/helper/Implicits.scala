@@ -47,13 +47,13 @@ object Implicits {
   def E(x: Int): NumberElement        = NumberElement.getInstance(x.toDouble)
   def E(x: Long): NumberElement       = NumberElement.getInstance(x.toDouble)
   def E(x: Boolean): BooleanElement   = BooleanElement.valueOf(x)
-  def E(x: Set[_]): SetElement        = new SetElement(x.map(E).asJava)
-  def E(x: Seq[_]): ListElement       = new ListElement(x.map(E).asJava)
-  def E(x: Map[_, _]): MapElement     = new MapElement(x.map({ case (k, v) => (E(k), E(v)) }).asJava)
+  def E[A](x: Set[A]): SetElement       = new SetElement(x.map(E).asJava)
+  def E[A](x: Seq[A]): ListElement      = new ListElement(x.map(E).asJava)
+  def E[A, B](x: Map[A, B]): MapElement = new MapElement(x.map({ case (k, v) => (E(k), E(v)) }).asJava)
 
-  def E[T](x: JavaSet[T]): SetElement       = E(x.asScala.toSet)
-  def E[A, B](x: JavaMap[A, B]): MapElement = E(x.asScala.toMap)
-  def E[T](x: JavaList[T]): ListElement     = E(x.asScala.toSeq)
+  def E[E](x: JavaSet[E]): SetElement       = E(x.asScala.toSet)
+  def E[K, V](x: JavaMap[K, V]): MapElement = E(x.asScala.toMap)
+  def E[E](x: JavaList[E]): ListElement     = E(x.asScala.toSeq)
 
 
   def V(x: Element): Any = x match {

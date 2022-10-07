@@ -53,11 +53,11 @@ class MinimalGraphMLProcesses extends AnyFunSuite with Matchers {
 
     val A: Subject = p.subjects.head
     A.identifier shouldBe "A"
-    
+
     A shouldBe an [FullySpecifiedSubject]
     val AS = A.asInstanceOf[FullySpecifiedSubject]
 
-    AS.internalBehavior.additionalMacros shouldBe 'empty
+    AS.internalBehavior.additionalMacros shouldBe Symbol("empty")
 
     checkMainMacro(AS.internalBehavior.mainMacro)
   }
@@ -75,11 +75,11 @@ class MinimalGraphMLProcesses extends AnyFunSuite with Matchers {
 
     val A = p.subjects.head
     A.identifier shouldBe "A"
-    
+
     A shouldBe an [FullySpecifiedSubject]
     val AS = A.asInstanceOf[FullySpecifiedSubject]
 
-    AS.internalBehavior.additionalMacros shouldBe 'empty
+    AS.internalBehavior.additionalMacros shouldBe Symbol("empty")
 
     checkMainMacro(AS.internalBehavior.mainMacro)
   }
@@ -158,7 +158,7 @@ class MinimalGraphMLProcesses extends AnyFunSuite with Matchers {
     A shouldBe an [FullySpecifiedSubject]
     val AS = A.asInstanceOf[FullySpecifiedSubject]
 
-    AS.internalBehavior.additionalMacros shouldBe 'empty
+    AS.internalBehavior.additionalMacros shouldBe Symbol("empty")
 
     checkMainMacro(AS.internalBehavior.mainMacro)
   }
@@ -322,7 +322,7 @@ class MinimalGraphMLProcesses extends AnyFunSuite with Matchers {
     A shouldBe an [FullySpecifiedSubject]
     val AS = A.asInstanceOf[FullySpecifiedSubject]
 
-    AS.internalBehavior.additionalMacros shouldBe 'empty
+    AS.internalBehavior.additionalMacros shouldBe Symbol("empty")
 
 
     val m: Macro = AS.internalBehavior.mainMacro
@@ -336,8 +336,8 @@ class MinimalGraphMLProcesses extends AnyFunSuite with Matchers {
 
     val t: Transition = selectAction.outgoingTransitions.head
 
-    t.attributes shouldBe 'empty
+    t.attributes shouldBe Symbol("empty")
 
-    t.condition shouldBe 'empty
+    t.condition shouldBe Symbol("empty")
   }
 }

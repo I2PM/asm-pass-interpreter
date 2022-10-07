@@ -2,15 +2,16 @@ package de.athalis.pass.processmodel.parser.ast.test
 
 import de.athalis.pass.processmodel.parser.ast.PASSParser
 import de.athalis.pass.processmodel.parser.ast.node.pass.MacroNode
+import de.athalis.pass.processmodel.parser.ast.util.ParserUtils
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class SendTests extends AnyFunSuite with Matchers {
-  import Util._
+  import ParserUtils.parsePASSwithCause
 
   test("simple sending without var") {
-    val m: MacroNode = parse(PASSParser.macroParser,
+    val m: MacroNode = parsePASSwithCause(PASSParser.macroParser,
       s"""Macro Foo {
          |  StartState := a
          |  a: Send ["foo" to X] -> TERMINATE
@@ -38,7 +39,7 @@ class SendTests extends AnyFunSuite with Matchers {
   }
 
   test("simple sending without var but pre-cancel") {
-    val m: MacroNode = parse(PASSParser.macroParser,
+    val m: MacroNode = parsePASSwithCause(PASSParser.macroParser,
       s"""Macro Foo {
          |  StartState := a
          |  a: Send {
@@ -69,7 +70,7 @@ class SendTests extends AnyFunSuite with Matchers {
   }
 
   test("simple sending without var but post-cancel") {
-    val m: MacroNode = parse(PASSParser.macroParser,
+    val m: MacroNode = parsePASSwithCause(PASSParser.macroParser,
       s"""Macro Foo {
          |  StartState := a
          |  a: Send {
@@ -101,7 +102,7 @@ class SendTests extends AnyFunSuite with Matchers {
   }
 
   test("simple sending with var") {
-    val m: MacroNode = parse(PASSParser.macroParser,
+    val m: MacroNode = parsePASSwithCause(PASSParser.macroParser,
       s"""Macro Foo {
          |  StartState := a
          |  a: Send ["foo" to X in "bar"] -> TERMINATE

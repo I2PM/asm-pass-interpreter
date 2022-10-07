@@ -5,6 +5,7 @@ import de.athalis.pass.processmodel.parser.ast.node.MapAbleNode
 
 import org.slf4j.LoggerFactory
 
+import java.lang.System.{lineSeparator => EOL}
 import java.util.NoSuchElementException
 
 object SubjectNode {
@@ -94,5 +95,5 @@ class SubjectNode(val id: String, val isInterfaceSubject: Boolean = false) exten
   def isStartSubject: Boolean = this.parameters.getOrElse("StartSubject", false).asInstanceOf[Boolean]
 
   override def toString: String = "SubjectNode '" + this.id + "'"
-  def mkString: String = toString + "\n| Parameters: " + parameters.mkString(", ") + "\n| Macros: " + macros.mkString(", ")
+  def mkString: String = toString + EOL + "| Parameters: " + parameters.mkString(", ") + EOL + "| Macros: " + macros.mkString(", ")
 }

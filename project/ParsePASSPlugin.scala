@@ -92,5 +92,5 @@ object ParsePASSPlugin extends AutoPlugin {
       (Test / managedResourceDirectories) += (ParsePASSTest / resourceManaged).value,
       (Test / clean) := (Test / clean).dependsOn(ParsePASSTest / clean).value,
     )
-  
+
 }

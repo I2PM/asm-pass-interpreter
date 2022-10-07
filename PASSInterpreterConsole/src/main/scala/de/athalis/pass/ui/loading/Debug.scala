@@ -10,18 +10,23 @@ import de.athalis.pass.ui.loading.ActivityLoader.mapToActiveStates
 
 import akka.util.Timeout
 
+import java.lang.System.{lineSeparator => EOL}
+
 import scala.async.Async.async
 import scala.async.Async.await
+import scala.collection.parallel.mutable.ParArray
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 object Debug {
+  private val EOL2: String = EOL + EOL
+
   def getGlobalState()(implicit executionContext: ExecutionContext, timeout: Timeout, binding: Binding): Future[String] = async {
     val runningSubjects: Set[Channel] = await(Semantic.runningSubjects.loadAndGetAsync())
 
-    val out: Set[String] = await(Future.sequence(runningSubjects.par.map(getChannelState).seq))
+    val out: Set[String] = await(Future.sequence(ParArray.handoff(runningSubjects.toArray).map(getChannelState).seq.toSet))
 
-    out.mkString("\n\n")
+    out.mkString(EOL2)
   }
 
   private def getChannelState(ch: Channel)(implicit executionContext: ExecutionContext, timeout: Timeout, binding: Binding): Future[String] = async {
@@ -37,7 +42,7 @@ object Debug {
 
     val miStatesMap: Map[RuntimeMacroInstanceNumber, String] = allMIs.map(mi => {(mi.macroInstanceNumber, getMIState(mi, allActiveStates.filter(_.mi == mi)))}).toMap
 
-    val miStates: String = miStatesMap.toSeq.sortBy(_._1).map(_._2).mkString("\n")
+    val miStates: String = miStatesMap.toSeq.sortBy(_._1).map(_._2).mkString(EOL)
 
     val ip = await(ipF)
     val variables = await(variablesF)
@@ -57,10 +62,11 @@ object Debug {
     val macroID: MacroIdentifier = mi.macroID
 
     // TODO: sorted?
-    val statesPretty = statesPrettyS.mkString("\n")
+    val statesPretty = statesPrettyS.mkString(EOL)
 
-    s"""= Macro: $macroID (MI: ${mi.macroInstanceNumber})
-       |$statesPretty
+    // NOTE: no %d formatting here for macroInstanceNumber, so that output can be shared to people with different locale
+    f"""= Macro: $macroID%s (MI: ${mi.macroInstanceNumber}%s)
+       |$statesPretty%s
      """.stripMargin
   }
 
@@ -72,6 +78,6 @@ object Debug {
       case stateType => stateType
     }
 
-    s"'$stateLabel' ($stateType)\n"
+    s"'$stateLabel' ($stateType)$EOL"
   }
 }
