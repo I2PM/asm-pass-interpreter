@@ -4,7 +4,8 @@ Version 2.0.0-M7-public
 
 ## About
 
-This is the seventh public milestone release of version 2.0. For publication, some contents have been removed, for example support of OWL which is still under heavy development.
+This repository is used mainly for publication. The development still happens in a private repository.
+For publication, some contents have been removed, for example support of OWL, which is still under heavy development.
 
 This repository contains the reference implementation for the subject-oriented modeling language ["Parallel Activity Specification Scheme" (PASS)](https://github.com/I2PM/PASS-Standard-Book-Tex-Project).
 
