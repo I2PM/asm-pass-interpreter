@@ -3,18 +3,26 @@ import sbt._
 object Dependencies {
   val jdkVersion_2_12_target  =  "8" // Unlike Scala 2.13, Scala 2.12 cannot emit valid class files for target bytecode versions newer than 8
   val jdkVersion_2_12_release = "11"
-  val jdkVersion_2_13         = "11"
-  val jdkVersion_3            = "11"
+  val jdkVersion_2_13         = "17"
+  val jdkVersion_3            = "17"
 
-  val scalaVersion_2_12 = "2.12.17"
-  val scalaVersion_2_13 = "2.13.9"
+  val scalaVersion_2_12 = "2.12.18"
+  val scalaVersion_2_13 = "2.13.12"
   val scalaVersion_3_1  = "3.1.3"
-  val scalaVersion_3_2  = "3.2.0"
+  val scalaVersion_3_2  = "3.2.2"
+  val scalaVersion_3_3  = "3.3.1"
   // note: default to Scala 2.13
   // Akka has only experimental support for Scala 3
-  val scalaVersions = List(scalaVersion_2_13, scalaVersion_3_1, scalaVersion_3_2, scalaVersion_2_12)
+  val scalaVersions = List(
+    scalaVersion_2_13,
+    scalaVersion_3_1,
+    scalaVersion_3_2,
+    scalaVersion_3_3,
+    scalaVersion_2_12,
+  )
+  val scalaVersion_default = scalaVersions.head
 
-  val semanticdbVersion_2_12 = "4.5.13"
+  val semanticdbVersion_2_12 = "4.8.11"
   val semanticdbVersion_2_13 = semanticdbVersion_2_12
   val semanticdbVersion_3    = semanticdbVersion_2_13
   def semanticdbVersion(scalaVersion: String): String = CrossVersion.partialVersion(scalaVersion) match {
@@ -26,17 +34,19 @@ object Dependencies {
   val scalafixOrganizeImportsVersion = "0.6.0"
   val scalafixOrganizeImports = "com.github.liancheng" %% "organize-imports" % scalafixOrganizeImportsVersion
 
-  val coreASMVersion = "1.7.3-locke-5"
+  val coreASMVersion = "1.7.3-locke-6"
   val coreASMEngine = "de.athalis.coreasm" % "coreasm-engine"   % coreASMVersion
   val coreASMCarma  = "de.athalis.coreasm" % "coreasm-ui-carma" % coreASMVersion
 
-  val slf4jVersion = "1.7.36"
+  val slf4jVersion = "2.0.9"
   val slf4j = "org.slf4j" % "slf4j-api" % slf4jVersion
 
-  val logbackVersion = "1.2.11"
+  // NOTE: "Logback 1.3.x supports the Java EE edition whereas logback 1.4.x supports Jakarta EE, otherwise the two versions are feature identical."
+  val logbackVersion = "1.3.11"
   val logback = "ch.qos.logback" % "logback-classic" % logbackVersion
 
-  val akkaVersion = "2.6.20"
+  // NOTE: Akka 2.7 has a new commercial license
+  val akkaVersion = "2.6.21"
   val akkaActor  = "com.typesafe.akka" %% "akka-actor"  % akkaVersion
   val akkaRemote = "com.typesafe.akka" %% "akka-remote" % akkaVersion
   val akkaSlf4j  = "com.typesafe.akka" %% "akka-slf4j"  % akkaVersion
@@ -44,18 +54,20 @@ object Dependencies {
   val typesafeConfigVersion = "1.4.2"
   val typesafeConfig = "com.typesafe" % "config" % typesafeConfigVersion
 
-  val scalaTestVersion = "3.2.13"
+  val scalaTestVersion = "3.2.17"
   val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
   val jparsecVersion = "3.1"
   val jparsec = "org.jparsec" % "jparsec" % jparsecVersion
 
-  // 3.x just because it is most recent, 3.16.0 was fine
+  // 3.x just because it is most recent
+  // 3.16.0 was fine, but then:
   // >= 3.17.0 for support of `run` inside sbt https://github.com/jline/jline3/commit/fdc2fb53f9dc618bfccc3b20ae447cabce3a809f
-  val jlineVersion = "3.21.0"
+  // 3.21.0 and 3.22.0 were fine
+  val jlineVersion = "3.23.0"
   val jline = "org.jline" % "jline" % jlineVersion
 
-  // JLine 3.21.0 depends on 2.4.0
+  // JLine 3.21.0, 3.22.0, and 3.23.0 depend on 2.4.0
   val jAnsiVersion = "2.4.0"
   val jAnsi = "org.fusesource.jansi" % "jansi" % jAnsiVersion
 
@@ -94,23 +106,24 @@ object Dependencies {
   }
 
 
-  val PASSProcessModelDependencies: Seq[ModuleID] = Seq(
-    scalaTest % Test
+  private val defaultTest: Seq[ModuleID] = Seq(
+    scalaTest % Test,
+    logback % Test,
   )
+
+  val PASSProcessModelDependencies: Seq[ModuleID] = Seq(
+  ) ++ defaultTest
 
   val PASSProcessModelOperationDependencies: Seq[ModuleID] = Seq(
     typesafeConfig,
-    scalaTest % Test
-  )
+  ) ++ defaultTest
 
   val PASSProcessModelTUDarmstadtDependencies: Seq[ModuleID] = Seq(
-    scalaTest % Test
-  )
+  ) ++ defaultTest
 
   def PASSProcessModelInterfaceDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
     slf4j,
-    scalaTest % Test
-  ) ++
+  ) ++ defaultTest ++
     scalaParallelCollections(scalaVersion)
 
   val PASSProcessModelInterfaceCLIDependencies: Seq[ModuleID] = Seq(
@@ -122,9 +135,7 @@ object Dependencies {
   def PASSProcessModelParserASTDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
     slf4j,
     jparsec,
-    logback % Test,
-    scalaTest % Test
-  ) ++
+  ) ++ defaultTest ++
     scalaParallelCollections(scalaVersion)
 
   def PASSProcessModelParserGraphMLDependencies(scalaVersion: String): Seq[ModuleID] = Seq(
@@ -132,22 +143,18 @@ object Dependencies {
     slf4j,
     jparsec,
     scalaXml(scalaVersion),
-    logback % Test,
-    scalaTest % Test
-  ) ++
+  ) ++ defaultTest ++
     scalaParallelCollections(scalaVersion)
 
   val PASSProcessModelWriterASMDependencies: Seq[ModuleID] = Seq(
     slf4j,
-    scalaTest % Test
-  )
+  ) ++ defaultTest
 
   val asmDependencies: Seq[ModuleID] = Seq(
     coreASMEngine % Test,
     coreASMEngine % Test classifier "tests",
-    scalaTest % Test,
-    coreASMCarma  % Provided notTransitive() // needed somewhere to get carmaLibraryPath for release
-  )
+    coreASMCarma  % Provided classifier "jar-with-dependencies" notTransitive() // needed somewhere to get carmaLibraryPath for release
+  ) ++ defaultTest
 
 
   val CoreASMBaseDependencies: Seq[ModuleID] = Seq(
@@ -156,8 +163,7 @@ object Dependencies {
   val CoreASMHelperDependencies: Seq[ModuleID] = Seq(
     coreASMEngine % Provided,
     coreASMEngine % Test classifier "tests",
-    scalaTest % Test
-  )
+  ) ++ defaultTest
 
   val CoreASMBindingDependencies: Seq[ModuleID] = Seq(
   )
@@ -177,8 +183,7 @@ object Dependencies {
     akkaSlf4j % Runtime,
     typesafeConfig,
     coreASMEngine % Provided,
-    scalaTest     % Test
-  )
+  ) ++ defaultTest
 
 
   val ASMSemanticDependencies: Seq[ModuleID] = Seq(
@@ -193,8 +198,7 @@ object Dependencies {
     typesafeConfig,
     jAnsi, // needed for support on Windows
     jline,
-    scalaTest % Test,
-  ) ++
+  ) ++ defaultTest ++
     async(scalaVersion) ++
     scalaParallelCollections(scalaVersion)
 

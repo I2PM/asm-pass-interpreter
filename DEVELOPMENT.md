@@ -3,7 +3,7 @@
 In order to build the project you need the Java SDK (not just the JRE) and sbt.
 
 As of the time of writing the recommended versions are:
-- OpenJDK 11
+- OpenJDK 17
 - maven 3.6
 - sbt 1.7.2
 - scala 2.13

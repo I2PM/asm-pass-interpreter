@@ -4,19 +4,20 @@ import sbtassembly.AssemblyPlugin.autoImport.{MergeStrategy, assembly}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.FalseFileFilter
 
-val releaseFolder = file("./release/")
-val scriptsFolder = file("./scripts/")
-val processesFolder = file("./processes/").getAbsoluteFile
+val projectRoot        = file(".").getAbsoluteFile
+val releaseFolder      = projectRoot / "release"
+val scriptsFolder      = projectRoot / "scripts"
+val processesFolder    = projectRoot / "processes"
 
 lazy val cleanRelease = taskKey[Unit]("cleans release folder")
 lazy val prepareRelease = taskKey[File]("prepares all files for the release folder and returns it")
 lazy val prepareCleanRelease = taskKey[File]("cleans release folder, then prepares all files for the release folder and returns it")
 lazy val zipRelease = taskKey[File]("zips the release folder")
 
-ThisBuild / version := "2.0.0-M7-public"
+ThisBuild / version := "2.0.0-M8-public"
 ThisBuild / versionScheme := Some(VersionScheme.Strict) // NOTE: as of now, semver (or at least PVP) is aimed, but cannot be guaranteed as "the public API" needs to be defined
 
-ThisBuild / scalaVersion := Dependencies.scalaVersions.head
+ThisBuild / scalaVersion := Dependencies.scalaVersion_default
 
 ThisBuild / packageTimestamp := Package.gitCommitDateTimestamp
 
@@ -64,7 +65,7 @@ val scalacOptions_3 = Seq(
 
 
 ThisBuild / assembly / assemblyMergeStrategy := {
-  case "module-info.class" => MergeStrategy.discard
+  case x if x.endsWith("module-info.class") => MergeStrategy.discard
   case "application.conf" => MergeStrategy.discard
   case PathList(ps @ _*) if (ps.last.startsWith("logback") && ps.last.endsWith(".xml")) => MergeStrategy.discard
   case x =>
@@ -73,6 +74,19 @@ ThisBuild / assembly / assemblyMergeStrategy := {
 }
 
 lazy val defaultSettings: Seq[Def.Setting[_]] = Seq(
+
+  // Forking is required only in certain cases; forking always to be safe.
+  // - If not forked, and an execution runs with the same scala version as sbt, typesafe config will be scoped to the SBT process
+  // - For asm/test fork is needed, as the CoreASM Engine writes to System.out and parallel processes would conflict
+  fork := true,
+
+  // Non-forked tasks execute in the root directory, but forked tasks execute in the module folder.
+  // Change the baseDirectory to be always the root folder, to avoid this difference.
+  // For `run` it would be unintuitive to access the `processes` folder from the parent directory,
+  // for tests it would be surprising to have a different behaviour depending whether its forked opr not.
+  run / baseDirectory := projectRoot,
+  Test / baseDirectory := projectRoot,
+
   crossScalaVersions := Dependencies.scalaVersions,
 
   scalacOptions ++= {
@@ -274,9 +288,6 @@ lazy val asm = (project in file("asm"))
       ),
     ParsePASS / parsePASSFileType := "asm",
     ParsePASS / parsePASSProject := PASSProcessModelInterfaceCLI,
-
-    // fork is necessary as the CoreASM Engine only writes to System.out
-    Test / fork := true,
   )
   .enablePlugins(ParsePASSPlugin)
 
@@ -367,7 +378,6 @@ lazy val PASSInterpreterConsole = (project in file("PASSInterpreterConsole"))
     assembly / assemblyJarName := "pass-interpreter-console.jar",
 
     Compile / mainClass := Some("de.athalis.pass.ui.Boot"),
-    run / baseDirectory := file("."), // important, otherwise it executed in the `PASSUI` folder and the `processes` folder cannot be accessed easily
 
     prepareRelease := {
       val assemblyFile: File = assembly.value

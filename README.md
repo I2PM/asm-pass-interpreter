@@ -1,8 +1,10 @@
 # Readme
 
-Version 2.0.0-M7-public
+Version 2.0.0-M8-public
 
 ## About
+
+This is the eight milestone release of version 2.0.
 
 This repository is used mainly for publication. The development still happens in a private repository.
 For publication, some contents have been removed, for example support of OWL, which is still under heavy development.
@@ -13,7 +15,7 @@ See TODO.md for proposed features and known problems.
 
 ## Execution
 
-This project is developed using OpenJDK 11 and Scala 2.13. It is required to use Java 11 or newer. You can check your Java version by typing `java -version` in a terminal / Command Prompt. There are no other requirements as everything is provided in the jar files, including the Scala runtime.
+This project is developed using OpenJDK 17 and Scala 2.13. It is required to use Java 17 or newer. You can check your Java version by typing `java -version` in a terminal / Command Prompt. There are no other requirements as everything is provided in the jar files, including the Scala runtime.
 
 The execution is separated into two programs. The interpreter which runs in the background and a console application which loads the processes and controls the execution.
 

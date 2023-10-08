@@ -2,24 +2,28 @@
 root = true
 
 
-# default: 2 spaces, no trailing whitespaces
-[*.{sbt,scala,yml,conf}]
-indent_style = space
-indent_size = 2
+# default: utf-8, no trailing whitespaces, final newline
+[*]
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 
 
-# 4 spaces instead of 2
+# scala-style: 2 spaces
+[*.{sbt,scala,yml,conf}]
+indent_style = space
+indent_size = 2
+
+
+# java-style: 4 spaces
 [*.{xml,java,casm,coreasm,pass,sh,bat,cmd}]
+indent_style = space
 indent_size = 4
 
 
 # allow trailing whitespaces on files written by tools
 [*Vocabulary.java]
 trim_trailing_whitespace = false
-
 
 
 # Windows-style newlines, even on Unix
